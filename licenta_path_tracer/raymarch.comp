@@ -1,0 +1,253 @@
+#version 460 core
+layout (local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+layout (rgba32f, binding = 0) uniform image2D img_output;
+
+
+uniform mat4 camera_proj;
+uniform mat4 camera_view;
+uniform vec3 camera_pos;
+
+
+struct Sphere {
+	vec3 location;
+	float radius;
+};
+layout (std430, binding = 1) buffer Spheres {
+	Sphere spheres[];
+};
+uniform int spheres_no;
+
+struct Cube {
+	vec3 location;
+	float lenX;
+	float lenY;
+	float lenZ;
+};
+layout (std430, binding = 2) buffer Cubes {
+	Cube cubes[];
+};
+uniform int cubes_no;
+
+
+float signDistSphere(vec3 ray_pos, vec3 sphere_pos, float sphere_radius) {
+    return distance(sphere_pos, ray_pos) - sphere_radius;
+}
+
+float signDistCube(vec3 ray_pos, vec3 cube_pos, vec3 dims) {
+    vec3 p = abs(ray_pos - cube_pos) - dims / 2.0;
+	/*
+    float ud = length(max(p, 0.0));
+    float n = max(max(min(p.x, 0.0), min(p.y, 0.0)), min(p.z, 0.0));
+    return ud + n;
+    return distance(cube_pos, ray_pos) - length(dims);
+	*/
+	return max(max(p.x, p.y), p.z);
+
+}
+vec3 normalCube(vec3 ray_pos, vec3 cube_pos, vec3 dims) {
+	vec3 v = normalize(ray_pos - cube_pos);
+	vec3 normal = vec3(0.0);
+	float maxv = 0.0;
+	if (abs(v.x) > maxv) {
+		maxv = abs(v.x);
+		normal = vec3(sign(v.x), 0.0, 0.0);
+	}
+	if (abs(v.y) > maxv) {
+		maxv = abs(v.y);
+		normal = vec3(0.0, sign(v.y), 0.0);
+	}
+	if (abs(v.z) > maxv) {
+		maxv = abs(v.z);
+		normal = vec3(0.0, 0.0, sign(v.z));
+	}
+	return normal;
+}
+
+float signDistTorus(vec3 ray_pos, vec3 torus_pos, float r1, float r2) {   
+    vec2 q = vec2(length((ray_pos - torus_pos).xz) - r1, ray_pos.y - torus_pos.y);
+    return length(q) - r2;
+}
+
+float signDistPrism(vec3 ray_pos, vec3 prism_pos, vec2 h) {
+    vec3 q = abs(ray_pos - prism_pos);
+    return max(q.z - h.y, max(q.x * 0.866025 + ray_pos.y * 0.5, -ray_pos.y) - h.x * 0.5);
+}
+
+float signDistCylinder(vec3 ray_pos, vec3 cylinder_pos, vec2 h) {
+    vec2 d = abs(vec2(length((ray_pos).xz), ray_pos.y)) - h;
+    return length(max(d, 0.0)) + max(min(d.x, 0.0), min(d.y, 0.0));
+}
+
+
+float smoothMin(float a, float b, float k) {
+	float h = max(k - abs(a - b), 0) / k;
+	return min(a, b) - pow(h, 3) * k / 6.0;
+}
+
+
+vec3 light_pos;
+
+
+struct RaycastHit {
+	bool hit;
+	vec3 ray_pos;
+	vec3 ray_color;
+	vec3 normal;
+};
+RaycastHit raycast(vec3 ray_pos, vec3 ray_dir) {
+	vec3 init_pos = ray_pos;
+	ray_pos += ray_dir * 1.0;
+
+	int obj_type = -1; // 0 - sphere, 1 - cube
+	int obj_index = -1;
+	while (distance(init_pos, ray_pos) < 1000.0) {
+		float minDist = 10000000.0;
+		for (int i = 0; i < spheres_no; ++i) {
+			float temp = min(minDist, signDistSphere(ray_pos, spheres[i].location, spheres[i].radius));
+			if (temp < minDist) {
+				minDist = temp;
+				obj_type = 0;
+				obj_index = i;
+			}
+		}
+		for (int i = 0; i < cubes_no; ++i) {
+			float temp = min(minDist, signDistCube(ray_pos, cubes[i].location, vec3(cubes[i].lenX, cubes[i].lenY, cubes[i].lenZ)));
+			if (temp < minDist) {
+				minDist = temp;
+				obj_type = 1;
+				obj_index = i;
+			}
+		}
+		ray_pos = ray_pos + ray_dir * minDist;
+		
+		if (minDist < 0.001) {
+			vec3 normal =
+				  obj_type == 0 ? normalize(ray_pos - spheres[obj_index].location)
+				: obj_type == 1 ? normalCube(ray_pos, cubes[obj_index].location, vec3(cubes[obj_index].lenX, cubes[obj_index].lenY, cubes[obj_index].lenZ))
+				: vec3(0.0)
+			;
+			return RaycastHit(true, ray_pos, vec3(1.0), normal);
+		}
+	}
+
+	return RaycastHit(false, vec3(0.0), vec3(0.0), vec3(0.0));
+}
+
+
+mat3 rotationMatrix(float angleX, float angleY, float angleZ) {
+    float radX = radians(angleX);
+    float radY = radians(angleY);
+    float radZ = radians(angleZ);
+
+    mat3 rotX = mat3(1.0, 0.0, 0.0,
+                     0.0, cos(radX), -sin(radX),
+                     0.0, sin(radX), cos(radX));
+
+    mat3 rotY = mat3(cos(radY), 0.0, sin(radY),
+                     0.0, 1.0, 0.0,
+                     -sin(radY), 0.0, cos(radY));
+
+    mat3 rotZ = mat3(cos(radZ), -sin(radZ), 0.0,
+                     sin(radZ), cos(radZ), 0.0,
+                     0.0, 0.0, 1.0);
+
+    return rotZ * rotY * rotX;
+}
+vec3 rotateVectorRandom(vec3 v, float maxAngle) {
+    float randomAngleX = fract(sin(dot(v.xy, vec2(12.9898, 78.233))) * 43758.5453) * maxAngle;
+    float randomAngleY = fract(sin(dot(v.yz, vec2(12.9898, 78.233))) * 43758.5453) * maxAngle;
+    float randomAngleZ = fract(sin(dot(v.zx, vec2(12.9898, 78.233))) * 43758.5453) * maxAngle;
+
+    mat3 rotMatrix = rotationMatrix(randomAngleX, randomAngleY, randomAngleZ);
+    vec3 rotatedVec = rotMatrix * v;
+
+    return rotatedVec;
+}
+
+
+void main() {
+    ivec2 pixel_coords = ivec2(gl_GlobalInvocationID.xy);
+    vec2 uv = vec2(pixel_coords) / vec2(imageSize(img_output));
+
+
+    int ray_index = pixel_coords.y * imageSize(img_output).x + pixel_coords.x;
+
+	float ndcX = 1.0f - (pixel_coords.x * 2.0f) / imageSize(img_output).x;
+	float ndcY = 1.0f - (pixel_coords.y * 2.0f) / imageSize(img_output).y;
+
+	vec4 ndcPoint = vec4(ndcX, ndcY, -1.0f, 1.0f);
+
+	vec4 worldPoint = inverse(camera_proj * camera_view) * ndcPoint;
+	worldPoint /= worldPoint.w;
+
+	vec3 ray_loc = camera_pos;
+	vec3 ray_dir = normalize(vec3(worldPoint) - camera_pos);
+    vec3 ray_color = vec3(1.0);
+
+
+	/*
+	bool hit = false;
+	while (distance(camera_pos, ray_loc) < 1000.0) {
+		float minDist = 10000000.0;
+		for (int i = 0; i < sphere_no; ++i) {
+			minDist = min(minDist, signDistSphere(ray_loc, spheres[i].location, spheres[i].radius));
+		}
+		ray_loc = ray_loc + ray_dir * minDist;
+		
+		if (minDist < 0.1) {
+			ray_color = vec3(1.0);
+			break;
+		}
+	}
+	*/
+
+
+	light_pos = vec3(-20.0, -10.0, 10.0);
+
+	RaycastHit hit = raycast(ray_loc, ray_dir);
+	ray_color *= hit.ray_color;
+	/*
+	if (hit.hit == true) {
+		int samples = 3;
+		float light_deg = 1.0 / (samples + 1);
+		float light_energy = 1.0 - light_deg;
+		while (samples > 0) {
+			hit = raycast(hit.ray_pos, reflect(normalize(hit.ray_pos + ray_dir), hit.normal));
+			if (hit.hit == true) {
+				ray_color *= hit.ray_color * light_energy;
+			}
+			light_energy -= light_deg;
+			samples--;
+		}
+		/*
+		hit = raycast(hit.ray_pos, normalize(light_pos - hit.ray_pos));
+		if (hit.hit == true) {
+			ray_color *= vec3(0.0);
+		}
+		*
+	}
+	*/
+	if (hit.hit == true) {
+		int samples = 3;
+		float light_deg = 1.0 / (samples + 1);
+		float light_energy = 1.0 - light_deg;
+		while (samples > 0) {
+			vec3 new_dir = reflect(normalize(hit.ray_pos + ray_dir), hit.normal);
+			RaycastHit last_hit = raycast(hit.ray_pos, rotateVectorRandom(new_dir, 120.0));
+			if (last_hit.hit == false) {
+				break;
+			}
+			hit = last_hit;
+			ray_color *= hit.ray_color * light_energy;
+			light_energy -= light_deg;
+			samples--;
+		}
+		hit = raycast(hit.ray_pos, normalize(light_pos - hit.ray_pos));
+		if (hit.hit == true) {
+			ray_color *= vec3(0.0);
+		}
+	}
+
+
+    imageStore(img_output, pixel_coords, vec4(ray_color, 1.0));
+}
