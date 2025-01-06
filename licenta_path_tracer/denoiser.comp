@@ -1,0 +1,53 @@
+#version 460 core
+
+layout (local_size_x = 16, local_size_y = 16) in;
+layout (rgba32f, binding = 0) uniform image2D img_input;
+layout (rgba32f, binding = 1) uniform image2D img_output;
+
+//const float kernel[5] = float[](0.06136, 0.24477, 0.38774, 0.24477, 0.06136);
+const int kernel_size = 2;
+const float sigma = 1;
+float gaussian(float x, float sigma) {
+	return exp(-0.5 * (x * x) / (sigma * sigma)) / (sigma * sqrt(2.0 * 3.141592653589793));
+}
+
+const float sharpen = 0.2;
+const mat3 sharpen_kernel = {
+	vec3(-1, -1, -1),
+	vec3(-1,  9, -1),
+	vec3(-1, -1, -1)
+};
+
+
+uniform bool blur = true;
+
+
+void main() {
+	ivec2 pixel_coords = ivec2(gl_GlobalInvocationID.xy);
+	vec4 color = vec4(0.0);
+	float sum = 0.0;
+
+	if (blur) {
+		for (int i = -kernel_size / 2; i <= kernel_size / 2; i++) {
+			for (int j = -kernel_size / 2; j <= kernel_size / 2; j++) {
+				ivec2 offset = ivec2(i, j);
+				float weight = gaussian(length(vec2(i, j)), sigma);
+				color += imageLoad(img_input, pixel_coords + offset) * weight;
+				sum += weight;
+			}
+		}
+		color /= sum;
+		imageStore(img_output, pixel_coords, color);
+	}
+	else {
+		color = vec4(0.0);
+		for (int i = -1; i <= 1; i++) {
+			for (int j = -1; j <= 1; j++) {
+				ivec2 offset = ivec2(i, j);
+				color += imageLoad(img_output, pixel_coords + offset) * sharpen_kernel[i + 1][j + 1];
+			}
+		}
+		color = mix(imageLoad(img_output, pixel_coords), color, sharpen);
+		imageStore(img_output, pixel_coords, color);
+	}
+}

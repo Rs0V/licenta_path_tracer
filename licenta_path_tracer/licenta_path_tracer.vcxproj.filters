@@ -120,5 +120,8 @@
     <None Include="rtarget.vert">
       <Filter>Shader Files</Filter>
     </None>
+    <None Include="denoiser.comp">
+      <Filter>Shader Files</Filter>
+    </None>
   </ItemGroup>
 </Project>

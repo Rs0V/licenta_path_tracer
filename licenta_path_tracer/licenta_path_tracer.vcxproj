@@ -180,6 +180,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="cpp.hint" />
+    <None Include="denoiser.comp" />
     <None Include="raymarch.comp" />
     <None Include="rtarget.frag" />
     <None Include="rtarget.vert" />
