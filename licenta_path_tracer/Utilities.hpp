@@ -3,6 +3,8 @@
 #include "vector"
 #include "glm.hpp"
 #include "string"
+#include "random"
+#include "type_traits"
 
 typedef unsigned char ubyte;
 typedef unsigned short ushort;
@@ -121,4 +123,19 @@ static std::string to_upper(const std::string& string) {
 		}
 	}
 	return new_str;
+}
+
+template<class T> static T random(T min, T max) {
+	std::mt19937 rng(std::random_device{}());
+
+	if constexpr (std::is_same<T, int>::value) {
+		std::uniform_int_distribution<int> dist(min, max);
+		return dist(rng);
+	}
+	else if constexpr (std::is_same<T, float>::value) {
+		std::uniform_real_distribution<float> dist(min, max);
+		return dist(rng);
+	}
+
+	return 0;
 }

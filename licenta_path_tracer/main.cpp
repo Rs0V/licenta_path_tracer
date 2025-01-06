@@ -89,8 +89,6 @@ template<class CAST, class RMO> void sendCpuObjectsToGpu(GLuint shader_program, 
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, objs_ssbo);
 
 	glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(RMO) * casts.size(), rmo_objs, GL_DYNAMIC_DRAW);
-	//std::cout << sizeof(RMO) << std::endl;
-	//glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, alignof(RMO) * 4 * casts.size(), rmo_objs);
 	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, buffer_index, objs_ssbo);
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
@@ -112,7 +110,7 @@ int main(int argc, char* argv[]) {
 	glTexParameteri(raymarch_tex, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
 	glTextureStorage2D(raymarch_tex, 1, GL_RGBA32F, window.width_get(), window.height_get());
-	glBindImageTexture(0, raymarch_tex, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+	glBindImageTexture(0, raymarch_tex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
 
 	std::ifstream file("raymarch.comp");
 	std::string compute;
@@ -215,13 +213,13 @@ int main(int argc, char* argv[]) {
 	));
 	objects.emplace_back(new Cylinder(
 		{
-			{ -20.0f, 0.0f, 5.0f },
+			{ -30.0f, 0.0f, 5.0f },
 			{   0.0f, 0.0f, 0.0f },
 			{   1.0f, 1.0f, 1.0f }
 		},
 		{ 1.0f, 1.0f, 1.0f, 1.0f },
 		4.0f,
-		6.0f
+		12.0f
 	));
 	objects.emplace_back(new Cube(
 		{
@@ -231,6 +229,16 @@ int main(int argc, char* argv[]) {
 		},
 		{ 1.0f, 1.0f, 1.0f, 1.0f },
 		{ 10.0f, 10.0f, 10.0f }
+	));
+	objects.emplace_back(new Cylinder(
+		{
+			{ -35.0f, 10.0f, 0.0f },
+			{   0.0f, 0.0f, 0.0f },
+			{   1.0f, 1.0f, 1.0f }
+		},
+		{ 1.0f, 1.0f, 1.0f, 1.0f },
+		4.0f,
+		6.0f
 	));
 
 	/*
@@ -258,13 +266,6 @@ int main(int argc, char* argv[]) {
 		sendCpuObjectsToGpu<Sphere, rmo::Sphere>(raymarch_program, objects, "spheres", 1);
 		sendCpuObjectsToGpu<Cube, rmo::Cube>(raymarch_program, objects, "cubes", 2);
 		sendCpuObjectsToGpu<Cylinder, rmo::Cylinder>(raymarch_program, objects, "cylinders", 3);
-
-		/*
-		GLuint spheresIndex = glGetProgramResourceIndex(raymarch_program, GL_SHADER_STORAGE_BLOCK, "Spheres");
-		GLuint cubesIndex = glGetProgramResourceIndex(raymarch_program, GL_SHADER_STORAGE_BLOCK, "Cubes");
-		glShaderStorageBlockBinding(raymarch_program, spheresIndex, 1);
-		glShaderStorageBlockBinding(raymarch_program, cubesIndex, 2);
-		*/
 	});
 	window.Update([&](float deltaTime) {
 		SDL_SetWindowTitle(window.window_get(), std::to_string(1.0f / deltaTime).c_str());
@@ -345,8 +346,24 @@ int main(int argc, char* argv[]) {
 		// ****** UPDATE RENDERING ****** //
 
 		glUseProgram(raymarch_program);
-		glDispatchCompute(window.width_get() / 16, window.height_get() / 16, 1);
-		glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+		uint samples = 3;
+		static int stop = 0;
+		static float timer = 0;
+		if (stop == 0) {
+		repeat(i, samples) {
+			glUniform1i(glGetUniformLocation(raymarch_program, "rng_seed"), random(1, 100));
+			glDispatchCompute(window.width_get() / 16, window.height_get() / 16, 1);
+			glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+			stop = 1;
+		}
+		}
+		timer += deltaTime;
+		if (timer > 3 and stop == 1) {
+			glUniform1i(glGetUniformLocation(raymarch_program, "rng_seed"), random(1, 100));
+			glDispatchCompute(window.width_get() / 16, window.height_get() / 16, 1);
+			glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+			stop = 2;
+		}
 
 		glUseProgram(rtarget_program);
 		glBindVertexArray(rtargetVAO);
