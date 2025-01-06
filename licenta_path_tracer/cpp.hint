@@ -4,3 +4,6 @@
 #define getter(member) auto member##_get() const { return this->member; }
 #define getset(member) getter(member) setter(member)
 #define setter(member) void member##_set(auto value) { this->member = value; }
+#define getterr(member) auto& member##_getr() { return this->member; } const auto& member##_getcr() { return this->member; }
+#define pubv(def)
+#define privb(def)

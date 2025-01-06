@@ -75,6 +75,29 @@ GLuint createComputeShaderProgram(const char* computeSource) {
 }
 
 
+template<class CAST, class RMO> void sendCpuObjectsToGpu(GLuint shader_program, const std::vector<Object*> &objects, const std::string &array_name, uint buffer_index) {
+	glUseProgram(shader_program);
+
+	auto casts = get_of_type<CAST*>(objects);
+	RMO* rmo_objs = new RMO[casts.size()];
+	for (uint i = 0; i < casts.size(); i++) {
+		rmo_objs[i] = *casts[i];
+	}
+
+	GLuint objs_ssbo;
+	glGenBuffers(1, &objs_ssbo);
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, objs_ssbo);
+
+	glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(RMO) * casts.size(), rmo_objs, GL_DYNAMIC_DRAW);
+	//std::cout << sizeof(RMO) << std::endl;
+	//glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, alignof(RMO) * 4 * casts.size(), rmo_objs);
+	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, buffer_index, objs_ssbo);
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+
+	glUniform1i(glGetUniformLocation(shader_program, (array_name + "_no").c_str()), casts.size());
+	delete[] rmo_objs;
+}
+
 
 int main(int argc, char* argv[]) {
 	Window window = Window(640, 480, "CUDA Pathtracer");
@@ -151,8 +174,6 @@ int main(int argc, char* argv[]) {
 
 
 
-
-
 	Camera camera = Camera({
 		{ 0.0f, 0.0f, 0.0f },
 		{ 0.0f, 0.0f, 0.0f },
@@ -192,11 +213,38 @@ int main(int argc, char* argv[]) {
 		{ 1.0f, 1.0f, 1.0f, 1.0f },
 		{ 100.0f, 100.0f, 1.0f }
 	));
+	objects.emplace_back(new Cylinder(
+		{
+			{ -20.0f, 0.0f, 5.0f },
+			{   0.0f, 0.0f, 0.0f },
+			{   1.0f, 1.0f, 1.0f }
+		},
+		{ 1.0f, 1.0f, 1.0f, 1.0f },
+		4.0f,
+		6.0f
+	));
+	objects.emplace_back(new Cube(
+		{
+			{ -10.0f, -10.0f, 5.0f },
+			{   0.0f,   0.0f, 0.0f },
+			{   1.0f,   1.0f, 1.0f }
+		},
+		{ 1.0f, 1.0f, 1.0f, 1.0f },
+		{ 10.0f, 10.0f, 10.0f }
+	));
 
 	/*
 	GLint maxShaderStorageBlocks;
 	glGetIntegerv(GL_MAX_COMPUTE_SHADER_STORAGE_BLOCKS, &maxShaderStorageBlocks);
 	std::cout << "Max Compute Shader Storage Blocks: " << maxShaderStorageBlocks << std::endl;
+
+	GLint maxStorageBlockSize;
+	glGetIntegerv(GL_MAX_SHADER_STORAGE_BLOCK_SIZE, &maxStorageBlockSize);
+	std::cout << "Max Shader Storage Block Size: " << maxStorageBlockSize << " bytes" << std::endl;
+
+	int asdf;
+	glGetIntegerv(GL_MAX_COMPUTE_SHARED_MEMORY_SIZE, &asdf);
+	std::cout << asdf << std::endl;
 	*/
 
 	window.Start([&]() {
@@ -206,45 +254,17 @@ int main(int argc, char* argv[]) {
 
 		glUseProgram(raymarch_program);
 		glUniformMatrix4fv(glGetUniformLocation(raymarch_program, "camera_proj"), 1, GL_FALSE, glm::value_ptr(proj));
-
-
-
-		auto spheres = get_of_type<Sphere*>(objects);
-		rmo::Sphere* rmo_spheres = new rmo::Sphere[spheres.size()];
-		for (uint i = 0; i < spheres.size(); i++) {
-			rmo_spheres[i].location = spheres[i]->transform_getr().location;
-			rmo_spheres[i].radius = spheres[i]->radius_get();
-		}
-		GLuint spheres_ssbo;
-		glGenBuffers(1, &spheres_ssbo);
-		glBindBuffer(GL_SHADER_STORAGE_BUFFER, spheres_ssbo);
-
-		glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(rmo::Sphere) * spheres.size(), rmo_spheres, GL_STATIC_DRAW);
-		glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, spheres_ssbo);
-		glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
-
-		auto cubes = get_of_type<Cube*>(objects);
-		rmo::Cube* rmo_cubes = new rmo::Cube[cubes.size()];
-		for (uint i = 0; i < cubes.size(); i++) {
-			rmo_cubes[i].location = cubes[i]->transform_getr().location;
-			rmo_cubes[i].lenX = cubes[i]->dimensions_get().x;
-			rmo_cubes[i].lenY = cubes[i]->dimensions_get().y;
-			rmo_cubes[i].lenZ = cubes[i]->dimensions_get().z;
-		}
-		GLuint cubes_ssbo;
-		glGenBuffers(1, &cubes_ssbo);
-		glBindBuffer(GL_SHADER_STORAGE_BUFFER, cubes_ssbo);
-
-		glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(rmo::Cube) * cubes.size(), rmo_cubes, GL_STATIC_DRAW);
-		glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, cubes_ssbo);
-		glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
-
 		
+		sendCpuObjectsToGpu<Sphere, rmo::Sphere>(raymarch_program, objects, "spheres", 1);
+		sendCpuObjectsToGpu<Cube, rmo::Cube>(raymarch_program, objects, "cubes", 2);
+		sendCpuObjectsToGpu<Cylinder, rmo::Cylinder>(raymarch_program, objects, "cylinders", 3);
 
-		glUniform1i(glGetUniformLocation(raymarch_program, "spheres_no"), spheres.size());
-		glUniform1i(glGetUniformLocation(raymarch_program, "cubes_no"), cubes.size());
-		delete[] rmo_spheres;
-		delete[] rmo_cubes;
+		/*
+		GLuint spheresIndex = glGetProgramResourceIndex(raymarch_program, GL_SHADER_STORAGE_BLOCK, "Spheres");
+		GLuint cubesIndex = glGetProgramResourceIndex(raymarch_program, GL_SHADER_STORAGE_BLOCK, "Cubes");
+		glShaderStorageBlockBinding(raymarch_program, spheresIndex, 1);
+		glShaderStorageBlockBinding(raymarch_program, cubesIndex, 2);
+		*/
 	});
 	window.Update([&](float deltaTime) {
 		SDL_SetWindowTitle(window.window_get(), std::to_string(1.0f / deltaTime).c_str());
@@ -261,15 +281,6 @@ int main(int argc, char* argv[]) {
 		glUniformMatrix4fv(glGetUniformLocation(raymarch_program, "camera_view"), 1, GL_FALSE, glm::value_ptr(view));
 		glUniform3fv(glGetUniformLocation(raymarch_program, "camera_pos"), 1, glm::value_ptr(camera.transform_getr().location));
 
-		/*
-		auto spheres = get_of_type<Sphere*>(objects);
-		for (uint i = 0; i < spheres.size(); i++) {
-			auto& sphere = spheres[i];
-			glUniform3fv(glGetUniformLocation(raymarch_program, ("spheres[" + std::to_string(i) + "].location").c_str()), 1, glm::value_ptr(sphere->transform_getr().location));
-			glUniform1f(glGetUniformLocation(raymarch_program, ("spheres[" + std::to_string(i) + "].radius").c_str()), sphere->radius_get());
-		}
-		glUniform1i(glGetUniformLocation(raymarch_program, "sphere_no"), spheres.size());
-		*/
 
 		if (SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_I]) {
 			objects[0]->transform_getr().location += glm::vec3(0.0f, 10.0f, 0.0f) * deltaTime;

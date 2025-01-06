@@ -12,12 +12,17 @@ typedef unsigned long long ulong;
 typedef char ibyte;
 typedef long long ilong;
 
+#define id_to_string(name) #name
+
 #define getter(member) \
 auto member##_get() const { \
 	return this->member; \
 }
 #define getterr(member) \
 auto& member##_getr() { \
+	return this->member; \
+} \
+const auto& member##_getcr() const { \
 	return this->member; \
 }
 #define setter(member) \
@@ -38,6 +43,20 @@ setter(member)
 #define relse(cond) else rif (decl, cond)
 #define end }
 #define rend }}
+
+#define pubb(def) public: def; public:
+#define pubt(def) public: def; protected:
+#define pubv(def) public: def; private:
+
+#define protb(def) protected: def; public:
+#define prott(def) protected: def; protected:
+#define protv(def) protected: def; private:
+
+#define privb(def) private: def; public:
+#define privt(def) private: def; protected:
+#define privv(def) private: def; private:
+
+
 
 static std::string padding(std::string word, uint len) {
 	return word + std::string(glm::clamp((uint)(len - word.size()), (uint)0, len), ' ');
@@ -72,4 +91,34 @@ static std::vector<T> get_of_type(const std::vector<U>& v) {
 		}end
 	}
 	return rv;
+}
+
+static std::string to_lower(const std::string &string) {
+	std::string new_str;
+	new_str.reserve(string.size());
+
+	for (int i = 0; i < string.size(); i++) {
+		if (string[i] > 64 and string[i] < 91) {
+			new_str[i] = string[i] + 32;
+		}
+		else {
+			new_str[i] = string[i];
+		}
+	}
+	return new_str;
+}
+
+static std::string to_upper(const std::string& string) {
+	std::string new_str;
+	new_str.reserve(string.size());
+
+	for (int i = 0; i < string.size(); i++) {
+		if (string[i] > 96 and string[i] < 123) {
+			new_str[i] = string[i] - 32;
+		}
+		else {
+			new_str[i] = string[i];
+		}
+	}
+	return new_str;
 }
