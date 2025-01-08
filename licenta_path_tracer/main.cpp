@@ -294,8 +294,12 @@ int main(int argc, char* argv[]) {
 	});
 	window.Update([&](float deltaTime) {
 		SDL_SetWindowTitle(window.window_get(), std::to_string(1.0f / deltaTime).c_str());
-		static uint max_samples = 64;
-		static uint samples = max_samples;
+		static uint max_samples = 1024; //64;
+		static int samples = max_samples;
+		auto reset_pathtracer = [&]() {
+			glUniform1i(glGetUniformLocation(raymarch_program, "reset"), 1);
+			samples = max_samples + 1;
+		};
 
 
 		// ****** UPDATE LOGIC ****** //
@@ -312,52 +316,36 @@ int main(int argc, char* argv[]) {
 
 		if (SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_I]) {
 			objects[0]->transform_getr().location += glm::vec3(0.0f, 10.0f, 0.0f) * deltaTime;
-			glUniform1i(glGetUniformLocation(raymarch_program, "reset"), 1);
-			glUniform1i(glGetUniformLocation(raymarch_program, "accumulate"), 1);
-			samples = max_samples;
+			reset_pathtracer();
 		}
 		if (SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_O]) {
 			objects[0]->transform_getr().location += glm::vec3(0.0f, -10.0f, 0.0f) * deltaTime;
-			glUniform1i(glGetUniformLocation(raymarch_program, "reset"), 1);
-			glUniform1i(glGetUniformLocation(raymarch_program, "accumulate"), 1);
-			samples = max_samples;
+			reset_pathtracer();
 		}
 
 		if (SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_W]) {
 			camera.transform_getr().location += camera.forward_getr() * 10.0f * deltaTime;
-			glUniform1i(glGetUniformLocation(raymarch_program, "reset"), 1);
-			glUniform1i(glGetUniformLocation(raymarch_program, "accumulate"), 1);
-			samples = max_samples;
+			reset_pathtracer();
 		}
 		if (SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_S]) {
 			camera.transform_getr().location += camera.forward_getr() * -10.0f * deltaTime;
-			glUniform1i(glGetUniformLocation(raymarch_program, "reset"), 1);
-			glUniform1i(glGetUniformLocation(raymarch_program, "accumulate"), 1);
-			samples = max_samples;
+			reset_pathtracer();
 		}
 		if (SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_A]) {
 			camera.transform_getr().location += camera.right_getr() * -10.0f * deltaTime;
-			glUniform1i(glGetUniformLocation(raymarch_program, "reset"), 1);
-			glUniform1i(glGetUniformLocation(raymarch_program, "accumulate"), 1);
-			samples = max_samples;
+			reset_pathtracer();
 		}
 		if (SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_D]) {
 			camera.transform_getr().location += camera.right_getr() * 10.0f * deltaTime;
-			glUniform1i(glGetUniformLocation(raymarch_program, "reset"), 1);
-			glUniform1i(glGetUniformLocation(raymarch_program, "accumulate"), 1);
-			samples = max_samples;
+			reset_pathtracer();
 		}
 		if (SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_Q]) {
 			camera.transform_getr().location += glm::vec3(0.0f, 0.0f, 1.0f) * -10.0f * deltaTime;
-			glUniform1i(glGetUniformLocation(raymarch_program, "reset"), 1);
-			glUniform1i(glGetUniformLocation(raymarch_program, "accumulate"), 1);
-			samples = max_samples;
+			reset_pathtracer();
 		}
 		if (SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_E]) {
 			camera.transform_getr().location += glm::vec3(0.0f, 0.0f, 1.0f) * 10.0f * deltaTime;
-			glUniform1i(glGetUniformLocation(raymarch_program, "reset"), 1);
-			glUniform1i(glGetUniformLocation(raymarch_program, "accumulate"), 1);
-			samples = max_samples;
+			reset_pathtracer();
 		}
 
 		if (SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_UP]) {
@@ -367,9 +355,7 @@ int main(int argc, char* argv[]) {
 			camera.right_getr() = glm::vec4(camera.right_getr(), 1.0) * rotation;
 			camera.forward_getr() = glm::vec4(camera.forward_getr(), 1.0) * rotation;
 			camera.up_getr() = glm::vec4(camera.up_getr(), 1.0) * rotation;
-			glUniform1i(glGetUniformLocation(raymarch_program, "reset"), 1);
-			glUniform1i(glGetUniformLocation(raymarch_program, "accumulate"), 1);
-			samples = max_samples;
+			reset_pathtracer();
 		}
 		if (SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_DOWN]) {
 			auto rotation = glm::mat4(1.0)
@@ -378,9 +364,7 @@ int main(int argc, char* argv[]) {
 			camera.right_getr() = glm::vec4(camera.right_getr(), 1.0) * rotation;
 			camera.forward_getr() = glm::vec4(camera.forward_getr(), 1.0) * rotation;
 			camera.up_getr() = glm::vec4(camera.up_getr(), 1.0) * rotation;
-			glUniform1i(glGetUniformLocation(raymarch_program, "reset"), 1);
-			glUniform1i(glGetUniformLocation(raymarch_program, "accumulate"), 1);
-			samples = max_samples;
+			reset_pathtracer();
 		}
 		if (SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_LEFT]) {
 			auto rotation = glm::mat4(1.0)
@@ -389,9 +373,7 @@ int main(int argc, char* argv[]) {
 			camera.right_getr() = glm::vec4(camera.right_getr(), 1.0) * rotation;
 			camera.forward_getr() = glm::vec4(camera.forward_getr(), 1.0) * rotation;
 			camera.up_getr() = glm::vec4(camera.up_getr(), 1.0) * rotation;
-			glUniform1i(glGetUniformLocation(raymarch_program, "reset"), 1);
-			glUniform1i(glGetUniformLocation(raymarch_program, "accumulate"), 1);
-			samples = max_samples;
+			reset_pathtracer();
 		}
 		if (SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_RIGHT]) {
 			auto rotation = glm::mat4(1.0)
@@ -400,32 +382,41 @@ int main(int argc, char* argv[]) {
 			camera.right_getr() = glm::vec4(camera.right_getr(), 1.0) * rotation;
 			camera.forward_getr() = glm::vec4(camera.forward_getr(), 1.0) * rotation;
 			camera.up_getr() = glm::vec4(camera.up_getr(), 1.0) * rotation;
-			glUniform1i(glGetUniformLocation(raymarch_program, "reset"), 1);
-			glUniform1i(glGetUniformLocation(raymarch_program, "accumulate"), 1);
-			samples = max_samples;
+			reset_pathtracer();
 		}
 
 
 		// ****** UPDATE RENDERING ****** //
 
-		glUseProgram(raymarch_program);
-		glUniform1i(glGetUniformLocation(raymarch_program, "rng_seed"), random(1, 100));
-		glDispatchCompute(window.width_get() / 16, window.height_get() / 16, 1);
-		glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
-		glUniform1i(glGetUniformLocation(raymarch_program, "reset"), 0);
-		samples--;
-		if (samples < 1) {
-			glUniform1i(glGetUniformLocation(raymarch_program, "accumulate"), 0);
+		if (samples > 0) {
+			glUseProgram(raymarch_program);
+			glUniform1i(glGetUniformLocation(raymarch_program, "rng_seed"), random(1, 100));
+			glUniform1i(glGetUniformLocation(raymarch_program, "samples"), max_samples);
+
+			glDispatchCompute(window.width_get() / 16, window.height_get() / 16, 1);
+			glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+
+			samples--;
+		}
+		else if (samples == 0) {
+			std::cout << "Render finished..." << std::endl;
+			samples--;
 		}
 
 
 		glUseProgram(denoiser_program);
+		glUniform1i(glGetUniformLocation(denoiser_program, "samples"), max_samples);
 		glDispatchCompute(window.width_get() / 16, window.height_get() / 16, 1);
 		glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+		/*
+		glUniform1i(glGetUniformLocation(denoiser_program, "blur"), 1);
+		glDispatchCompute(window.width_get() / 16, window.height_get() / 16, 1);
+		glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+
 		glUniform1i(glGetUniformLocation(denoiser_program, "blur"), 0);
 		glDispatchCompute(window.width_get() / 16, window.height_get() / 16, 1);
 		glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
-		glUniform1i(glGetUniformLocation(denoiser_program, "blur"), 1);
+		*/
 
 
 		glUseProgram(rtarget_program);
@@ -438,6 +429,17 @@ int main(int argc, char* argv[]) {
 
 		glDrawArrays(GL_TRIANGLES, 0, 6);
 		glBindVertexArray(0);
+
+
+		if (samples == max_samples) {
+			glUseProgram(raymarch_program);
+			glUniform1i(glGetUniformLocation(raymarch_program, "reset"), -1);
+
+			glDispatchCompute(window.width_get() / 16, window.height_get() / 16, 1);
+			glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+
+			glUniform1i(glGetUniformLocation(raymarch_program, "reset"), 0);
+		}
 	});
 
 	return 0;

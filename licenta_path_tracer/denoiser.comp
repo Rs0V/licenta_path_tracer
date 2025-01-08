@@ -5,13 +5,13 @@ layout (rgba32f, binding = 0) uniform image2D img_input;
 layout (rgba32f, binding = 1) uniform image2D img_output;
 
 //const float kernel[5] = float[](0.06136, 0.24477, 0.38774, 0.24477, 0.06136);
-const int kernel_size = 2;
-const float sigma = 1;
+const int kernel_size = 0; //= 2;
+const float sigma = 0; //= 1;
 float gaussian(float x, float sigma) {
-	return exp(-0.5 * (x * x) / (sigma * sigma)) / (sigma * sqrt(2.0 * 3.141592653589793));
+	return exp(-0.5 * (x * x) / (sigma * sigma)) / (sigma * sqrt(2.0 * 3.14159));
 }
 
-const float sharpen = 0.2;
+const float sharpen = 0; //= 0.2;
 const mat3 sharpen_kernel = {
 	vec3(-1, -1, -1),
 	vec3(-1,  9, -1),
@@ -20,10 +20,16 @@ const mat3 sharpen_kernel = {
 
 
 uniform bool blur = true;
+uniform int samples;
 
 
 void main() {
 	ivec2 pixel_coords = ivec2(gl_GlobalInvocationID.xy);
+	uint img_width = gl_NumWorkGroups.x * gl_WorkGroupSize.x;
+	uint img_height = gl_NumWorkGroups.y * gl_WorkGroupSize.y;
+	uint pixel_index = gl_GlobalInvocationID.x + gl_GlobalInvocationID.y * img_width;
+
+	/*
 	vec4 color = vec4(0.0);
 	float sum = 0.0;
 
@@ -50,4 +56,20 @@ void main() {
 		color = mix(imageLoad(img_output, pixel_coords), color, sharpen);
 		imageStore(img_output, pixel_coords, color);
 	}
+	*/
+
+	vec4 final_color = imageLoad(img_input, pixel_coords) / samples;
+	/*
+	if (pixel_index % 2 == 0) {
+		vec4 left_color  = imageLoad(img_input, ivec2(min(max(vec2(pixel_coords - ivec2(1, 0)), 0.0), img_width)))  / samples;
+		vec4 right_color = imageLoad(img_input, ivec2(min(max(vec2(pixel_coords + ivec2(1, 0)), 0.0), img_width)))  / samples;
+		vec4 down_color  = imageLoad(img_input, ivec2(min(max(vec2(pixel_coords - ivec2(0, 1)), 0.0), img_height))) / samples;
+		vec4 up_color    = imageLoad(img_input, ivec2(min(max(vec2(pixel_coords + ivec2(0, 1)), 0.0), img_height))) / samples;
+
+		final_color = (final_color + left_color + right_color + down_color + up_color) / 5.0;
+	}
+	*/
+	final_color.a = 1.0;
+
+	imageStore(img_output, pixel_coords, final_color);
 }
