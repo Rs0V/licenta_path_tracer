@@ -15,6 +15,7 @@ const float farPlane = 1000.0;
 const int max_bounces = 8;
 const float diffusion_angle = 80.0; // in degrees
 uniform vec3 light_pos = vec3(-20.0, -20.0, 20.0);
+uniform float light_radius = 2.0;
 
 
 
@@ -194,7 +195,7 @@ RaycastHit raycast(vec3 ray_pos, vec3 ray_dir) {
 				obj_index = i;
 			}
 		}
-		ray_pos = ray_pos + ray_dir * minDist;
+		ray_pos += ray_dir * minDist;
 		
 		if (minDist < hitThreshold) {
 			vec3 normal =
@@ -221,14 +222,14 @@ RaycastHit raycast_light(vec3 ray_pos, vec3 ray_dir) {
 
 	while (distance(init_pos, ray_pos) < farPlane) {
 		float minDist = 10000000.0;
-		float temp = min(minDist, signDistSphere(ray_pos, light_pos, 2));
+		float temp = min(minDist, signDistSphere(ray_pos, light_pos, light_radius));
 		if (temp < minDist) {
 			minDist = temp;
 		}
-		ray_pos = ray_pos + ray_dir * minDist;
+		ray_pos += ray_dir * minDist;
 		
 		if (minDist < hitThreshold) {
-			vec3 normal = normalSphere(ray_pos, light_pos, 2);
+			vec3 normal = normalSphere(ray_pos, light_pos, light_radius);
 			return RaycastHit(true, ray_pos, ray_dir, vec4(1.0), normal, -1, -1);
 		}
 	}
@@ -338,13 +339,14 @@ void main() {
 	worldPoint /= worldPoint.w;
 
 	vec3 ray_loc = camera_pos;
-	vec3 ray_dir = normalize(vec3(worldPoint) - camera_pos);
-	vec3 ray_color = vec3(1.0);
+	vec3 ray_dir = normalize(worldPoint.xyz - camera_pos);
+	vec3 ray_color = vec3(0.0);
 
 
 	RaycastHit hit = raycast(ray_loc, ray_dir);
+	/*
 	if (hit.hit == true) {
-		//ray_color = vec3(hit.ray_color);
+		//ray_color = hit.ray_color.xyz;
 		RaycastHit shadow_hit = raycast(hit.ray_pos, normalize(light_pos - hit.ray_pos));
 		if (shadow_hit.hit == true) {
 			if (hit.obj_type == shadow_hit.obj_type
@@ -364,9 +366,9 @@ void main() {
 	if (hit.hit == true) {
 		ray_color = vec3(1.0, 0.0, 1.0);
 	}
-	/*
-	ray_color *= hit.ray_color;
+	*/
 	if (hit.hit == true) {
+		ray_color = hit.ray_color.xyz;
 		int bounces = max_bounces;
 		float dist = 0.0;
 		float light_intensity = 1.0;
@@ -379,11 +381,16 @@ void main() {
 			if (last_hit.hit == false) {
 				break;
 			}
+			vec3 hit_color = last_hit.ray_color.xyz;
 
 			RaycastHit shadow_hit = raycast(last_hit.ray_pos, normalize(light_pos - last_hit.ray_pos));
-			vec3 hit_color = last_hit.ray_color;
 			if (shadow_hit.hit == true) {
-				hit_color *= vec3(0.0);
+				if (hit.obj_type == shadow_hit.obj_type
+				&& hit.obj_index == shadow_hit.obj_index) {
+					ray_color *= 0.0;
+				} else if (distance(hit.ray_pos, shadow_hit.ray_pos) < distance(hit.ray_pos, light_pos)) {
+					ray_color *= 0.0;
+				}
 			}
 			dist += distance(last_hit.ray_pos, hit.ray_pos);
 			float light_energy = light_intensity / (distance(light_pos, last_hit.ray_pos) + dist);
@@ -392,13 +399,17 @@ void main() {
 			hit = last_hit;
 			bounces--;
 		}
-		hit = raycast(hit.ray_pos, normalize(light_pos - hit.ray_pos));
-		if (hit.hit == true) {
-			ray_color *= vec3(0.0);
+		RaycastHit shadow_hit = raycast(hit.ray_pos, normalize(light_pos - hit.ray_pos));
+		if (shadow_hit.hit == true) {
+			if (hit.obj_type == shadow_hit.obj_type
+			&& hit.obj_index == shadow_hit.obj_index) {
+				ray_color *= 0.0;
+			} else if (distance(hit.ray_pos, shadow_hit.ray_pos) < distance(hit.ray_pos, light_pos)) {
+				ray_color *= 0.0;
+			}
 		}
 	}
-	ray_color = max((ray_color), 0.0);
-	*/
+	ray_color = max(normalize(ray_color), 0.0);
 
 
 	vec3 currect_pixel = max(vec3(imageLoad(img_output, pixel_coords)), 0.0);

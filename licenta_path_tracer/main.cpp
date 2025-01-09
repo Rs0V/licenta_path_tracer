@@ -476,15 +476,11 @@ int main(int argc, char* argv[]) {
 		glUniform1i(glGetUniformLocation(denoiser_program, "samples"), max_samples);
 		glDispatchCompute(window.width_get() / 16, window.height_get() / 16, 1);
 		glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
-		/*
-		glUniform1i(glGetUniformLocation(denoiser_program, "blur"), 1);
-		glDispatchCompute(window.width_get() / 16, window.height_get() / 16, 1);
-		glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 
 		glUniform1i(glGetUniformLocation(denoiser_program, "blur"), 0);
 		glDispatchCompute(window.width_get() / 16, window.height_get() / 16, 1);
 		glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
-		*/
+		glUniform1i(glGetUniformLocation(denoiser_program, "blur"), 1);
 
 
 		glUseProgram(rtarget_program);
@@ -499,7 +495,7 @@ int main(int argc, char* argv[]) {
 		glBindVertexArray(0);
 
 
-		if (samples == max_samples + 100) {
+		if (samples == max_samples) { // Add random number to max_samples in comparison in order to disable sampling
 			glUseProgram(raymarch_program);
 			glUniform1i(glGetUniformLocation(raymarch_program, "reset"), -1);
 

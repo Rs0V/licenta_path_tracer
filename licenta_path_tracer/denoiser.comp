@@ -11,7 +11,7 @@ float gaussian(float x, float sigma) {
 	return exp(-0.5 * (x * x) / (sigma * sigma)) / (sigma * sqrt(2.0 * 3.14159));
 }
 
-const float sharpen = 0; //= 0.2;
+const float sharpen = 0.0; //= 0.2;
 const mat3 sharpen_kernel = {
 	vec3(-1, -1, -1),
 	vec3(-1,  9, -1),
@@ -29,7 +29,6 @@ void main() {
 	uint img_height = gl_NumWorkGroups.y * gl_WorkGroupSize.y;
 	uint pixel_index = gl_GlobalInvocationID.x + gl_GlobalInvocationID.y * img_width;
 
-	/*
 	vec4 color = vec4(0.0);
 	float sum = 0.0;
 
@@ -42,7 +41,8 @@ void main() {
 				sum += weight;
 			}
 		}
-		color /= sum;
+		color = color / sum / samples;
+		color.a = 1.0;
 		imageStore(img_output, pixel_coords, color);
 	}
 	else {
@@ -54,22 +54,12 @@ void main() {
 			}
 		}
 		color = mix(imageLoad(img_output, pixel_coords), color, sharpen);
+		color.a = 1.0;
 		imageStore(img_output, pixel_coords, color);
 	}
-	*/
 
-	vec4 final_color = imageLoad(img_input, pixel_coords) / samples;
-	/*
-	if (pixel_index % 2 == 0) {
-		vec4 left_color  = imageLoad(img_input, ivec2(min(max(vec2(pixel_coords - ivec2(1, 0)), 0.0), img_width)))  / samples;
-		vec4 right_color = imageLoad(img_input, ivec2(min(max(vec2(pixel_coords + ivec2(1, 0)), 0.0), img_width)))  / samples;
-		vec4 down_color  = imageLoad(img_input, ivec2(min(max(vec2(pixel_coords - ivec2(0, 1)), 0.0), img_height))) / samples;
-		vec4 up_color    = imageLoad(img_input, ivec2(min(max(vec2(pixel_coords + ivec2(0, 1)), 0.0), img_height))) / samples;
+	//vec4 final_color = imageLoad(img_input, pixel_coords) / samples;
+	//final_color.a = 1.0;
 
-		final_color = (final_color + left_color + right_color + down_color + up_color) / 5.0;
-	}
-	*/
-	final_color.a = 1.0;
-
-	imageStore(img_output, pixel_coords, final_color);
+	//imageStore(img_output, pixel_coords, final_color);
 }
