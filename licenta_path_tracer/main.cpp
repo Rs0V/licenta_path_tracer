@@ -1,5 +1,3 @@
-#include "iostream"
-#include "fstream"
 #include "sstream"
 #include "Window.hpp"
 #include "gtx/transform.hpp"
@@ -75,6 +73,7 @@ GLuint createComputeShaderProgram(const char* computeSource) {
 }
 
 
+static std::unordered_map<std::string, GLuint> buffers;
 template<class CAST, class RMO> void sendCpuObjectsToGpu(GLuint shader_program, const std::vector<Object*> &objects, const std::string &array_name, uint buffer_index) {
 	glUseProgram(shader_program);
 
@@ -87,12 +86,34 @@ template<class CAST, class RMO> void sendCpuObjectsToGpu(GLuint shader_program, 
 	GLuint objs_ssbo;
 	glGenBuffers(1, &objs_ssbo);
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, objs_ssbo);
+	buffers[array_name] = objs_ssbo;
 
 	glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(RMO) * casts.size(), rmo_objs, GL_DYNAMIC_DRAW);
 	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, buffer_index, objs_ssbo);
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
 	glUniform1i(glGetUniformLocation(shader_program, (array_name + "_no").c_str()), casts.size());
+	delete[] rmo_objs;
+}
+
+
+template<class CAST, class RMO> void updateGpuObjects(GLuint shader_program, const std::vector<Object*>& objects, const std::string& array_name) {
+	glUseProgram(shader_program);
+
+	auto casts = get_of_type<CAST*>(objects);
+	RMO* rmo_objs = new RMO[casts.size()];
+	for (uint i = 0; i < casts.size(); i++) {
+		rmo_objs[i] = *casts[i];
+	}
+
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, buffers[array_name]);
+	RMO* buffer_data = (RMO*)glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_WRITE_ONLY);
+	if (buffer_data) {
+		memcpy(buffer_data, rmo_objs, sizeof(RMO) * casts.size());
+		glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
+	}
+	
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 	delete[] rmo_objs;
 }
 
@@ -215,7 +236,7 @@ int main(int argc, char* argv[]) {
 			{ 0.0f,  0.0f, 0.0f },
 			{ 1.0f,  1.0f, 1.0f }
 		},
-		{ 1.0f, 1.0f, 1.0f, 1.0f },
+		{ 1.0f, 0.0f, 0.0f, 1.0f },
 		5.0f
 	));
 	objects.emplace_back(new Sphere(
@@ -224,7 +245,7 @@ int main(int argc, char* argv[]) {
 			{ 0.0f,  0.0f, 0.0f },
 			{ 1.0f,  1.0f, 1.0f }
 		},
-		{ 1.0f, 1.0f, 1.0f, 1.0f },
+		{ 1.0f, 0.5f, 0.0f, 1.0f },
 		10.0f
 	));
 	objects.emplace_back(new Cube(
@@ -236,15 +257,32 @@ int main(int argc, char* argv[]) {
 		{ 1.0f, 1.0f, 1.0f, 1.0f },
 		{ 100.0f, 100.0f, 1.0f }
 	));
-	objects.emplace_back(new Cylinder(
+	objects.emplace_back(new Cube(
 		{
-			{ -30.0f, 0.0f, 5.0f },
-			{   0.0f, 0.0f, 0.0f },
-			{   1.0f, 1.0f, 1.0f }
+			{ 50.0f, 0.0f, 0.0f },
+			{ 0.0f, 0.0f, 0.0f },
+			{ 1.0f, 1.0f, 1.0f }
 		},
 		{ 1.0f, 1.0f, 1.0f, 1.0f },
-		4.0f,
-		12.0f
+		{ 1.0f, 100.0f, 100.0f }
+	));
+	objects.emplace_back(new Cube(
+		{
+			{ -50.0f, 0.0f, 0.0f },
+			{ 0.0f, 0.0f, 0.0f },
+			{ 1.0f, 1.0f, 1.0f }
+		},
+		{ 1.0f, 1.0f, 1.0f, 1.0f },
+		{ 1.0f, 100.0f, 100.0f }
+	));
+	objects.emplace_back(new Cube(
+		{
+			{ 0.0f, 50.0f, 0.0f },
+			{ 0.0f, 0.0f, 0.0f },
+			{ 1.0f, 1.0f, 1.0f }
+		},
+		{ 1.0f, 1.0f, 1.0f, 1.0f },
+		{ 100.0f, 1.0f, 100.0f }
 	));
 	objects.emplace_back(new Cube(
 		{
@@ -252,8 +290,18 @@ int main(int argc, char* argv[]) {
 			{   0.0f,   0.0f, 0.0f },
 			{   1.0f,   1.0f, 1.0f }
 		},
-		{ 1.0f, 1.0f, 1.0f, 1.0f },
+		{ 0.0f, 0.0f, 1.0f, 1.0f },
 		{ 10.0f, 10.0f, 10.0f }
+	));
+	objects.emplace_back(new Cylinder(
+		{
+			{ -30.0f, 0.0f, 5.0f },
+			{   0.0f, 0.0f, 0.0f },
+			{   1.0f, 1.0f, 1.0f }
+		},
+		{ 0.0f, 1.0f, 0.0f, 1.0f },
+		4.0f,
+		12.0f
 	));
 	objects.emplace_back(new Cylinder(
 		{
@@ -261,7 +309,7 @@ int main(int argc, char* argv[]) {
 			{   0.0f, 0.0f, 0.0f },
 			{   1.0f, 1.0f, 1.0f }
 		},
-		{ 1.0f, 1.0f, 1.0f, 1.0f },
+		{ 0.0f, 1.0f, 0.7f, 1.0f },
 		4.0f,
 		6.0f
 	));
@@ -294,11 +342,14 @@ int main(int argc, char* argv[]) {
 	});
 	window.Update([&](float deltaTime) {
 		SDL_SetWindowTitle(window.window_get(), std::to_string(1.0f / deltaTime).c_str());
-		static uint max_samples = 1024; //64;
+		static uint max_samples = 256; //64;
 		static int samples = max_samples;
 		auto reset_pathtracer = [&]() {
 			glUniform1i(glGetUniformLocation(raymarch_program, "reset"), 1);
 			samples = max_samples + 1;
+			updateGpuObjects<Sphere, rmo::Sphere>(raymarch_program, objects, "spheres");
+			updateGpuObjects<Cube, rmo::Cube>(raymarch_program, objects, "cubes");
+			updateGpuObjects<Cylinder, rmo::Cylinder>(raymarch_program, objects, "cylinders");
 		};
 
 
@@ -314,43 +365,47 @@ int main(int argc, char* argv[]) {
 		glUniform3fv(glGetUniformLocation(raymarch_program, "camera_pos"), 1, glm::value_ptr(camera.transform_getr().location));
 
 
+		static float speed = 25.0f;
 		if (SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_I]) {
-			objects[0]->transform_getr().location += glm::vec3(0.0f, 10.0f, 0.0f) * deltaTime;
+			objects[0]->transform_getr().location += glm::vec3(0.0f, 0.0f, 1.0f) * -speed * deltaTime;
+			std::cout << objects[0]->transform_getr().location << std::endl;
 			reset_pathtracer();
 		}
 		if (SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_O]) {
-			objects[0]->transform_getr().location += glm::vec3(0.0f, -10.0f, 0.0f) * deltaTime;
+			objects[0]->transform_getr().location += glm::vec3(0.0f, 0.0f, 1.0f) * speed * deltaTime;
+			std::cout << objects[0]->transform_getr().location << std::endl;
 			reset_pathtracer();
 		}
 
 		if (SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_W]) {
-			camera.transform_getr().location += camera.forward_getr() * 10.0f * deltaTime;
+			camera.transform_getr().location += camera.forward_getr() * speed * deltaTime;
 			reset_pathtracer();
 		}
 		if (SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_S]) {
-			camera.transform_getr().location += camera.forward_getr() * -10.0f * deltaTime;
+			camera.transform_getr().location += camera.forward_getr() * -speed * deltaTime;
 			reset_pathtracer();
 		}
 		if (SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_A]) {
-			camera.transform_getr().location += camera.right_getr() * -10.0f * deltaTime;
+			camera.transform_getr().location += camera.right_getr() * -speed * deltaTime;
 			reset_pathtracer();
 		}
 		if (SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_D]) {
-			camera.transform_getr().location += camera.right_getr() * 10.0f * deltaTime;
+			camera.transform_getr().location += camera.right_getr() * speed * deltaTime;
 			reset_pathtracer();
 		}
 		if (SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_Q]) {
-			camera.transform_getr().location += glm::vec3(0.0f, 0.0f, 1.0f) * -10.0f * deltaTime;
+			camera.transform_getr().location += glm::vec3(0.0f, 0.0f, 1.0f) * -speed * deltaTime;
 			reset_pathtracer();
 		}
 		if (SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_E]) {
-			camera.transform_getr().location += glm::vec3(0.0f, 0.0f, 1.0f) * 10.0f * deltaTime;
+			camera.transform_getr().location += glm::vec3(0.0f, 0.0f, 1.0f) * speed * deltaTime;
 			reset_pathtracer();
 		}
 
+		static float sensitivity = 2.0f;
 		if (SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_UP]) {
 			auto rotation = glm::mat4(1.0)
-				* glm::rotate(-1.0f * deltaTime, camera.right_getr())
+				* glm::rotate(-1.0f * sensitivity * deltaTime, camera.right_getr())
 			;
 			camera.right_getr() = glm::vec4(camera.right_getr(), 1.0) * rotation;
 			camera.forward_getr() = glm::vec4(camera.forward_getr(), 1.0) * rotation;
@@ -359,7 +414,7 @@ int main(int argc, char* argv[]) {
 		}
 		if (SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_DOWN]) {
 			auto rotation = glm::mat4(1.0)
-				* glm::rotate(1.0f * deltaTime, camera.right_getr())
+				* glm::rotate(1.0f * sensitivity * deltaTime, camera.right_getr())
 			;
 			camera.right_getr() = glm::vec4(camera.right_getr(), 1.0) * rotation;
 			camera.forward_getr() = glm::vec4(camera.forward_getr(), 1.0) * rotation;
@@ -368,7 +423,7 @@ int main(int argc, char* argv[]) {
 		}
 		if (SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_LEFT]) {
 			auto rotation = glm::mat4(1.0)
-				* glm::rotate(-1.0f * deltaTime, glm::vec3(0.0f, 0.0f, 1.0f))
+				* glm::rotate(-1.0f * sensitivity * deltaTime, glm::vec3(0.0f, 0.0f, 1.0f))
 			;
 			camera.right_getr() = glm::vec4(camera.right_getr(), 1.0) * rotation;
 			camera.forward_getr() = glm::vec4(camera.forward_getr(), 1.0) * rotation;
@@ -377,13 +432,25 @@ int main(int argc, char* argv[]) {
 		}
 		if (SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_RIGHT]) {
 			auto rotation = glm::mat4(1.0)
-				* glm::rotate(1.0f * deltaTime, glm::vec3(0.0f, 0.0f, 1.0f))
+				* glm::rotate(1.0f * sensitivity * deltaTime, glm::vec3(0.0f, 0.0f, 1.0f))
 			;
 			camera.right_getr() = glm::vec4(camera.right_getr(), 1.0) * rotation;
 			camera.forward_getr() = glm::vec4(camera.forward_getr(), 1.0) * rotation;
 			camera.up_getr() = glm::vec4(camera.up_getr(), 1.0) * rotation;
 			reset_pathtracer();
 		}
+
+		static glm::vec3 light_pos(-20.0, -20.0, 20.0);
+		/*
+		if (SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_I]) {
+			light_pos += glm::vec3(0.0f, 0.0f, 1.0f) * -speed * deltaTime;
+			reset_pathtracer();
+		}
+		if (SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_O]) {
+			light_pos += glm::vec3(0.0f, 0.0f, 1.0f) * speed * deltaTime;
+			reset_pathtracer();
+		}
+		*/
 
 
 		// ****** UPDATE RENDERING ****** //
@@ -392,6 +459,7 @@ int main(int argc, char* argv[]) {
 			glUseProgram(raymarch_program);
 			glUniform1i(glGetUniformLocation(raymarch_program, "rng_seed"), random(1, 100));
 			glUniform1i(glGetUniformLocation(raymarch_program, "samples"), max_samples);
+			glUniform3fv(glGetUniformLocation(raymarch_program, "light_pos"), 1, glm::value_ptr(light_pos));
 
 			glDispatchCompute(window.width_get() / 16, window.height_get() / 16, 1);
 			glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
@@ -431,7 +499,7 @@ int main(int argc, char* argv[]) {
 		glBindVertexArray(0);
 
 
-		if (samples == max_samples) {
+		if (samples == max_samples + 100) {
 			glUseProgram(raymarch_program);
 			glUniform1i(glGetUniformLocation(raymarch_program, "reset"), -1);
 

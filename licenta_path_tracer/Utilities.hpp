@@ -1,10 +1,14 @@
 #pragma once
+#include "fstream"
+#include "iostream"
 #include "glad.h"
 #include "vector"
 #include "glm.hpp"
 #include "string"
 #include "random"
 #include "type_traits"
+#include "map"
+#include "unordered_map"
 
 typedef unsigned char ubyte;
 typedef unsigned short ushort;
@@ -138,4 +142,9 @@ template<class T> static T random(T min, T max) {
 	}
 
 	return 0;
+}
+
+inline std::ostream& operator<<(std::ostream& os, glm::vec3 v) {
+	os << "{" << v.x << ", " << v.y << ", " << v.z << "}";
+	return os;
 }
