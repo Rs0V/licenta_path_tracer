@@ -1,7 +1,15 @@
 #pragma once
 #include "fstream"
 #include "iostream"
+
+#define USE_GLAD false
+#if USE_GLAD == true
 #include "glad.h"
+#else
+#define GLEW_STATIC
+#include "glew.h"
+#endif
+
 #include "vector"
 #include "glm.hpp"
 #include "string"
@@ -92,7 +100,7 @@ template<class T, class U>
 static std::vector<T> get_of_type(const std::vector<U>& v) {
 	std::vector<T> rv;
 	for (auto& elem : v) {
-		is(elem, T) {
+		is(elem, T, ) {
 			rv.push_back(elemT);
 		}end
 	}

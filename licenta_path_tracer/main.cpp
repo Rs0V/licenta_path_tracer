@@ -13,10 +13,21 @@
 
 
 
-GLuint compileShader(GLenum type, const char* source) {
+GLuint compileShader(GLenum type, std::string source) {
+	const char* search_dirs[] = { "/" };
+	
 	GLuint shader = glCreateShader(type);
-	glShaderSource(shader, 1, &source, NULL);
+	const char* csource = source.data();
+	glShaderSource(shader, 1, &csource, NULL);
+	
 	glCompileShader(shader);
+	/*
+	if (includesHeaders == false) {
+		glCompileShader(shader);
+	} else {
+		glCompileShaderIncludeARB(shader, 1, search_dirs, NULL);
+	}
+	*/
 
 	GLint success;
 	glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
@@ -29,7 +40,7 @@ GLuint compileShader(GLenum type, const char* source) {
 	return shader;
 }
 
-GLuint createShaderProgram(const char* vertexSource, const char* fragmentSource) {
+GLuint createShaderProgram(std::string vertexSource, std::string fragmentSource) {
 	GLuint vertexShader = compileShader(GL_VERTEX_SHADER, vertexSource);
 	GLuint fragmentShader = compileShader(GL_FRAGMENT_SHADER, fragmentSource);
 
@@ -48,11 +59,10 @@ GLuint createShaderProgram(const char* vertexSource, const char* fragmentSource)
 
 	glDeleteShader(vertexShader);
 	glDeleteShader(fragmentShader);
-
 	return program;
 }
 
-GLuint createComputeShaderProgram(const char* computeSource) {
+GLuint createComputeShaderProgram(std::string computeSource) {
 	GLuint computeShader = compileShader(GL_COMPUTE_SHADER, computeSource);
 
 	GLuint program = glCreateProgram();
@@ -68,7 +78,6 @@ GLuint createComputeShaderProgram(const char* computeSource) {
 	}
 
 	glDeleteShader(computeShader);
-
 	return program;
 }
 
@@ -96,7 +105,6 @@ template<class CAST, class RMO> void sendCpuObjectsToGpu(GLuint shader_program, 
 	delete[] rmo_objs;
 }
 
-
 template<class CAST, class RMO> void updateGpuObjects(GLuint shader_program, const std::vector<Object*>& objects, const std::string& array_name) {
 	glUseProgram(shader_program);
 
@@ -118,75 +126,77 @@ template<class CAST, class RMO> void updateGpuObjects(GLuint shader_program, con
 }
 
 
+void createTexture(GLuint &texId, uint width, uint height, uint texIndex) {
+	glCreateTextures(GL_TEXTURE_2D, 1, &texId);
+
+	glTexParameteri(texId, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(texId, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+	glTexParameteri(texId, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(texId, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+	glTextureStorage2D(texId, 1, GL_RGBA32F, width, height);
+	glBindImageTexture(texIndex, texId, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
+}
+
+void readFile(std::string filePath, std::string &output) {
+	std::ifstream file(filePath);
+	if (file.is_open()) {
+		std::stringstream ss;
+		ss << file.rdbuf();
+		output = ss.str();
+	}
+	file.close();
+}
+
+void addGLSLHeaderToFileSystem(std::string headerPath) {
+	std::string headerContents;
+	readFile(headerPath, headerContents);
+
+	headerPath = "/" + headerPath;
+	glNamedStringARB(GL_SHADER_INCLUDE_ARB, -1, headerPath.data(), headerContents.size(), headerContents.data());
+}
+
+
+
 int main(int argc, char* argv[]) {
+	// Create Window
 	Window window = Window(640, 480, "CUDA Pathtracer");
 
 
+	// Create Textures for Ray-marching and final Output
 	GLuint raymarch_tex;
-	glCreateTextures(GL_TEXTURE_2D, 1, &raymarch_tex);
-
-	glTexParameteri(raymarch_tex, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexParameteri(raymarch_tex, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-
-	glTexParameteri(raymarch_tex, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(raymarch_tex, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-	glTextureStorage2D(raymarch_tex, 1, GL_RGBA32F, window.width_get(), window.height_get());
-	glBindImageTexture(0, raymarch_tex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
-
+	createTexture(raymarch_tex, window.width_get(), window.height_get(), 0);
 
 	GLuint output_tex;
-	glCreateTextures(GL_TEXTURE_2D, 1, &output_tex);
-
-	glTexParameteri(output_tex, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexParameteri(output_tex, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-
-	glTexParameteri(output_tex, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(output_tex, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-	glTextureStorage2D(output_tex, 1, GL_RGBA32F, window.width_get(), window.height_get());
-	glBindImageTexture(1, output_tex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
+	createTexture(output_tex, window.width_get(), window.height_get(), 1);
 
 
-	std::ifstream file("raymarch.comp");
+	// Read Shader files
 	std::string raymarch_compute;
-	if (file.is_open()) {
-		std::stringstream ss;
-		ss << file.rdbuf();
-		raymarch_compute = ss.str();
-	}
-	file.close();
+	readFile("raymarch.comp", raymarch_compute);
 
-	file = std::ifstream("denoiser.comp");
 	std::string denoiser_compute;
-	if (file.is_open()) {
-		std::stringstream ss;
-		ss << file.rdbuf();
-		denoiser_compute = ss.str();
-	}
-	file.close();
+	readFile("denoiser.comp", denoiser_compute);
 
-	file = std::ifstream("rtarget.vert");
 	std::string vertex;
-	if (file.is_open()) {
-		std::stringstream ss;
-		ss << file.rdbuf();
-		vertex = ss.str();
-	}
-	file.close();
+	readFile("rtarget.vert", vertex);
 
-	file = std::ifstream("rtarget.frag");
 	std::string fragment;
-	if (file.is_open()) {
-		std::stringstream ss;
-		ss << file.rdbuf();
-		fragment = ss.str();
-	}
-	file.close();
+	readFile("rtarget.frag", fragment);
 
-	auto raymarch_program = createComputeShaderProgram(raymarch_compute.c_str());
-	auto denoiser_program = createComputeShaderProgram(denoiser_compute.c_str());
-	auto rtarget_program = createShaderProgram(vertex.c_str(), fragment.c_str());
+
+	// Read Shader Header files
+	addGLSLHeaderToFileSystem("basic_shapes.comp");
+	addGLSLHeaderToFileSystem("utils.comp");
+
+
+	// Compile Shaders
+	GLuint raymarch_program = createComputeShaderProgram(raymarch_compute);
+	GLuint denoiser_program = createComputeShaderProgram(denoiser_compute);
+	GLuint rtarget_program = createShaderProgram(vertex, fragment);
+
+	#pragma region Create Render Target
 
 	float rtarget_verts[] = {
 		// Positions    // UVs
@@ -216,8 +226,10 @@ int main(int argc, char* argv[]) {
 
 	glBindVertexArray(0);
 
+	#pragma endregion
 
-
+	
+	// Setup Camera Rays
 	Camera camera = Camera({
 		{ 0.0f, 0.0f, 0.0f },
 		{ 0.0f, 0.0f, 0.0f },
@@ -229,6 +241,8 @@ int main(int argc, char* argv[]) {
 	std::vector<Ray> rays(window.width_get() * window.height_get());
 	auto proj = glm::perspectiveFovLH_ZO(glm::radians(60.0f), (float)window.width_get(), (float)window.height_get(), 0.1f, 1000.0f);
 
+
+	#pragma region Create Objects
 
 	objects.emplace_back(new Sphere(
 		{
@@ -314,6 +328,9 @@ int main(int argc, char* argv[]) {
 		6.0f
 	));
 
+	#pragma endregion
+
+	// Print GPU specifications
 	/*
 	GLint maxShaderStorageBlocks;
 	glGetIntegerv(GL_MAX_COMPUTE_SHADER_STORAGE_BLOCKS, &maxShaderStorageBlocks);
@@ -328,6 +345,8 @@ int main(int argc, char* argv[]) {
 	std::cout << asdf << std::endl;
 	*/
 
+
+	// Application Start function
 	window.Start([&]() {
 		glClearColor(0.5f, 0.1f, 0.2f, 1.0f);
 		glEnable(GL_BLEND);
@@ -336,11 +355,15 @@ int main(int argc, char* argv[]) {
 		glUseProgram(raymarch_program);
 		glUniformMatrix4fv(glGetUniformLocation(raymarch_program, "camera_proj"), 1, GL_FALSE, glm::value_ptr(proj));
 		
+		// Send Object Data to Ray-Marching Shader
 		sendCpuObjectsToGpu<Sphere, rmo::Sphere>(raymarch_program, objects, "spheres", 1);
 		sendCpuObjectsToGpu<Cube, rmo::Cube>(raymarch_program, objects, "cubes", 2);
 		sendCpuObjectsToGpu<Cylinder, rmo::Cylinder>(raymarch_program, objects, "cylinders", 3);
 	});
+	// Application Update function
 	window.Update([&](float deltaTime) {
+
+		// Update App Title with current FPS
 		SDL_SetWindowTitle(window.window_get(), std::to_string(1.0f / deltaTime).c_str());
 		static uint max_samples = 256; //64;
 		static int samples = max_samples;
@@ -353,8 +376,10 @@ int main(int argc, char* argv[]) {
 		};
 
 
+
 		// ****** UPDATE LOGIC ****** //
 
+		// Compute and Send Camera View Matrix to Ray-Marching Shader
 		glm::mat4 view = glm::lookAtLH(
 			camera.transform_getr().location,
 			camera.transform_getr().location + camera.forward_getr(),
@@ -365,6 +390,7 @@ int main(int argc, char* argv[]) {
 		glUniform3fv(glGetUniformLocation(raymarch_program, "camera_pos"), 1, glm::value_ptr(camera.transform_getr().location));
 
 
+		// Setup Camera Input
 		static float speed = 25.0f;
 		if (SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_I]) {
 			objects[0]->transform_getr().location += glm::vec3(0.0f, 0.0f, 1.0f) * -speed * deltaTime;
@@ -440,21 +466,15 @@ int main(int argc, char* argv[]) {
 			reset_pathtracer();
 		}
 
+
+		// Create Lights
 		static glm::vec3 light_pos(-20.0, -20.0, 20.0);
-		/*
-		if (SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_I]) {
-			light_pos += glm::vec3(0.0f, 0.0f, 1.0f) * -speed * deltaTime;
-			reset_pathtracer();
-		}
-		if (SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_O]) {
-			light_pos += glm::vec3(0.0f, 0.0f, 1.0f) * speed * deltaTime;
-			reset_pathtracer();
-		}
-		*/
+
 
 
 		// ****** UPDATE RENDERING ****** //
 
+		// Compute Path-Tracing Samples
 		if (samples > 0) {
 			glUseProgram(raymarch_program);
 			glUniform1i(glGetUniformLocation(raymarch_program, "rng_seed"), random(1, 100));
@@ -472,17 +492,20 @@ int main(int argc, char* argv[]) {
 		}
 
 
+		// Denoiser Sharpen-Pass
 		glUseProgram(denoiser_program);
 		glUniform1i(glGetUniformLocation(denoiser_program, "samples"), max_samples);
 		glDispatchCompute(window.width_get() / 16, window.height_get() / 16, 1);
 		glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 
+		// Denoiser Blur-Pass
 		glUniform1i(glGetUniformLocation(denoiser_program, "blur"), 0);
 		glDispatchCompute(window.width_get() / 16, window.height_get() / 16, 1);
 		glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 		glUniform1i(glGetUniformLocation(denoiser_program, "blur"), 1);
 
 
+		// Render final Output to Screen
 		glUseProgram(rtarget_program);
 		glBindVertexArray(rtargetVAO);
 
@@ -495,7 +518,8 @@ int main(int argc, char* argv[]) {
 		glBindVertexArray(0);
 
 
-		if (samples == max_samples) { // Add random number to max_samples in comparison in order to disable sampling
+		// Initiate Path-Tracing Sampling process
+		if (samples == max_samples) { // Add random positive integer to right operand of comparison in order to disable sampling
 			glUseProgram(raymarch_program);
 			glUniform1i(glGetUniformLocation(raymarch_program, "reset"), -1);
 

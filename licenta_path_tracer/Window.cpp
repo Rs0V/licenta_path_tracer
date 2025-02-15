@@ -39,12 +39,22 @@ Window::Window(uint width, uint height, std::string title)
 		SDL_Quit();
 	}
 
+	#if USE_GLAD == true
 	if (!gladLoadGLLoader((GLADloadproc)SDL_GL_GetProcAddress)) {
 		std::cerr << "Error initializing GLAD!" << std::endl;
 		SDL_GL_DeleteContext(glContext);
 		SDL_DestroyWindow(this->window);
 		SDL_Quit();
 	}
+	#else
+	GLenum glewStatus = glewInit();
+	if (glewStatus != GLEW_OK) {
+		std::cerr << "Error initializing GLEW: " << glewGetErrorString(glewStatus) << std::endl;
+		SDL_GL_DeleteContext(glContext);
+		SDL_DestroyWindow(this->window);
+		SDL_Quit();
+	}
+	#endif
 
 	SDL_GL_SetSwapInterval(1);
 }
