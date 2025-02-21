@@ -10,13 +10,16 @@
 namespace rmo {
 	struct Sphere {
 		glm::vec3 location;
-		float radius;
-
-		glm::vec3 rotation;
 		privb(float pad0);
 
-		glm::vec3 scale;
+		glm::vec3 rotation;
 		privb(float pad1);
+
+		glm::vec3 scale;
+		privb(float pad2);
+
+		float radius;
+		privb(float pad3[3]);
 
 		glm::vec4 color;
 
@@ -63,13 +66,19 @@ namespace rmo {
 
 	struct Cylinder {
 		glm::vec3 location;
-		float radius;
+		privb(float pad0)
 
 		glm::vec3 rotation;
-		float height;
+		privb(float pad1)
 
 		glm::vec3 scale;
-		privb(float pad0)
+		privb(float pad2)
+
+		float radius;
+		privb(float pad3[3])
+
+		float height;
+		privb(float pad4[3])
 
 		glm::vec4 color;
 
@@ -89,14 +98,20 @@ namespace rmo {
 
 	struct Cone {
 		glm::vec3 location;
-		float radius;
+		privb(float pad0)
 
 		glm::vec3 rotation;
-		float height;
+		privb(float pad1)
 
 		glm::vec3 scale;
-		privb(float pad0)
-		
+		privb(float pad2)
+
+		float radius;
+		privb(float pad3[3])
+
+		float height;
+		privb(float pad4[3])
+
 		glm::vec4 color;
 
 

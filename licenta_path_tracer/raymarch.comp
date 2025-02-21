@@ -16,8 +16,8 @@ uniform int samples;
 
 const float hitThreshold = 0.001;
 const float farPlane = 1000.0;
-const int max_bounces = 8;
-const float diffusion_angle = 80.0; // in degrees
+const int max_bounces = 4;
+const float diffusion_angle = 180.0; // in degrees
 uniform vec3 light_pos = vec3(-20.0, -20.0, 20.0);
 uniform float light_radius = 2.0;
 
@@ -126,8 +126,16 @@ RaycastHit raycast_light(vec3 ray_pos, vec3 ray_dir) {
 	return RaycastHit(false, vec3(0.0), vec3(0.0), vec4(0.0), vec3(0.0), -1, -1);
 }
 
-vec3 reflectHit(in RaycastHit hit) {
-	return normalize(reflect(normalize(hit.ray_dir), normalize(hit.normal)));
+RaycastHit reflectHit(in RaycastHit hit) {
+	return RaycastHit(
+		hit.hit,
+		hit.ray_pos,
+		normalize(reflect(normalize(hit.ray_dir), normalize(hit.normal))),
+		hit.ray_color,
+		hit.normal,
+		hit.obj_type,
+		hit.obj_index
+	);
 }
 
 
@@ -185,10 +193,12 @@ void main() {
 		ray_color = hit.ray_color.xyz;
 		int bounces = max_bounces;
 		float dist = 0.0;
-		float light_intensity = 1.0;
+		float light_intensity = 100.0;
 
 		while (bounces > 0) {
-			vec3 light_dir = rotateVectorRandom(reflectHit(hit), rng_seed, diffusion_angle);
+			float randomAngle = ((diffusion_angle + rng_seed / diffusion_angle) / 2.0 + mod(pixel_coords.x * pixel_coords.y, diffusion_angle)) / 2.0;
+
+			vec3 light_dir = diffuseVector(reflectHit(hit).ray_dir, hit.normal, randomAngle);
 			RaycastHit light_hit = raycast_light(hit.ray_pos, light_dir);
 			if (light_hit.hit == true) {
 				RaycastHit shadow_hit = raycast(hit.ray_pos, light_dir);
@@ -204,7 +214,7 @@ void main() {
 				ray_color *= 0.0;
 			}
 
-			vec3 new_dir = rotateVectorRandom(reflectHit(hit), rng_seed, diffusion_angle);
+			vec3 new_dir = diffuseVector(reflectHit(hit).ray_dir, hit.normal, randomAngle);
 			RaycastHit last_hit = hit;
 			hit = raycast(hit.ray_pos, new_dir);
 			if (hit.hit == false) {
@@ -218,7 +228,7 @@ void main() {
 			bounces--;
 		}
 	}
-	ray_color = max(normalize(ray_color), 0.0);
+	ray_color = max((ray_color), 0.0);
 
 
 	vec3 currect_pixel = max(vec3(imageLoad(img_output, pixel_coords)), 0.0);

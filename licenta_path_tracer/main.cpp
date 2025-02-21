@@ -365,7 +365,9 @@ int main(int argc, char* argv[]) {
 
 		// Update App Title with current FPS
 		SDL_SetWindowTitle(window.window_get(), std::to_string(1.0f / deltaTime).c_str());
-		static uint max_samples = 256; //64;
+
+		// Setup Ray-Sampling
+		static constexpr uint max_samples = 1024;
 		static int samples = max_samples;
 		auto reset_pathtracer = [&]() {
 			glUniform1i(glGetUniformLocation(raymarch_program, "reset"), 1);
@@ -477,7 +479,7 @@ int main(int argc, char* argv[]) {
 		// Compute Path-Tracing Samples
 		if (samples > 0) {
 			glUseProgram(raymarch_program);
-			glUniform1i(glGetUniformLocation(raymarch_program, "rng_seed"), random(1, 100));
+			glUniform1i(glGetUniformLocation(raymarch_program, "rng_seed"), random(1, 1000));
 			glUniform1i(glGetUniformLocation(raymarch_program, "samples"), max_samples);
 			glUniform3fv(glGetUniformLocation(raymarch_program, "light_pos"), 1, glm::value_ptr(light_pos));
 
@@ -493,16 +495,20 @@ int main(int argc, char* argv[]) {
 
 
 		// Denoiser Sharpen-Pass
+		static constexpr uint denoisingPasses = 64;
 		glUseProgram(denoiser_program);
 		glUniform1i(glGetUniformLocation(denoiser_program, "samples"), max_samples);
-		glDispatchCompute(window.width_get() / 16, window.height_get() / 16, 1);
-		glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
-
+		for (uint i = 0; i < denoisingPasses; i++) {
+			glDispatchCompute(window.width_get() / 16, window.height_get() / 16, 1);
+			glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+		}
+		/*
 		// Denoiser Blur-Pass
 		glUniform1i(glGetUniformLocation(denoiser_program, "blur"), 0);
 		glDispatchCompute(window.width_get() / 16, window.height_get() / 16, 1);
 		glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 		glUniform1i(glGetUniformLocation(denoiser_program, "blur"), 1);
+		*/
 
 
 		// Render final Output to Screen

@@ -1,9 +1,9 @@
 #version 460 core
-
 layout (local_size_x = 16, local_size_y = 16) in;
 layout (rgba32f, binding = 0) uniform image2D img_input;
 layout (rgba32f, binding = 1) uniform image2D img_output;
 
+/*
 //const float kernel[5] = float[](0.06136, 0.24477, 0.38774, 0.24477, 0.06136);
 const int kernel_size = 0; //= 2;
 const float sigma = 0; //= 1;
@@ -20,6 +20,7 @@ const mat3 sharpen_kernel = {
 
 
 uniform bool blur = true;
+*/
 uniform int samples;
 
 
@@ -29,6 +30,28 @@ void main() {
 	uint img_height = gl_NumWorkGroups.y * gl_WorkGroupSize.y;
 	uint pixel_index = gl_GlobalInvocationID.x + gl_GlobalInvocationID.y * img_width;
 
+	uint sampleRadius = 1;
+	vec3 median = vec3(0.0);
+	for (int y = -int(sampleRadius); y <= sampleRadius; y++) {
+		if (y == 0) {
+			continue;
+		}
+		for (int x = -int(sampleRadius); x <= sampleRadius; x++) {
+			if (x == 0) {
+				continue;
+			}
+			vec3 pixel = imageLoad(img_input, pixel_coords + ivec2(x, y)).xyz;
+			median += pixel;
+		}
+	}
+	median /= pow(3 + (max(sampleRadius, 1) - 1) * 2, 2);
+
+	if (length(imageLoad(img_input, pixel_coords)) < length(median)) {
+		imageStore(img_input, pixel_coords, vec4(median, 1.0));
+	}
+	imageStore(img_output, pixel_coords, vec4(imageLoad(img_input, pixel_coords).xyz / samples, 1.0));
+
+	/*
 	vec4 color = vec4(0.0);
 	float sum = 0.0;
 
@@ -57,6 +80,7 @@ void main() {
 		color.a = 1.0;
 		imageStore(img_output, pixel_coords, color);
 	}
+	*/
 
 	//vec4 final_color = imageLoad(img_input, pixel_coords) / samples;
 	//final_color.a = 1.0;

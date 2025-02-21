@@ -52,6 +52,7 @@ float angle(vec3 a, vec3 b) {
 }
 
 
+/*
 mat3 rotationMatrix(float angleX, float angleY, float angleZ) {
 	float radX = radians(angleX);
 	float radY = radians(angleY);
@@ -83,6 +84,27 @@ vec3 rotateVectorRandom(vec3 v, int seed, float maxAngle) {
 	vec3 rotatedVec = rotMatrix * v;
 
 	return rotatedVec;
+}
+*/
+float random(float value) {
+	return fract(sqrt(value * 129.898) + 100.001 / 7.69 * 43758.5453);
+}
+vec3 rotateVector(vec3 v, vec3 axis, float angle) {
+	// Rodrigues' rotation formula
+	return mix(dot(axis, v) * axis, v, cos(angle)) + cross(axis, v) * sin(angle);
+}
+vec3 diffuseVector(vec3 v, vec3 normal, float maxAngle) {
+	float randomAngleX = random(dot(v, normal) * maxAngle + 12.68) * maxAngle - maxAngle / 2.0;
+	float randomAngleY = random(dot(v, normal) * maxAngle + 41.01) * maxAngle - maxAngle / 2.0;
+	float randomAngleZ = random(dot(v, normal) * maxAngle + 65.32) * maxAngle - maxAngle / 2.0;
+
+	vec3 tg = tangent(normal);
+
+	vec3 rotZ = rotateVector(v, normal, randomAngleZ);
+	vec3 rotY = rotateVector(rotZ, tg, randomAngleY);
+	vec3 rotX = rotateVector(rotY, normalize(cross(normal, tg)), randomAngleX);
+
+	return normalize(mix(normal, rotX, 0.66));
 }
 
 
