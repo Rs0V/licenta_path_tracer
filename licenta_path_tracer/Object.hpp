@@ -16,6 +16,9 @@ protected:
 	bool visible;
 	bool affectWorld;
 
+	int type;
+	int index;
+
 	Object();
 	Object(Transform transform, Color color);
 
@@ -28,6 +31,9 @@ public:
 	getterr(components)
 	getset(visible)
 	getset(affectWorld)
+
+	getter(type)
+	getter(index)
 };
 
 inline Object::~Object() {}

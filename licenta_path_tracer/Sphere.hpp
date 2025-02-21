@@ -2,6 +2,8 @@
 #include "Object.hpp"
 
 class Sphere : public Object {
+	static int sphere_index;
+
 protected:
 	float radius;
 

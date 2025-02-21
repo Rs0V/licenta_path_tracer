@@ -36,12 +36,12 @@ layout (std430, binding = 3) buffer Cylinders {
 	Cylinder[] cylinders;
 };
 uniform int cylinders_no;
-/*
+
 layout (std430, binding = 4) buffer Cones {
 	Cone[] cones;
 };
 uniform int cones_no;
-*/
+
 
 struct RaycastHit {
 	bool hit;
@@ -52,38 +52,145 @@ struct RaycastHit {
 	int obj_type;
 	int obj_index;
 };
+float signDistBlendedObj(float obj_dist_0, float obj_dist_1, int booleanType = -1, float blend = 0.5) {
+	switch(booleanType) {
+	case -1:
+		return min(obj_dist_0, obj_dist_1);
+	case 0:
+		return smoothUnion(obj_dist_0, obj_dist_1, blend);
+	case 1:
+		return smoothIntersect(obj_dist_0, obj_dist_1, blend);
+	case 2:
+		return smoothIntersect(obj_dist_0, obj_dist_1, blend);
+	}
+}
+float signDistObj(vec3 ray_pos, int obj_type, int obj_index) {
+	switch(obj_type) {
+	case 0:
+		return signDistSphere(ray_pos, spheres[obj_index].location, spheres[obj_index].radius);
+	case 1:
+		return signDistCube(ray_pos, cubes[obj_index].location, cubes[obj_index].dimensions);
+	case 2:
+		return signDistCylinder(ray_pos, cylinders[obj_index].location, cylinders[obj_index].radius, cylinders[obj_index].height);
+	case 3:
+		return signDistCone(ray_pos, cones[obj_index].location, cones[obj_index].radius, cones[obj_index].height);
+	}
+	return -999999999;
+}
 RaycastHit raycast(vec3 ray_pos, vec3 ray_dir) {
 	vec3 init_pos = ray_pos;
 	ray_pos += ray_dir * hitThreshold * 100.0;
 
-	int obj_type = -1; // 0 - sphere, 1 - cube, 2 - cylinder
+	int obj_type = -1; // 0 - sphere, 1 - cube, 2 - cylinder, 2 - cone
 	int obj_index = -1;
 	while (distance(init_pos, ray_pos) < farPlane) {
 		float minDist = 10000000.0;
-		for (int i = 0; i < spheres_no; ++i) {
-			float temp = min(minDist, signDistSphere(ray_pos, spheres[i].location, spheres[i].radius));
-			if (temp < minDist) {
-				minDist = temp;
+
+		for (int i = 0; i < spheres_no + cubes_no + cylinders_no + cones_no; i++) {
+			int obj_type =
+				i < spheres_no   ? 0 :
+				i < cubes_no     ? 1 :
+				i < cylinders_no ? 2 :
+				3;
+			int obj_index =
+				i < spheres_no   ? i                         :
+				i < cubes_no     ? i - spheres_no            :
+				i < cylinders_no ? i - spheres_no - cubes_no :
+				i - spheres_no - cubes_no - cylinders_no;
+
+			float distToObj = signDistObj(ray_pos, obj_type, obj_index);
+
+			float distToOther;
+			switch(obj_type) {
+			case 0:
+				distToOther = signDistObj(ray_pos, spheres[i].booleanObjType, spheres[i].booleanObjIndex);
+				break;
+			case 1:
+				distToOther = signDistObj(ray_pos, cubes[i].booleanObjType, cubes[i].booleanObjIndex);
+				break;
+			case 2:
+				distToOther = signDistObj(ray_pos, cylinders[i].booleanObjType, cylinders[i].booleanObjIndex);
+				break;
+			case 3:
+				distToOther = signDistObj(ray_pos, cones[i].booleanObjType, cones[i].booleanObjIndex);
+				break;
+			}
+
+			float booleanDist;
+			switch(obj_type) {
+			case 0:
+				booleanDist = signDistBlendedObj(distToObj, distToOther, spheres[i].booleanType);
+				break;
+			case 1:
+				booleanDist = signDistBlendedObj(distToObj, distToOther, cubes[i].booleanType);
+				break;
+			case 2:
+				booleanDist = signDistBlendedObj(distToObj, distToOther, cylinders[i].booleanType);
+				break;
+			case 3:
+				booleanDist = signDistBlendedObj(distToObj, distToOther, cones[i].booleanType);
+				break;
+			}
+			
+			float closest = signDistBlendedObj(minDist, booleanDist);
+
+			if (closest < minDist) {
+				minDist = closest;
 				obj_type = 0;
 				obj_index = i;
 			}
 		}
-		for (int i = 0; i < cubes_no; ++i) {
-			float temp = min(minDist, signDistCube(ray_pos, cubes[i].location, cubes[i].dimensions));
-			if (temp < minDist) {
-				minDist = temp;
-				obj_type = 1;
+
+		/*
+		// Check for closest Sphere
+		for (int i = 0; i < spheres_no; ++i) {
+			float distToSphere = signDistSphere(ray_pos, spheres[i].location, spheres[i].radius);
+			float booleanDist = signDistBlendedObj(distToSphere, signDistObj(ray_pos, spheres[i].booleanObjType, spheres[i].booleanObjIndex), spheres[i].booleanType);
+			float closest = signDistBlendedObj(minDist, distToSphere);
+
+			if (closest < minDist) {
+				minDist = closest;
+				obj_type = 0;
 				obj_index = i;
 			}
 		}
+		// Check for closest Cube
+		for (int i = 0; i < cubes_no; ++i) {
+			float distToCube = signDistCube(ray_pos, cubes[i].location, cubes[i].dimensions);
+			float booleanDist = signDistBlendedObj(distToCube, signDistObj(ray_pos, cubes[i].booleanObjType, cubes[i].booleanObjIndex), cubes[i].booleanType);
+			float closest = signDistBlendedObj(minDist, distToCube);
+
+			if (closest < minDist) {
+				minDist = closest;
+				obj_type = 0;
+				obj_index = i;
+			}
+		}
+		// Check for closest Cylinder
 		for (int i = 0; i < cylinders_no; ++i) {
-			float temp = min(minDist, signDistCylinder(ray_pos, cylinders[i].location, cylinders[i].radius, cylinders[i].height));
-			if (temp < minDist) {
-				minDist = temp;
+			float distToCylinder = signDistCylinder(ray_pos, cylinders[i].location, cylinders[i].radius, cylinders[i].height);
+			float booleanDist = signDistBlendedObj(distToCylinder, signDistObj(ray_pos, cylinders[i].booleanObjType, cylinders[i].booleanObjIndex), cylinders[i].booleanType);
+			float closest = signDistBlendedObj(minDist, distToCylinder);
+
+			if (closest < minDist) {
+				minDist = closest;
 				obj_type = 2;
 				obj_index = i;
 			}
 		}
+		// Check for closest Cone
+		for (int i = 0; i < cones_no; ++i) {
+			float distToCone = signDistCone(ray_pos, cones[i].location, cones[i].radius, cones[i].height);
+			float booleanDist = signDistBlendedObj(distToCone, signDistObj(ray_pos, cones[i].booleanObjType, cones[i].booleanObjIndex), cones[i].booleanType);
+			float closest = signDistBlendedObj(minDist, distToCone);
+
+			if (closest < minDist) {
+				minDist = closest;
+				obj_type = 3;
+				obj_index = i;
+			}
+		}
+		*/
 		ray_pos += ray_dir * minDist;
 		
 		if (minDist < hitThreshold) {
@@ -91,12 +198,14 @@ RaycastHit raycast(vec3 ray_pos, vec3 ray_dir) {
 				  obj_type == 0 ? normalSphere(ray_pos, spheres[obj_index].location, spheres[obj_index].radius)
 				: obj_type == 1 ? normalCube(ray_pos, cubes[obj_index].location, cubes[obj_index].dimensions)
 				: obj_type == 2 ? normalCylinder(ray_pos, cylinders[obj_index].location, cylinders[obj_index].radius, cylinders[obj_index].height)
+				: obj_type == 3 ? normalCone(ray_pos, cones[obj_index].location, cones[obj_index].radius, cones[obj_index].height)
 				: vec3(0.0)
 			;
 			vec4 color =
 				  obj_type == 0 ? spheres[obj_index].color
 				: obj_type == 1 ? cubes[obj_index].color
 				: obj_type == 2 ? cylinders[obj_index].color
+				: obj_type == 3 ? cones[obj_index].color
 				: vec4(1.0)
 			;
 			return RaycastHit(true, ray_pos, ray_dir, color, normal, obj_type, obj_index);

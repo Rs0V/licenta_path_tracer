@@ -2,6 +2,8 @@
 #include "Object.hpp"
 
 class Cone : public Object {
+	static int cone_index;
+
 protected:
 	float radius, height;
 

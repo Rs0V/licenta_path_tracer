@@ -36,7 +36,7 @@ auto member##_get() const { \
 auto& member##_getr() { \
 	return this->member; \
 } \
-const auto& member##_getcr() const { \
+const auto& member##_getrc() const { \
 	return this->member; \
 }
 #define setter(member) \
@@ -50,13 +50,13 @@ setter(member)
 #define interface class
 #define none {}
 
-#define is(_var, _class, _symbol) { auto _var##_class = dynamic_cast<_class##_symbol>(_var); if (_var##_class)
-#define repeat(iter, times) for (uint iter = times; iter > 0; iter--)
-#define rwhile(decl, cond, iter) { decl; for (; cond; iter)
-#define rif(decl, cond) { decl; if (cond)
-#define relse(cond) else rif (decl, cond)
-#define end }
-#define rend }}
+#define r_is(_var, _class, _symbol) { auto _var##_class = dynamic_cast<_class##_symbol>(_var); if (_var##_class)
+#define r_repeat(iter, times) for (uint iter = times; iter > 0; iter--)
+#define r_rwhile(decl, cond, iter) { decl; for (; cond; iter)
+#define r_rif(decl, cond) { decl; if (cond)
+#define r_relse(cond) else rif (decl, cond)
+#define r_end }
+#define r_rend }}
 
 #define pubb(def) public: def; public:
 #define pubt(def) public: def; protected:
@@ -100,9 +100,9 @@ template<class T, class U>
 static std::vector<T> get_of_type(const std::vector<U>& v) {
 	std::vector<T> rv;
 	for (auto& elem : v) {
-		is(elem, T, ) {
+		r_is(elem, T, ) {
 			rv.push_back(elemT);
-		}end
+		}r_end
 	}
 	return rv;
 }
@@ -155,4 +155,14 @@ template<class T> static T random(T min, T max) {
 inline std::ostream& operator<<(std::ostream& os, glm::vec3 v) {
 	os << "{" << v.x << ", " << v.y << ", " << v.z << "}";
 	return os;
+}
+
+template<class U, class T = void*> inline static U vuni_cast(const std::vector<T> &v) {
+	for (auto &t : v) {
+		auto cast = dynamic_cast<U>(t);
+		if (cast != nullptr) {
+			return cast;
+		}
+	}
+	return nullptr;
 }

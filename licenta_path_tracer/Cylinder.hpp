@@ -2,6 +2,8 @@
 #include "Object.hpp"
 
 class Cylinder : public Object {
+	static int cylinder_index;
+
 protected:
 	float radius, height;
 

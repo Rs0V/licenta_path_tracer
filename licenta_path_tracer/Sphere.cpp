@@ -1,16 +1,24 @@
 #include "Sphere.hpp"
 
+int Sphere::sphere_index = 0;
+
 Sphere::Sphere()
 	:
 	Object({}, { 1.0f, 1.0f, 1.0f, 1.0f }),
 	radius(1.0f)
-{}
+{
+	this->type = 0;
+	this->index = Sphere::sphere_index++;
+}
 
 Sphere::Sphere(Transform transform, Color color, float radius)
 	:
 	Object(transform, color),
 	radius(radius)
-{}
+{
+	this->type = 0;
+	this->index = Sphere::sphere_index++;
+}
 
 Sphere::~Sphere() {}
 

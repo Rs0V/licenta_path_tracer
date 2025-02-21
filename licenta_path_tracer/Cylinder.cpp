@@ -1,11 +1,15 @@
 #include "Cylinder.hpp"
 
+int Cylinder::cylinder_index = 0;
+
 Cylinder::Cylinder()
 	:
 	Object({}, { 1.0f, 1.0f, 1.0f, 1.0f }),
 	radius(1.0f),
 	height(1.0f)
 {
+	this->type = 2;
+	this->index = Cylinder::cylinder_index++;
 }
 
 Cylinder::Cylinder(Transform transform, Color color, float radius, float height)
@@ -14,6 +18,8 @@ Cylinder::Cylinder(Transform transform, Color color, float radius, float height)
 	radius(radius),
 	height(height)
 {
+	this->type = 2;
+	this->index = Cylinder::cylinder_index++;
 }
 
 Cylinder::~Cylinder() {

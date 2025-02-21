@@ -2,6 +2,8 @@
 #include "Object.hpp"
 
 class Cube : public Object {
+	static int cube_index;
+
 protected:
 	glm::vec3 dimensions;
 

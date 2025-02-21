@@ -327,6 +327,8 @@ int main(int argc, char* argv[]) {
 		4.0f,
 		6.0f
 	));
+	auto boolean = new boolean::Boolean(objects[0], boolean::Type::Union);
+	objects[1]->components_getr().emplace_back(boolean);
 
 	#pragma endregion
 
@@ -359,6 +361,7 @@ int main(int argc, char* argv[]) {
 		sendCpuObjectsToGpu<Sphere, rmo::Sphere>(raymarch_program, objects, "spheres", 1);
 		sendCpuObjectsToGpu<Cube, rmo::Cube>(raymarch_program, objects, "cubes", 2);
 		sendCpuObjectsToGpu<Cylinder, rmo::Cylinder>(raymarch_program, objects, "cylinders", 3);
+		sendCpuObjectsToGpu<Cone, rmo::Cone>(raymarch_program, objects, "cones", 4);
 	});
 	// Application Update function
 	window.Update([&](float deltaTime) {

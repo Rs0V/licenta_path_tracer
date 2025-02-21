@@ -1,11 +1,15 @@
 #include "Cone.hpp"
 
+int Cone::cone_index = 0;
+
 Cone::Cone()
 	:
 	Object({}, { 1.0f, 1.0f, 1.0f, 1.0f }),
 	radius(1.0f),
 	height(1.0f)
 {
+	this->type = 3;
+	this->index = Cone::cone_index++;
 }
 
 Cone::Cone(Transform transform, Color color, float radius, float height)
@@ -14,6 +18,8 @@ Cone::Cone(Transform transform, Color color, float radius, float height)
 	radius(radius),
 	height(height)
 {
+	this->type = 3;
+	this->index = Cone::cone_index++;
 }
 
 Cone::~Cone() {
