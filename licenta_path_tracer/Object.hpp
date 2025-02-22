@@ -13,8 +13,8 @@ protected:
 	Color color;
 
 	std::vector<Component*> components;
-	bool visible;
-	bool affectWorld;
+	bool visible = true;
+	bool affectWorld = true;
 
 	int type;
 	int index;

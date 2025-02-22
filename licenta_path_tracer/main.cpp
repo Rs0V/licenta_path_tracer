@@ -339,6 +339,7 @@ int main(int argc, char* argv[]) {
 	));
 	auto boolean = new boolean::Boolean(objects[0], boolean::Type::Difference);
 	objects[1]->components_getr().emplace_back(boolean);
+	objects[0]->visible_set(false);
 
 	#pragma endregion
 
@@ -380,7 +381,7 @@ int main(int argc, char* argv[]) {
 		SDL_SetWindowTitle(window.window_get(), std::to_string(1.0f / deltaTime).c_str());
 
 		// Setup Ray-Sampling
-		static constexpr uint max_samples = 1024;
+		static constexpr uint max_samples = 64;
 		static int samples = max_samples;
 		auto reset_pathtracer = [&]() {
 			glUniform1i(glGetUniformLocation(raymarch_program, "reset"), 1);
@@ -388,6 +389,7 @@ int main(int argc, char* argv[]) {
 			updateGpuObjects<Sphere, rmo::Sphere>(raymarch_program, objects, "spheres");
 			updateGpuObjects<Cube, rmo::Cube>(raymarch_program, objects, "cubes");
 			updateGpuObjects<Cylinder, rmo::Cylinder>(raymarch_program, objects, "cylinders");
+			updateGpuObjects<Cone, rmo::Cone>(raymarch_program, objects, "cones");
 		};
 
 
