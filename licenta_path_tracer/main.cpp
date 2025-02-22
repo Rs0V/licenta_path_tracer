@@ -327,7 +327,17 @@ int main(int argc, char* argv[]) {
 		4.0f,
 		6.0f
 	));
-	auto boolean = new boolean::Boolean(objects[0], boolean::Type::Union);
+	objects.emplace_back(new Cone(
+		{
+			{ 25.0f, -20.0f, 5.0f },
+			{  0.0f,   0.0f, 0.0f },
+			{  1.0f,   1.0f, 1.0f }
+		},
+		{ 0.0f, 1.0f, 0.7f, 1.0f },
+		4.0f,
+		6.0f
+	));
+	auto boolean = new boolean::Boolean(objects[0], boolean::Type::Difference);
 	objects[1]->components_getr().emplace_back(boolean);
 
 	#pragma endregion

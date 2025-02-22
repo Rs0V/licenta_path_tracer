@@ -61,7 +61,7 @@ float signDistBlendedObj(float obj_dist_0, float obj_dist_1, int booleanType = -
 	case 1:
 		return smoothIntersect(obj_dist_0, obj_dist_1, blend);
 	case 2:
-		return smoothIntersect(obj_dist_0, obj_dist_1, blend);
+		return smoothDifference(obj_dist_0, obj_dist_1, blend);
 	}
 }
 float signDistObj(vec3 ray_pos, int obj_type, int obj_index) {
@@ -81,27 +81,29 @@ RaycastHit raycast(vec3 ray_pos, vec3 ray_dir) {
 	vec3 init_pos = ray_pos;
 	ray_pos += ray_dir * hitThreshold * 100.0;
 
-	int obj_type = -1; // 0 - sphere, 1 - cube, 2 - cylinder, 2 - cone
+	int obj_type = -1; // 0 - sphere, 1 - cube, 2 - cylinder, 3 - cone
 	int obj_index = -1;
 	while (distance(init_pos, ray_pos) < farPlane) {
 		float minDist = 10000000.0;
 
+		// NOT OPTIMAL
+		/*
 		for (int i = 0; i < spheres_no + cubes_no + cylinders_no + cones_no; i++) {
-			int obj_type =
+			int objType =
 				i < spheres_no   ? 0 :
 				i < cubes_no     ? 1 :
 				i < cylinders_no ? 2 :
 				3;
-			int obj_index =
+			int objIndex =
 				i < spheres_no   ? i                         :
 				i < cubes_no     ? i - spheres_no            :
 				i < cylinders_no ? i - spheres_no - cubes_no :
 				i - spheres_no - cubes_no - cylinders_no;
 
-			float distToObj = signDistObj(ray_pos, obj_type, obj_index);
+			float distToObj = signDistObj(ray_pos, objType, obj_index);
 
 			float distToOther;
-			switch(obj_type) {
+			switch(objType) {
 			case 0:
 				distToOther = signDistObj(ray_pos, spheres[i].booleanObjType, spheres[i].booleanObjIndex);
 				break;
@@ -117,7 +119,7 @@ RaycastHit raycast(vec3 ray_pos, vec3 ray_dir) {
 			}
 
 			float booleanDist;
-			switch(obj_type) {
+			switch(objType) {
 			case 0:
 				booleanDist = signDistBlendedObj(distToObj, distToOther, spheres[i].booleanType);
 				break;
@@ -136,17 +138,18 @@ RaycastHit raycast(vec3 ray_pos, vec3 ray_dir) {
 
 			if (closest < minDist) {
 				minDist = closest;
-				obj_type = 0;
-				obj_index = i;
+				obj_type = objType;
+				obj_index = objIndex;
 			}
 		}
+		*/
 
-		/*
 		// Check for closest Sphere
 		for (int i = 0; i < spheres_no; ++i) {
 			float distToSphere = signDistSphere(ray_pos, spheres[i].location, spheres[i].radius);
 			float booleanDist = signDistBlendedObj(distToSphere, signDistObj(ray_pos, spheres[i].booleanObjType, spheres[i].booleanObjIndex), spheres[i].booleanType);
 			float closest = signDistBlendedObj(minDist, distToSphere);
+			//float closest = min(minDist, distToSphere);
 
 			if (closest < minDist) {
 				minDist = closest;
@@ -159,10 +162,11 @@ RaycastHit raycast(vec3 ray_pos, vec3 ray_dir) {
 			float distToCube = signDistCube(ray_pos, cubes[i].location, cubes[i].dimensions);
 			float booleanDist = signDistBlendedObj(distToCube, signDistObj(ray_pos, cubes[i].booleanObjType, cubes[i].booleanObjIndex), cubes[i].booleanType);
 			float closest = signDistBlendedObj(minDist, distToCube);
+			//float closest = min(minDist, distToCube);
 
 			if (closest < minDist) {
 				minDist = closest;
-				obj_type = 0;
+				obj_type = 1;
 				obj_index = i;
 			}
 		}
@@ -171,6 +175,7 @@ RaycastHit raycast(vec3 ray_pos, vec3 ray_dir) {
 			float distToCylinder = signDistCylinder(ray_pos, cylinders[i].location, cylinders[i].radius, cylinders[i].height);
 			float booleanDist = signDistBlendedObj(distToCylinder, signDistObj(ray_pos, cylinders[i].booleanObjType, cylinders[i].booleanObjIndex), cylinders[i].booleanType);
 			float closest = signDistBlendedObj(minDist, distToCylinder);
+			//float closest = min(minDist, distToCylinder);
 
 			if (closest < minDist) {
 				minDist = closest;
@@ -183,6 +188,7 @@ RaycastHit raycast(vec3 ray_pos, vec3 ray_dir) {
 			float distToCone = signDistCone(ray_pos, cones[i].location, cones[i].radius, cones[i].height);
 			float booleanDist = signDistBlendedObj(distToCone, signDistObj(ray_pos, cones[i].booleanObjType, cones[i].booleanObjIndex), cones[i].booleanType);
 			float closest = signDistBlendedObj(minDist, distToCone);
+			//float closest = min(minDist, distToCone);
 
 			if (closest < minDist) {
 				minDist = closest;
@@ -190,7 +196,6 @@ RaycastHit raycast(vec3 ray_pos, vec3 ray_dir) {
 				obj_index = i;
 			}
 		}
-		*/
 		ray_pos += ray_dir * minDist;
 		
 		if (minDist < hitThreshold) {
