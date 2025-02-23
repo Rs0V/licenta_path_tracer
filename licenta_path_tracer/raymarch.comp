@@ -220,7 +220,7 @@ RaycastHit raycast(vec3 ray_pos, vec3 ray_dir) {
 	vec3 normal = vec3(0.0);
 	vec4 color = vec4(0.0);
 	while (distance(init_pos, ray_pos) < farPlane) {
-		float minDist = 10000000.0;
+		float minDist = 999999999;
 
 		// Check for closest Sphere
 		for (int i = 0; i < spheres_no; ++i) {
@@ -235,7 +235,7 @@ RaycastHit raycast(vec3 ray_pos, vec3 ray_dir) {
 
 			if (closest < minDist) {
 				minDist = closest;
-				normal  = normalBlendedObj(ray_pos, 0, i, spheres[i].booleanObjType, spheres[i].booleanObjIndex, spheres[i].booleanType);
+				//normal  = normalBlendedObj(ray_pos, 0, i, spheres[i].booleanObjType, spheres[i].booleanObjIndex, spheres[i].booleanType);
 				/*
 				color   = mix(
 					spheres[i].color,
@@ -243,7 +243,7 @@ RaycastHit raycast(vec3 ray_pos, vec3 ray_dir) {
 					clamp((booleanDist - distToSphere) / (distToOther - distToSphere), 0.0, 1.0)
 				);
 				*/
-				color = vec4(1.0);
+				//color = vec4(1.0);
 				obj_type = 0;
 				obj_index = i;
 			}
@@ -272,7 +272,7 @@ RaycastHit raycast(vec3 ray_pos, vec3 ray_dir) {
 
 			if (closest < minDist) {
 				minDist = closest;
-				normal  = normalBlendedObj(ray_pos, 0, i, cubes[i].booleanObjType, cubes[i].booleanObjIndex, cubes[i].booleanType);
+				//normal  = normalBlendedObj(ray_pos, 0, i, cubes[i].booleanObjType, cubes[i].booleanObjIndex, cubes[i].booleanType);
 				/*
 				color   = mix(
 					cubes[i].color,
@@ -280,7 +280,7 @@ RaycastHit raycast(vec3 ray_pos, vec3 ray_dir) {
 					clamp((booleanDist - distToCube) / (distToOther - distToCube), 0.0, 1.0)
 				);
 				*/
-				color = vec4(1.0);
+				//color = vec4(1.0);
 				obj_type = 1;
 				obj_index = i;
 			}
@@ -309,7 +309,7 @@ RaycastHit raycast(vec3 ray_pos, vec3 ray_dir) {
 
 			if (closest < minDist) {
 				minDist = closest;
-				normal  = normalBlendedObj(ray_pos, 0, i, cylinders[i].booleanObjType, cylinders[i].booleanObjIndex, cylinders[i].booleanType);
+				//normal  = normalBlendedObj(ray_pos, 0, i, cylinders[i].booleanObjType, cylinders[i].booleanObjIndex, cylinders[i].booleanType);
 				/*
 				color   = mix(
 					cylinders[i].color,
@@ -317,7 +317,7 @@ RaycastHit raycast(vec3 ray_pos, vec3 ray_dir) {
 					clamp((booleanDist - distToCylinder) / (distToOther - distToCylinder), 0.0, 1.0)
 				);
 				*/
-				color = vec4(1.0);
+				//color = vec4(1.0);
 				obj_type = 2;
 				obj_index = i;
 			}
@@ -346,7 +346,7 @@ RaycastHit raycast(vec3 ray_pos, vec3 ray_dir) {
 
 			if (closest < minDist) {
 				minDist = closest;
-				normal  = normalBlendedObj(ray_pos, 0, i, cones[i].booleanObjType, cones[i].booleanObjIndex, cones[i].booleanType);
+				//normal  = normalBlendedObj(ray_pos, 0, i, cones[i].booleanObjType, cones[i].booleanObjIndex, cones[i].booleanType);
 				/*
 				color   = mix(
 					cones[i].color,
@@ -354,7 +354,7 @@ RaycastHit raycast(vec3 ray_pos, vec3 ray_dir) {
 					clamp((booleanDist - distToCone) / (distToOther - distToCone), 0.0, 1.0)
 				);
 				*/
-				color = vec4(1.0);
+				//color = vec4(1.0);
 				obj_type = 3;
 				obj_index = i;
 			}
@@ -377,7 +377,7 @@ RaycastHit raycast(vec3 ray_pos, vec3 ray_dir) {
 				: vec4(1.0)
 			;
 			*/
-			return RaycastHit(true, ray_pos, ray_dir, color, normalScene(ray_pos), obj_type, obj_index);
+			return RaycastHit(true, ray_pos, ray_dir, vec4(1), normalScene(ray_pos), obj_type, obj_index);
 		}
 
         //float normalScale = dot(normalScene(ray_pos), ray_dir);
