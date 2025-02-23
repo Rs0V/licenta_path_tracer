@@ -52,40 +52,6 @@ float angle(vec3 a, vec3 b) {
 }
 
 
-/*
-mat3 rotationMatrix(float angleX, float angleY, float angleZ) {
-	float radX = radians(angleX);
-	float radY = radians(angleY);
-	float radZ = radians(angleZ);
-
-	mat3 rotX = mat3(1.0, 0.0, 0.0,
-					 0.0, cos(radX), -sin(radX),
-					 0.0, sin(radX), cos(radX));
-
-	mat3 rotY = mat3(cos(radY), 0.0, sin(radY),
-					 0.0, 1.0, 0.0,
-					 -sin(radY), 0.0, cos(radY));
-
-	mat3 rotZ = mat3(cos(radZ), -sin(radZ), 0.0,
-					 sin(radZ), cos(radZ), 0.0,
-					 0.0, 0.0, 1.0);
-
-	return rotZ * rotY * rotX;
-}
-float random(vec2 v, int seed) {
-	return fract(sin(dot(v, vec2(12.9898, 78.233))) * 43758.5453123 * seed);
-}
-vec3 rotateVectorRandom(vec3 v, int seed, float maxAngle) {
-	float randomAngleX = random(v.xy, seed) * maxAngle;
-	float randomAngleY = random(v.yz, seed) * maxAngle;
-	float randomAngleZ = random(v.zx, seed) * maxAngle;
-
-	mat3 rotMatrix = rotationMatrix(randomAngleX, randomAngleY, randomAngleZ);
-	vec3 rotatedVec = rotMatrix * v;
-
-	return rotatedVec;
-}
-*/
 float random(float value) {
 	return fract(sqrt(value * 129.898) + 100.001 / 7.69 * 43758.5453);
 }

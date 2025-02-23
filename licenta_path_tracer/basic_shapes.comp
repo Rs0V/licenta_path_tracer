@@ -57,20 +57,6 @@ struct Sphere {
 float signDistSphere(vec3 ray_pos, vec3 sphere_pos, float sphere_radius) {
 	return distance(sphere_pos, ray_pos) - sphere_radius;
 }
-vec3 normalSphere(vec3 ray_pos, vec3 sphere_pos, float sphere_radius) {
-    float epsilon = 0.0001;
-    vec3 dx = vec3(epsilon, 0.0, 0.0);
-    vec3 dy = vec3(0.0, epsilon, 0.0);
-    vec3 dz = vec3(0.0, 0.0, epsilon);
-
-    float d  = signDistSphere(ray_pos     , sphere_pos, sphere_radius);
-    float nx = signDistSphere(ray_pos + dx, sphere_pos, sphere_radius) - d;
-    float ny = signDistSphere(ray_pos + dy, sphere_pos, sphere_radius) - d;
-    float nz = signDistSphere(ray_pos + dz, sphere_pos, sphere_radius) - d;
-
-    return normalize(vec3(nx, ny, nz));
-}
-
 
 struct Cube {
 	vec3 location;
@@ -97,20 +83,6 @@ float signDistCube(vec3 ray_pos, vec3 cube_pos, vec3 dims) {
 	vec3 q = abs(ray_pos - cube_pos) - dims / 2.0;
 	return length(max(q, 0.0)) + min(max(q.x, max(q.y, q.z)), 0.0);
 }
-vec3 normalCube(vec3 ray_pos, vec3 cube_pos, vec3 dims) {
-    float epsilon = 0.0001;
-    vec3 dx = vec3(epsilon, 0.0, 0.0);
-    vec3 dy = vec3(0.0, epsilon, 0.0);
-    vec3 dz = vec3(0.0, 0.0, epsilon);
-
-    float d  = signDistCube(ray_pos     , cube_pos, dims);
-    float nx = signDistCube(ray_pos + dx, cube_pos, dims) - d;
-    float ny = signDistCube(ray_pos + dy, cube_pos, dims) - d;
-    float nz = signDistCube(ray_pos + dz, cube_pos, dims) - d;
-
-    return normalize(vec3(nx, ny, nz));
-}
-
 
 struct Cylinder {
 	vec3 location;
@@ -138,20 +110,6 @@ float signDistCylinder(vec3 ray_pos, vec3 cylinder_pos, float cylinder_radius, f
 	vec2 d = abs(vec2(length(ray_pos.xy - cylinder_pos.xy), ray_pos.z - cylinder_pos.z)) - vec2(cylinder_radius, cylinder_height / 2.0);
 	return min(max(d.x, d.y), 0.0) + length(max(d, 0.0));
 }
-vec3 normalCylinder(vec3 ray_pos, vec3 cylinder_pos, float cylinder_radius, float cylinder_height) {
-    float epsilon = 0.0001;
-    vec3 dx = vec3(epsilon, 0.0, 0.0);
-    vec3 dy = vec3(0.0, epsilon, 0.0);
-    vec3 dz = vec3(0.0, 0.0, epsilon);
-
-    float d  = signDistCylinder(ray_pos     , cylinder_pos, cylinder_radius, cylinder_height);
-    float nx = signDistCylinder(ray_pos + dx, cylinder_pos, cylinder_radius, cylinder_height) - d;
-    float ny = signDistCylinder(ray_pos + dy, cylinder_pos, cylinder_radius, cylinder_height) - d;
-    float nz = signDistCylinder(ray_pos + dz, cylinder_pos, cylinder_radius, cylinder_height) - d;
-
-    return normalize(vec3(nx, ny, nz));
-}
-
 
 struct Cone {
 	vec3 location;
@@ -190,17 +148,4 @@ float signDistCone(vec3 ray_pos, vec3 cone_pos, float cone_radius, float cone_he
 	float d = min(dot(a, a), dot(b, b));
 	float s = max(k * (w.x * q.y - w.y * q.x), k * (w.y - q.y));
 	return sqrt(d) * sign(s);
-}
-vec3 normalCone(vec3 ray_pos, vec3 cone_pos, float cone_radius, float cone_height) {
-    float epsilon = 0.0001;
-    vec3 dx = vec3(epsilon, 0.0, 0.0);
-    vec3 dy = vec3(0.0, epsilon, 0.0);
-    vec3 dz = vec3(0.0, 0.0, epsilon);
-
-    float d  = signDistCone(ray_pos     , cone_pos, cone_radius, cone_height);
-    float nx = signDistCone(ray_pos + dx, cone_pos, cone_radius, cone_height) - d;
-    float ny = signDistCone(ray_pos + dy, cone_pos, cone_radius, cone_height) - d;
-    float nz = signDistCone(ray_pos + dz, cone_pos, cone_radius, cone_height) - d;
-
-    return normalize(vec3(nx, ny, nz));
 }

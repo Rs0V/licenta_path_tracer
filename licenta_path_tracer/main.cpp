@@ -510,7 +510,7 @@ int main(int argc, char* argv[]) {
 
 
 		// Denoiser Sharpen-Pass
-		static constexpr uint denoisingPasses = 64;
+		static constexpr uint denoisingPasses = 0;
 		glUseProgram(denoiser_program);
 		glUniform1i(glGetUniformLocation(denoiser_program, "samples"), max_samples);
 		for (uint i = 0; i < denoisingPasses; i++) {
