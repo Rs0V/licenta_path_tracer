@@ -162,6 +162,10 @@ RaycastHit raycast(vec3 ray_pos, vec3 ray_dir) {
 
 	int obj_type = -1; // 0 - sphere, 1 - cube, 2 - cylinder, 3 - cone
 	int obj_index = -1;
+	float minimumDistance = 999999999;
+	float mDepsDistMin = 0.5;
+	float mDepsDistDiff = 0.1;
+	int mDeqCount = 0;
 	while (distance(init_pos, ray_pos) < farPlane) {
 		float minDist = 999999999;
 
@@ -234,8 +238,15 @@ RaycastHit raycast(vec3 ray_pos, vec3 ray_dir) {
 			}
 		}
 		
-		//float normalScale = dot(normalScene(ray_pos), ray_dir);
-		//ray_pos += ray_dir * max(minDist, abs(minDist / normalScale));
+		//float normalScale = max(0.5, abs(dot(normalScene(ray_pos), ray_dir)));
+		//ray_pos += ray_dir * max(minDist, minDist / normalScale);
+		if (distance(minimumDistance, minDist) < mDepsDistDiff && minDist < mDepsDistMin) {
+			minDist *= pow(2, mDeqCount + 1);
+			mDeqCount++;
+		} else {
+			minimumDistance = minDist;
+			mDeqCount = 0;
+		}
 		ray_pos += ray_dir * minDist;
 
 		if (minDist < hitThreshold) {
