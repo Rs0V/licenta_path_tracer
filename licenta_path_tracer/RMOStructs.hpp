@@ -70,16 +70,16 @@ namespace rmo {
 		glm::vec3 location;
 		privb(float pad0)
 
-		glm::vec3 rotation;
+			glm::vec3 rotation;
 		privb(float pad1)
 
-		glm::vec3 scale;
+			glm::vec3 scale;
 		privb(float pad2)
 
-		glm::vec3 dimensions;
+			glm::vec3 dimensions;
 		privb(float pad3)
 
-		glm::vec4 color;
+			glm::vec4 color;
 
 		int booleanObjType;
 		int booleanObjIndex;
@@ -112,17 +112,19 @@ namespace rmo {
 		glm::vec3 location;
 		privb(float pad0)
 
-		glm::vec3 rotation;
+			glm::vec3 rotation;
 		privb(float pad1)
 
-		glm::vec3 scale;
+			glm::vec3 scale;
 		privb(float pad2)
 
-		float radius;
-		float height;
-		privb(float pad3[2])
+			float radius;
+		privb(float pad3[3])
 
-		glm::vec4 color;
+			float height;
+		privb(float pad4[3])
+
+			glm::vec4 color;
 
 		int booleanObjType;
 		int booleanObjIndex;
@@ -156,17 +158,19 @@ namespace rmo {
 		glm::vec3 location;
 		privb(float pad0)
 
-		glm::vec3 rotation;
+			glm::vec3 rotation;
 		privb(float pad1)
 
-		glm::vec3 scale;
+			glm::vec3 scale;
 		privb(float pad2)
 
-		float radius;
-		float height;
-		privb(float pad3[2])
+			float radius;
+		privb(float pad3[3])
 
-		glm::vec4 color;
+			float height;
+		privb(float pad4[3])
+
+			glm::vec4 color;
 
 		int booleanObjType;
 		int booleanObjIndex;

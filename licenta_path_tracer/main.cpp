@@ -15,11 +15,11 @@
 
 GLuint compileShader(GLenum type, std::string source) {
 	const char* search_dirs[] = { "/" };
-	
+
 	GLuint shader = glCreateShader(type);
 	const char* csource = source.data();
 	glShaderSource(shader, 1, &csource, NULL);
-	
+
 	glCompileShader(shader);
 	/*
 	if (includesHeaders == false) {
@@ -105,7 +105,7 @@ template<class CAST, class RMO> void sendCpuObjectsToGpu(GLuint shader_program, 
 	delete[] rmo_objs;
 }
 
-template<class CAST, class RMO> void updateGpuObjects(GLuint shader_program, const std::vector<Object*>& objects, const std::string& array_name) {
+template<class CAST, class RMO> void updateGpuObjects(GLuint shader_program, const std::vector<Object*> &objects, const std::string &array_name) {
 	glUseProgram(shader_program);
 
 	auto casts = get_of_type<CAST*>(objects);
@@ -120,7 +120,7 @@ template<class CAST, class RMO> void updateGpuObjects(GLuint shader_program, con
 		memcpy(buffer_data, rmo_objs, sizeof(RMO) * casts.size());
 		glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
 	}
-	
+
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 	delete[] rmo_objs;
 }
@@ -228,7 +228,7 @@ int main(int argc, char* argv[]) {
 
 	#pragma endregion
 
-	
+
 	// Setup Camera Rays
 	Camera camera = Camera({
 		{ 0.0f, 0.0f, 0.0f },
@@ -367,13 +367,13 @@ int main(int argc, char* argv[]) {
 
 		glUseProgram(raymarch_program);
 		glUniformMatrix4fv(glGetUniformLocation(raymarch_program, "camera_proj"), 1, GL_FALSE, glm::value_ptr(proj));
-		
+
 		// Send Object Data to Ray-Marching Shader
 		sendCpuObjectsToGpu<Sphere, rmo::Sphere>(raymarch_program, objects, "spheres", 1);
 		sendCpuObjectsToGpu<Cube, rmo::Cube>(raymarch_program, objects, "cubes", 2);
 		sendCpuObjectsToGpu<Cylinder, rmo::Cylinder>(raymarch_program, objects, "cylinders", 3);
 		sendCpuObjectsToGpu<Cone, rmo::Cone>(raymarch_program, objects, "cones", 4);
-	});
+		});
 	// Application Update function
 	window.Update([&](float deltaTime) {
 
@@ -406,6 +406,8 @@ int main(int argc, char* argv[]) {
 		glUniformMatrix4fv(glGetUniformLocation(raymarch_program, "camera_view"), 1, GL_FALSE, glm::value_ptr(view));
 		glUniform3fv(glGetUniformLocation(raymarch_program, "camera_pos"), 1, glm::value_ptr(camera.transform_getr().location));
 
+
+		#pragma region Input
 
 		// Setup Camera Input
 		static float speed = 25.0f;
@@ -449,7 +451,7 @@ int main(int argc, char* argv[]) {
 		if (SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_UP]) {
 			auto rotation = glm::mat4(1.0)
 				* glm::rotate(-1.0f * sensitivity * deltaTime, camera.right_getr())
-			;
+				;
 			camera.right_getr() = glm::vec4(camera.right_getr(), 1.0) * rotation;
 			camera.forward_getr() = glm::vec4(camera.forward_getr(), 1.0) * rotation;
 			camera.up_getr() = glm::vec4(camera.up_getr(), 1.0) * rotation;
@@ -458,7 +460,7 @@ int main(int argc, char* argv[]) {
 		if (SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_DOWN]) {
 			auto rotation = glm::mat4(1.0)
 				* glm::rotate(1.0f * sensitivity * deltaTime, camera.right_getr())
-			;
+				;
 			camera.right_getr() = glm::vec4(camera.right_getr(), 1.0) * rotation;
 			camera.forward_getr() = glm::vec4(camera.forward_getr(), 1.0) * rotation;
 			camera.up_getr() = glm::vec4(camera.up_getr(), 1.0) * rotation;
@@ -467,7 +469,7 @@ int main(int argc, char* argv[]) {
 		if (SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_LEFT]) {
 			auto rotation = glm::mat4(1.0)
 				* glm::rotate(-1.0f * sensitivity * deltaTime, glm::vec3(0.0f, 0.0f, 1.0f))
-			;
+				;
 			camera.right_getr() = glm::vec4(camera.right_getr(), 1.0) * rotation;
 			camera.forward_getr() = glm::vec4(camera.forward_getr(), 1.0) * rotation;
 			camera.up_getr() = glm::vec4(camera.up_getr(), 1.0) * rotation;
@@ -476,12 +478,14 @@ int main(int argc, char* argv[]) {
 		if (SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_RIGHT]) {
 			auto rotation = glm::mat4(1.0)
 				* glm::rotate(1.0f * sensitivity * deltaTime, glm::vec3(0.0f, 0.0f, 1.0f))
-			;
+				;
 			camera.right_getr() = glm::vec4(camera.right_getr(), 1.0) * rotation;
 			camera.forward_getr() = glm::vec4(camera.forward_getr(), 1.0) * rotation;
 			camera.up_getr() = glm::vec4(camera.up_getr(), 1.0) * rotation;
 			reset_pathtracer();
 		}
+
+		#pragma endregion
 
 
 		// Create Lights
@@ -510,7 +514,7 @@ int main(int argc, char* argv[]) {
 
 
 		// Denoiser Sharpen-Pass
-		static constexpr uint denoisingPasses = 0;
+		static constexpr uint denoisingPasses = 1;
 		glUseProgram(denoiser_program);
 		glUniform1i(glGetUniformLocation(denoiser_program, "samples"), max_samples);
 		for (uint i = 0; i < denoisingPasses; i++) {
@@ -549,7 +553,7 @@ int main(int argc, char* argv[]) {
 
 			glUniform1i(glGetUniformLocation(raymarch_program, "reset"), 0);
 		}
-	});
+		});
 
 	return 0;
 }

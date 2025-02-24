@@ -43,7 +43,6 @@ layout (std430, binding = 4) buffer Cones {
 uniform int cones_no;
 
 
-
 struct RaycastHit {
 	bool hit;
 	vec3 ray_pos;
@@ -79,21 +78,6 @@ float signDistObj(vec3 ray_pos, int obj_type, int obj_index) {
 	}
 	return -999999999;
 }
-
-vec4 colorObj(int obj_type, int obj_index) {
-	switch(obj_type) {
-	case 0:
-		return spheres[obj_index].color;
-	case 1:
-		return cubes[obj_index].color;
-	case 2:
-		return cylinders[obj_index].color;
-	case 3:
-		return cones[obj_index].color;
-	}
-	return vec4(0.0);
-}
-
 float signDistScene(vec3 ray_pos) {
 	float minDist = 999999999;
 
@@ -168,25 +152,8 @@ vec3 normalScene(vec3 ray_pos) {
 		vec3(0, 0, epsilon)
 	);
 
-    return normalize(vec3(
-        signDistScene(ray_pos + d[0]) - signDistScene(ray_pos - d[0]),
-        signDistScene(ray_pos + d[1]) - signDistScene(ray_pos - d[1]),
-        signDistScene(ray_pos + d[2]) - signDistScene(ray_pos - d[2])
-    ));
-}
-vec3 normalLight(vec3 ray_pos, vec3 light_pos, float light_radius) {
-	const float epsilon = 0.001;
-	const mat3x3 d = mat3x3(
-		vec3(epsilon, 0, 0),
-		vec3(0, epsilon, 0),
-		vec3(0, 0, epsilon)
-	);
-
-    return normalize(vec3(
-        signDistSphere(ray_pos + d[0], light_pos, light_radius) - signDistSphere(ray_pos - d[0], light_pos, light_radius),
-        signDistSphere(ray_pos + d[1], light_pos, light_radius) - signDistSphere(ray_pos - d[1], light_pos, light_radius),
-        signDistSphere(ray_pos + d[2], light_pos, light_radius) - signDistSphere(ray_pos - d[2], light_pos, light_radius)
-    ));
+	float cd = signDistScene(ray_pos);
+	return normalize((vec3(signDistScene(ray_pos + d[0]), signDistScene(ray_pos + d[1]), signDistScene(ray_pos + d[2])) - cd) / epsilon);
 }
 
 RaycastHit raycast(vec3 ray_pos, vec3 ray_dir) {
@@ -195,7 +162,6 @@ RaycastHit raycast(vec3 ray_pos, vec3 ray_dir) {
 
 	int obj_type = -1; // 0 - sphere, 1 - cube, 2 - cylinder, 3 - cone
 	int obj_index = -1;
-	vec4 color = vec4(0.0);
 	while (distance(init_pos, ray_pos) < farPlane) {
 		float minDist = 999999999;
 
@@ -212,13 +178,6 @@ RaycastHit raycast(vec3 ray_pos, vec3 ray_dir) {
 
 			if (closest < minDist) {
 				minDist = closest;
-				/*
-				color   = mix(
-					spheres[i].color,
-					colorObj(spheres[i].booleanObjType, spheres[i].booleanObjIndex),
-					clamp((booleanDist - distToSphere) / (distToOther - distToSphere), 0.0, 1.0)
-				);
-				*/
 				obj_type = 0;
 				obj_index = i;
 			}
@@ -236,13 +195,6 @@ RaycastHit raycast(vec3 ray_pos, vec3 ray_dir) {
 
 			if (closest < minDist) {
 				minDist = closest;
-				/*
-				color   = mix(
-					cubes[i].color,
-					colorObj(cubes[i].booleanObjType, cubes[i].booleanObjIndex),
-					clamp((booleanDist - distToCube) / (distToOther - distToCube), 0.0, 1.0)
-				);
-				*/
 				obj_type = 1;
 				obj_index = i;
 			}
@@ -260,13 +212,6 @@ RaycastHit raycast(vec3 ray_pos, vec3 ray_dir) {
 
 			if (closest < minDist) {
 				minDist = closest;
-				/*
-				color   = mix(
-					cylinders[i].color,
-					colorObj(cylinders[i].booleanObjType, cylinders[i].booleanObjIndex),
-					clamp((booleanDist - distToCylinder) / (distToOther - distToCylinder), 0.0, 1.0)
-				);
-				*/
 				obj_type = 2;
 				obj_index = i;
 			}
@@ -284,20 +229,25 @@ RaycastHit raycast(vec3 ray_pos, vec3 ray_dir) {
 
 			if (closest < minDist) {
 				minDist = closest;
-				/*
-				color   = mix(
-					cones[i].color,
-					colorObj(cones[i].booleanObjType, cones[i].booleanObjIndex),
-					clamp((booleanDist - distToCone) / (distToOther - distToCone), 0.0, 1.0)
-				);
-				*/
 				obj_type = 3;
 				obj_index = i;
 			}
 		}
 		
+		//float normalScale = dot(normalScene(ray_pos), ray_dir);
+		//ray_pos += ray_dir * max(minDist, abs(minDist / normalScale));
+		ray_pos += ray_dir * minDist;
+
 		if (minDist < hitThreshold) {
 			/*
+			vec3 normal =
+				  obj_type == 0 ? normalSphere(ray_pos, spheres[obj_index].location, spheres[obj_index].radius)
+				: obj_type == 1 ? normalCube(ray_pos, cubes[obj_index].location, cubes[obj_index].dimensions)
+				: obj_type == 2 ? normalCylinder(ray_pos, cylinders[obj_index].location, cylinders[obj_index].radius, cylinders[obj_index].height)
+				: obj_type == 3 ? normalCone(ray_pos, cones[obj_index].location, cones[obj_index].radius, cones[obj_index].height)
+				: vec3(0.0)
+			;
+			*/
 			vec4 color =
 				  obj_type == 0 ? spheres[obj_index].color
 				: obj_type == 1 ? cubes[obj_index].color
@@ -305,13 +255,8 @@ RaycastHit raycast(vec3 ray_pos, vec3 ray_dir) {
 				: obj_type == 3 ? cones[obj_index].color
 				: vec4(1.0)
 			;
-			*/
-			return RaycastHit(true, ray_pos, ray_dir, vec4(1), normalScene(ray_pos), obj_type, obj_index);
+			return RaycastHit(true, ray_pos, ray_dir, color, normalScene(ray_pos), obj_type, obj_index);
 		}
-
-        //float normalScale = dot(normalScene(ray_pos), ray_dir);
-		//ray_pos += ray_dir * max(minDist, abs(minDist / normalScale));
-		ray_pos += ray_dir * minDist;
 	}
 
 	return RaycastHit(false, vec3(0.0), vec3(0.0), vec4(0.0), vec3(0.0), -1, -1);
@@ -329,7 +274,7 @@ RaycastHit raycast_light(vec3 ray_pos, vec3 ray_dir) {
 		ray_pos += ray_dir * minDist;
 		
 		if (minDist < hitThreshold) {
-			vec3 normal = normalLight(ray_pos, light_pos, light_radius);
+			vec3 normal = normalSphere(ray_pos, light_pos, light_radius);
 			return RaycastHit(true, ray_pos, ray_dir, vec4(1.0), normal, -1, -1);
 		}
 	}
