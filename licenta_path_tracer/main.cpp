@@ -339,6 +339,7 @@ int main(int argc, char* argv[]) {
 	));
 	auto boolean = new boolean::Boolean(objects[0], boolean::Type::Difference);
 	objects[1]->components_getr().emplace_back(boolean);
+	objects[0]->visible_set(false);
 
 	#pragma endregion
 
@@ -380,7 +381,7 @@ int main(int argc, char* argv[]) {
 		SDL_SetWindowTitle(window.window_get(), std::to_string(1.0f / deltaTime).c_str());
 
 		// Setup Ray-Sampling
-		static constexpr uint max_samples = 1024;
+		static constexpr uint max_samples = 64;
 		static int samples = max_samples;
 		auto reset_pathtracer = [&]() {
 			glUniform1i(glGetUniformLocation(raymarch_program, "reset"), 1);
@@ -388,6 +389,7 @@ int main(int argc, char* argv[]) {
 			updateGpuObjects<Sphere, rmo::Sphere>(raymarch_program, objects, "spheres");
 			updateGpuObjects<Cube, rmo::Cube>(raymarch_program, objects, "cubes");
 			updateGpuObjects<Cylinder, rmo::Cylinder>(raymarch_program, objects, "cylinders");
+			updateGpuObjects<Cone, rmo::Cone>(raymarch_program, objects, "cones");
 		};
 
 
@@ -404,6 +406,8 @@ int main(int argc, char* argv[]) {
 		glUniformMatrix4fv(glGetUniformLocation(raymarch_program, "camera_view"), 1, GL_FALSE, glm::value_ptr(view));
 		glUniform3fv(glGetUniformLocation(raymarch_program, "camera_pos"), 1, glm::value_ptr(camera.transform_getr().location));
 
+
+		#pragma region Input
 
 		// Setup Camera Input
 		static float speed = 25.0f;
@@ -481,6 +485,8 @@ int main(int argc, char* argv[]) {
 			reset_pathtracer();
 		}
 
+		#pragma endregion
+
 
 		// Create Lights
 		static glm::vec3 light_pos(-20.0, -20.0, 20.0);
@@ -508,7 +514,7 @@ int main(int argc, char* argv[]) {
 
 
 		// Denoiser Sharpen-Pass
-		static constexpr uint denoisingPasses = 64;
+		static constexpr uint denoisingPasses = 1;
 		glUseProgram(denoiser_program);
 		glUniform1i(glGetUniformLocation(denoiser_program, "samples"), max_samples);
 		for (uint i = 0; i < denoisingPasses; i++) {

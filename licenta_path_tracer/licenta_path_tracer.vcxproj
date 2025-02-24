@@ -185,6 +185,7 @@
     <None Include="raymarch.comp" />
     <None Include="rtarget.frag" />
     <None Include="rtarget.vert" />
+    <None Include="temp.comp" />
     <None Include="utils.comp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

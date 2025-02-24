@@ -42,7 +42,8 @@ namespace rmo {
 		int booleanObjType;
 		int booleanObjIndex;
 		int booleanType;
-		privb(int pad4);
+
+		int visible;
 
 
 		Sphere& operator=(const ::Sphere &sphere) {
@@ -58,6 +59,8 @@ namespace rmo {
 			this->booleanObjType = boolean ? boolean->other_get()->type_get() : sphere.type_get();
 			this->booleanObjIndex = boolean ? boolean->other_get()->index_get() : sphere.index_get();
 			this->booleanType = getBooleanType(boolean);
+
+			this->visible = sphere.visible_get();
 
 			return *this;
 		}
@@ -81,7 +84,8 @@ namespace rmo {
 		int booleanObjType;
 		int booleanObjIndex;
 		int booleanType;
-		privb(int pad4);
+
+		int visible;
 
 
 		Cube& operator=(const ::Cube& cube) {
@@ -97,6 +101,8 @@ namespace rmo {
 			this->booleanObjType = boolean ? boolean->other_get()->type_get() : cube.type_get();
 			this->booleanObjIndex = boolean ? boolean->other_get()->index_get() : cube.index_get();
 			this->booleanType = getBooleanType(boolean);
+
+			this->visible = cube.visible_get();
 
 			return *this;
 		}
@@ -123,7 +129,8 @@ namespace rmo {
 		int booleanObjType;
 		int booleanObjIndex;
 		int booleanType;
-		privb(int pad5);
+
+		int visible;
 
 
 		Cylinder& operator=(const ::Cylinder& cylinder) {
@@ -140,6 +147,8 @@ namespace rmo {
 			this->booleanObjType = boolean ? boolean->other_get()->type_get() : cylinder.type_get();
 			this->booleanObjIndex = boolean ? boolean->other_get()->index_get() : cylinder.index_get();
 			this->booleanType = getBooleanType(boolean);
+
+			this->visible = cylinder.visible_get();
 
 			return *this;
 		}
@@ -166,7 +175,8 @@ namespace rmo {
 		int booleanObjType;
 		int booleanObjIndex;
 		int booleanType;
-		privb(int pad5);
+
+		int visible;
 
 
 		Cone& operator=(const ::Cone& cone) {
@@ -183,6 +193,8 @@ namespace rmo {
 			this->booleanObjType = boolean ? boolean->other_get()->type_get() : cone.type_get();
 			this->booleanObjIndex = boolean ? boolean->other_get()->index_get() : cone.index_get();
 			this->booleanType = getBooleanType(boolean);
+
+			this->visible = cone.visible_get();
 
 			return *this;
 		}

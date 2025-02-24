@@ -1,4 +1,6 @@
 
+#include "/utils.comp" //! #include "./utils.comp"
+
 float signDistRingCylinder(vec3 ray_pos, vec3 cylinder_pos, float cylinder_radius, float cylinder_height) {
 	vec3 p = ray_pos - cylinder_pos;
 	vec2 d = abs(vec2(length(p.xy) - cylinder_radius, p.z)) - vec2(cylinder_height / 2.0);
@@ -24,6 +26,7 @@ float smoothIntersect(float a, float b, float k) {
 	return mix(b, a, h) + k * h * (1.0 - h);
 }
 float smoothDifference(float a, float b, float k) {
+	swap(a, b);
 	float h = clamp(0.5 - (b + a) / 2 / k, 0.0, 1.0);
 	return mix(b, -a, h) + k * h * (1.0 - h);
 }
@@ -48,7 +51,8 @@ struct Sphere {
 	int booleanObjType;
 	int booleanObjIndex;
 	int booleanType;
-	int pad4;
+
+	int visible;
 };
 float signDistSphere(vec3 ray_pos, vec3 sphere_pos, float sphere_radius) {
 	return distance(sphere_pos, ray_pos) - sphere_radius;
@@ -86,7 +90,8 @@ struct Cube {
 	int booleanObjType;
 	int booleanObjIndex;
 	int booleanType;
-	int pad4;
+
+	int visible;
 };
 float signDistCube(vec3 ray_pos, vec3 cube_pos, vec3 dims) {
 	vec3 q = abs(ray_pos - cube_pos) - dims / 2.0;
@@ -128,7 +133,8 @@ struct Cylinder {
 	int booleanObjType;
 	int booleanObjIndex;
 	int booleanType;
-	int pad5;
+
+	int visible;
 };
 float signDistCylinder(vec3 ray_pos, vec3 cylinder_pos, float cylinder_radius, float cylinder_height) {
 	vec2 d = abs(vec2(length(ray_pos.xy - cylinder_pos.xy), ray_pos.z - cylinder_pos.z)) - vec2(cylinder_radius, cylinder_height / 2.0);
@@ -170,7 +176,8 @@ struct Cone {
 	int booleanObjType;
 	int booleanObjIndex;
 	int booleanType;
-	int pad5;
+
+	int visible;
 };
 float signDistCone(vec3 ray_pos, vec3 cone_pos, float cone_radius, float cone_height) {
 	// c is the sin/cos of the angle, h is height

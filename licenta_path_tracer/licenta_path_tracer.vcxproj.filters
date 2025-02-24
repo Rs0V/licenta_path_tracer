@@ -162,5 +162,6 @@
     <None Include="utils.comp">
       <Filter>Shader Files\Headers</Filter>
     </None>
+    <None Include="temp.comp" />
   </ItemGroup>
 </Project>

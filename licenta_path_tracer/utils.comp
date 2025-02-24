@@ -127,3 +127,16 @@ vec4 unpackColor(uint packedColor) {
 float mulAdd(float a, float b) {
 	return fma(a, b, a);
 }
+
+
+#define m_swap(type) void swap(inout type a, inout type b) { \
+    type temp = a; \
+    a = b; \
+    b = temp; \
+}
+m_swap(int)
+m_swap(uint)
+m_swap(float)
+m_swap(double)
+m_swap(vec3)
+m_swap(vec4)
