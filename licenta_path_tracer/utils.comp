@@ -90,9 +90,13 @@ vec4 unpackColor(uint packedColor) {
 }
 
 
-float mulAdd(float a, float b) {
-	return fma(a, b, a);
+#define m_mulAdd(type) type mulAdd(type a, type base) { \
+	return fma(a, base, a); \
 }
+m_mulAdd(float)
+m_mulAdd(double)
+m_mulAdd(vec3)
+m_mulAdd(vec4)
 
 
 #define m_swap(type) void swap(inout type a, inout type b) { \
