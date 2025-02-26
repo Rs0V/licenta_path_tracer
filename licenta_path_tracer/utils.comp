@@ -110,3 +110,30 @@ m_swap(float)
 m_swap(double)
 m_swap(vec3)
 m_swap(vec4)
+
+
+
+const float pi = 3.14159;
+const float rpi = 0.31831;
+
+
+vec3 fresnelSchlick(float cosTheta, vec3 F0) {
+	return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);
+}
+float D_GGX(float NoH, float roughness) {
+	float alpha1 = roughness * roughness;
+	float alpha2 = alpha1 * alpha1;
+
+	float NoH2 = NoH * NoH;
+	float b = (NoH2 * (alpha2 - 1.0) + 1.0);
+
+	return alpha2 * rpi / (b * b);
+}
+float G1_GGX_Schlick(float NoV, float roughness) {
+	float alpha = roughness * roughness;
+	float k = alpha / 2.0;
+	return max(NoV, 0.001) / (NoV * (1.0 - k) + k);
+}
+float G_Smith(float NoV, float NoL, float roughness) {
+	return G1_GGX_Schlick(NoL, roughness) * G1_GGX_Schlick(NoV, roughness);
+}
