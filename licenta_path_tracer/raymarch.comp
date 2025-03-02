@@ -20,6 +20,7 @@ const int max_bounces = 4;
 const float diffusion_angle = 180.0; // in degrees
 uniform vec3 light_pos = vec3(-20.0, -20.0, 20.0);
 uniform float light_radius = 2.0;
+uniform vec3 light_color = vec3(1.0, 1.0, 1.0);
 
 
 layout (std430, binding = 1) buffer Spheres {
@@ -308,7 +309,95 @@ RaycastHit reflectHit(in RaycastHit hit) {
 
 
 float randomAngle(ivec2 pixel_coords, float max_angle) {
-	return (max_angle + mod(pixel_coords.x * pixel_coords.y + rng_seed, max_angle)) / 2.0;
+	return mod(max_angle + (pixel_coords.x * pixel_coords.y + rng_seed) * max_angle / 2.0, max_angle);
+}
+
+
+vec3 lambertian_shading(vec3 hit_pos, vec3 hit_normal, vec3 albedo) {
+    vec3 light_dir = normalize(light_pos - hit_pos);
+    float diffuse_intensity = max(dot(hit_normal, light_dir), 0.0f);
+    vec3 diffuse_color = albedo * light_color * diffuse_intensity;
+    return diffuse_color;
+}
+vec3 generate_diffuse_ray(ivec2 pixel_coords, vec3 refl_dir, vec3 hit_normal) {
+    vec3 random_dir = diffuseVector(refl_dir, hit_normal, randomAngle(pixel_coords, 180.0));
+    return normalize(random_dir);
+}
+
+
+vec3 fresnel_schlick(float cos_theta, vec3 F0) {
+    return F0 + (1.0 - F0) * pow(1.0 - cos_theta, 5.0);
+}
+float ndf_ggx(vec3 normal, vec3 half_vector, float roughness) {
+    float alpha = roughness * roughness;
+    float alpha2 = alpha * alpha;
+    float NdotH = max(dot(normal, half_vector), 0.0);
+    float NdotH2 = NdotH * NdotH;
+
+    float denominator = (NdotH2 * (alpha2 - 1.0) + 1.0);
+    return alpha2 / (pi * denominator * denominator);
+}
+float geometry_schlick_ggx(float NdotV, float roughness) {
+    float r = (roughness + 1.0);
+    float k = (r * r) / 8.0;
+    return NdotV / (NdotV * (1.0 - k) + k);
+}
+float geometry_smith(vec3 normal, vec3 view_dir, vec3 light_dir, float roughness) {
+    float NdotV = max(dot(normal, view_dir), 0.0);
+    float NdotL = max(dot(normal, light_dir), 0.0);
+    float ggx1 = geometry_schlick_ggx(NdotV, roughness);
+    float ggx2 = geometry_schlick_ggx(NdotL, roughness);
+    return ggx1 * ggx2;
+}
+vec3 cook_torrance_brdf(vec3 hit_normal, vec3 view_dir, vec3 light_dir, vec3 F0, vec3 albedo, float metallic, float roughness, float reflectance) {
+    vec3 half_vector = normalize(view_dir + light_dir);
+    float NDF = ndf_ggx(hit_normal, half_vector, roughness);
+    float G = geometry_smith(hit_normal, view_dir, light_dir, roughness);
+    vec3 F = fresnel_schlick(max(dot(half_vector, view_dir), 0.0), F0);
+
+    float denominator = 4.0 * max(dot(hit_normal, view_dir), 0.0) * max(dot(hit_normal, light_dir), 0.0);
+    vec3 specular = (NDF * G * F) / max(denominator, 0.001);
+
+    vec3 kS = F;
+    vec3 kD = vec3(1.0) - kS;
+    kD *= 1.0 - metallic;
+
+    float NdotL = max(dot(hit_normal, light_dir), 0.0f);
+    return (kD * albedo / pi + reflectance) * NdotL;
+}
+vec3 generate_specular_ray(ivec2 pixel_coords, vec3 refl_dir, vec3 hit_normal, float roughness) {
+    vec3 random_dir = diffuseVector(refl_dir, hit_normal, roughness * randomAngle(pixel_coords, 180.0));
+    return normalize(random_dir);
+}
+
+
+vec3 pbr_shading(vec3 hit_pos, vec3 hit_normal, vec3 view_dir, vec3 albedo, float metallic, float roughness, float reflectance) {
+    vec3 light_dir = normalize(light_pos - hit_pos);
+    vec3 F0 = mix(vec3(0.04), albedo, metallic);
+
+    vec3 color = cook_torrance_brdf(hit_normal, view_dir, light_dir, F0, albedo, metallic, roughness, reflectance);
+    vec3 diffuse = lambertian_shading(hit_pos, hit_normal, albedo); // Lambertian diffuse
+    return (diffuse + color) * light_color;
+}
+
+
+vec3 pathtrace(int bounces, ivec2 pixel_coords, vec3 ray_pos, vec3 ray_dir, float metallic, float roughness, float reflectance) {
+	if (bounces == 0) {
+		return vec3(0.0);
+	}
+	RaycastHit hit = raycast(ray_pos, ray_dir);
+	if (hit.hit == false) {
+		return vec3(0.0);
+	}
+
+	vec3 ray_color = pbr_shading(hit.ray_pos, hit.normal, normalize(camera_pos - hit.ray_pos), hit.ray_color.xyz, metallic, roughness, reflectance);
+	vec3 diffuse_ray_dir = generate_diffuse_ray(pixel_coords, reflectHit(hit).ray_dir, hit.normal);
+	vec3 specular_ray_dir = generate_specular_ray(pixel_coords, reflectHit(hit).ray_dir, hit.normal, roughness);
+
+	return ray_color
+	+ pathtrace(bounces - 1, pixel_coords, hit.ray_pos, diffuse_ray_dir, metallic, roughness, reflectance)
+	+ pathtrace(bounces - 1, pixel_coords, hit.ray_pos, specular_ray_dir, metallic, roughness, reflectance)
+	;
 }
 
 
@@ -337,14 +426,15 @@ void main() {
 	vec3 ray_dir = normalize(worldPoint.xyz - camera_pos);
 	vec3 ray_color = vec3(0.0);
 
-
+	
+	/*
 	RaycastHit hit = raycast(ray_loc, ray_dir);
 	RaycastHit init_hit = hit;
 	if (hit.hit == true) {
-		ray_color = hit.ray_color.xyz;
+		//ray_color = hit.ray_color.xyz;
 		int bounces = max_bounces;
 		float dist = 0.0;
-		float light_intensity = 100.0;
+		//float light_intensity = 100.0;
 
 		while (bounces > 0) {
 			// Shadows
@@ -390,11 +480,21 @@ void main() {
 
 			ray_color += brdfMicrofacet(L, V, last_hit.normal, last_hit.ray_color.xyz, mettalic, roughness, reflectance);
 
+
+
+
+			RaycastHit last_hit = hit;
+			hit = raycast(hit.ray_pos, h);
+			if (hit.hit == false) {
+				break;
+			}
+
 			dist += distance(last_hit.ray_pos, hit.ray_pos);
 			bounces--;
 		}
 	}
-	// Final Color
+	*/
+	ray_color = pathtrace(max_bounces, pixel_coords, ray_loc, ray_dir, 0.0, 0.4, 0.5);
 	ray_color = max(ray_color, 0.0);
 
 
