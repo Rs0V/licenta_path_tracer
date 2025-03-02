@@ -49,7 +49,7 @@ void main() {
 	if (length(imageLoad(img_input, pixel_coords)) < length(median)) {
 		imageStore(img_input, pixel_coords, vec4(median, 1.0));
 	}
-	imageStore(img_output, pixel_coords, vec4(imageLoad(img_input, pixel_coords).xyz /*/ samples * 4.0*/, 1.0));
+	imageStore(img_output, pixel_coords, vec4(imageLoad(img_input, pixel_coords).xyz / samples, 1.0));
 
 	/*
 	vec4 color = vec4(0.0);
