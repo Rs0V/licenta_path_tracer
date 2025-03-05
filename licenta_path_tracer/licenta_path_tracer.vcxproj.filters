@@ -141,6 +141,9 @@
     <ClInclude Include="Camera.hpp">
       <Filter>Header Files\Actors</Filter>
     </ClInclude>
+    <ClInclude Include="FX.hpp">
+      <Filter>Header Files\Utils</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="cpp.hint" />

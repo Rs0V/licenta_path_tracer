@@ -17,6 +17,7 @@
 #include "type_traits"
 #include "map"
 #include "unordered_map"
+#include "tuple"
 
 typedef unsigned char ubyte;
 typedef unsigned short ushort;
@@ -150,6 +151,23 @@ template<class T> static T random(T min, T max) {
 	}
 
 	return 0;
+}
+template <typename T> static auto random_gen(T min, T max) {
+	static_assert(sizeof(T) == 0, "Unsupported type for 'random_gen'!");
+}
+template <> static auto random_gen<int>(int min, int max) {
+	using type = std::uniform_int_distribution<int>;
+	//static thread_local std::mt19937 rng(std::random_device{}()); // Thread-local random generator
+	std::mt19937 rng(std::random_device{}());
+	type dist(min, max);
+	return std::make_tuple(dist, rng);
+}
+template <> static auto random_gen<float>(float min, float max) {
+	using type = std::uniform_real_distribution<float>;
+	//static thread_local std::mt19937 rng(std::random_device{}()); // Thread-local random generator
+	std::mt19937 rng(std::random_device{}());
+	type dist(min, max);
+	return std::make_tuple(dist, rng);
 }
 
 inline std::ostream& operator<<(std::ostream& os, glm::vec3 v) {

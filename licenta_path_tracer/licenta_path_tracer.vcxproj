@@ -168,6 +168,7 @@
     <ClInclude Include="Cone.hpp" />
     <ClInclude Include="Cube.hpp" />
     <ClInclude Include="Cylinder.hpp" />
+    <ClInclude Include="FX.hpp" />
     <ClInclude Include="Light.hpp" />
     <ClInclude Include="Object.hpp" />
     <ClInclude Include="RMOStructs.hpp" />

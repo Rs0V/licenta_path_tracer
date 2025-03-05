@@ -22,6 +22,8 @@ uniform vec3 light_pos = vec3(-20.0, -20.0, 20.0);
 uniform float light_radius = 2.0;
 uniform vec3 light_color = vec3(1.0, 1.0, 1.0);
 
+uniform sampler2D blueNoise;
+
 
 layout (std430, binding = 1) buffer Spheres {
 	Sphere[] spheres;
@@ -489,4 +491,8 @@ void main() {
 	else if (reset == 0) {
 		imageStore(img_output, pixel_coords, final_color);
 	}
+
+
+
+	//imageStore(img_output, pixel_coords, texture(blueNoise, uv));
 }

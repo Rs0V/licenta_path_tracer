@@ -10,6 +10,7 @@
 #include "Sphere.hpp"
 #include "RMOStructs.hpp"
 #include "Cube.hpp"
+#include "FX.hpp"
 
 
 
@@ -126,17 +127,77 @@ template<class CAST, class RMO> void updateGpuObjects(GLuint shader_program, con
 }
 
 
-void createTexture(GLuint &texId, uint width, uint height, uint texIndex) {
+GLuint createTexture(uint width, uint height) {
+	GLuint texId;
+	glGenTextures(1, &texId);
+	glBindTexture(GL_TEXTURE_2D, texId);
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+	glTexImage2D(
+		GL_TEXTURE_2D,		// Target
+		0,					// Mipmap level
+		GL_RGBA32F,			// Internal format: 32-bit floating point per channel
+		width,				// Texture width
+		height,				// Texture height
+		0,					// Border (must be 0)
+		GL_RGBA,			// Format of the pixel data
+		GL_FLOAT,			// Data type
+		nullptr				// No initial data
+	);
+
+	glBindTexture(GL_TEXTURE_2D, 0);
+	return texId;
+}
+
+GLuint createBoundTexture(uint width, uint height, uint texIndex) {
+	GLuint texId;
 	glCreateTextures(GL_TEXTURE_2D, 1, &texId);
 
-	glTexParameteri(texId, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexParameteri(texId, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTextureParameteri(texId, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTextureParameteri(texId, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
-	glTexParameteri(texId, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(texId, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTextureParameteri(texId, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTextureParameteri(texId, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
 	glTextureStorage2D(texId, 1, GL_RGBA32F, width, height);
 	glBindImageTexture(texIndex, texId, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
+
+	return texId;
+}
+
+std::vector<float> flattenImage(const std::vector<std::vector<glm::vec4>>& image) {
+	std::vector<float> output(image.size() * image[0].size() * 4, 0.0f);
+	for (int y = 0; y < image.size(); y++) {
+		for (int x = 0; x < image[0].size(); x++) {
+			for (int k = 0; k < 4; k++) {
+				output[(y * image[0].size() + x) * 4 + k] = image[y][x][k];
+			}
+		}
+	}
+	return output;
+}
+
+void setTextureData(GLuint texId, const std::vector<std::vector<glm::vec4>> &image) {
+	glBindTexture(GL_TEXTURE_2D, texId);
+	std::vector<float> flattenedData = flattenImage(image);
+
+	glTexSubImage2D(
+		GL_TEXTURE_2D,				// Target
+		0,							// Mipmap level
+		0, 0,						// Offset (x, y)
+		image[0].size(),			// Width of the data
+		image.size(),				// Height of the data
+		GL_RGBA,					// Format of the pixel data
+		GL_FLOAT,					// Data type
+		flattenedData.data()		// Pointer to the pixel data
+	);
+
+	glBindTexture(GL_TEXTURE_2D, 0);
 }
 
 void readFile(std::string filePath, std::string &output) {
@@ -165,11 +226,8 @@ int main(int argc, char* argv[]) {
 
 
 	// Create Textures for Ray-marching and final Output
-	GLuint raymarch_tex;
-	createTexture(raymarch_tex, window.width_get(), window.height_get(), 0);
-
-	GLuint output_tex;
-	createTexture(output_tex, window.width_get(), window.height_get(), 1);
+	GLuint raymarch_tex = createBoundTexture(window.width_get(), window.height_get(), 0);
+	GLuint output_tex = createBoundTexture(window.width_get(), window.height_get(), 1);
 
 
 	// Read Shader files
@@ -333,7 +391,7 @@ int main(int argc, char* argv[]) {
 			{  0.0f,   0.0f, 0.0f },
 			{  1.0f,   1.0f, 1.0f }
 		},
-		{ 0.0f, 1.0f, 0.7f, 1.0f },
+		{ 1.0f, 0.1f, 0.2f, 1.0f },
 		4.0f,
 		6.0f
 	));
@@ -359,6 +417,17 @@ int main(int argc, char* argv[]) {
 	*/
 
 
+	// Create Blue-Noise and Set Shader Uniforms
+	auto blueNoiseImg = generators::generateBlueNoise(window.width_get(), window.height_get());
+	auto blueNoiseGS = generators::valuesToGrayscale(blueNoiseImg);
+
+	GLuint blueNoiseTex = createTexture(window.width_get(), window.height_get());
+	setTextureData(blueNoiseTex, blueNoiseGS);
+
+	glUseProgram(raymarch_program);
+	glUniform1i(glGetUniformLocation(raymarch_program, "blueNoise"), 0);
+
+
 	// Application Start function
 	window.Start([&]() {
 		glClearColor(0.5f, 0.1f, 0.2f, 1.0f);
@@ -373,7 +442,7 @@ int main(int argc, char* argv[]) {
 		sendCpuObjectsToGpu<Cube, rmo::Cube>(raymarch_program, objects, "cubes", 2);
 		sendCpuObjectsToGpu<Cylinder, rmo::Cylinder>(raymarch_program, objects, "cylinders", 3);
 		sendCpuObjectsToGpu<Cone, rmo::Cone>(raymarch_program, objects, "cones", 4);
-		});
+	});
 	// Application Update function
 	window.Update([&](float deltaTime) {
 
@@ -502,6 +571,9 @@ int main(int argc, char* argv[]) {
 			glUniform1i(glGetUniformLocation(raymarch_program, "samples"), max_samples);
 			glUniform3fv(glGetUniformLocation(raymarch_program, "light_pos"), 1, glm::value_ptr(light_pos));
 
+			glActiveTexture(GL_TEXTURE0);
+			glBindTexture(GL_TEXTURE_2D, blueNoiseTex);
+
 			glDispatchCompute(window.width_get() / 16, window.height_get() / 16, 1);
 			glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 
@@ -513,7 +585,7 @@ int main(int argc, char* argv[]) {
 		}
 
 
-		// Denoiser Sharpen-Pass
+		// Denoiser
 		static constexpr uint denoisingPasses = 1;
 		glUseProgram(denoiser_program);
 		glUniform1i(glGetUniformLocation(denoiser_program, "samples"), max_samples);
@@ -535,7 +607,7 @@ int main(int argc, char* argv[]) {
 		glBindVertexArray(rtargetVAO);
 
 		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, output_tex);
+		glBindTexture(GL_TEXTURE_2D, blueNoiseTex);
 
 		glUniform1i(glGetUniformLocation(rtarget_program, "tex_output"), 0);
 
@@ -548,12 +620,15 @@ int main(int argc, char* argv[]) {
 			glUseProgram(raymarch_program);
 			glUniform1i(glGetUniformLocation(raymarch_program, "reset"), -1);
 
+			glActiveTexture(GL_TEXTURE0);
+			glBindTexture(GL_TEXTURE_2D, blueNoiseTex);
+
 			glDispatchCompute(window.width_get() / 16, window.height_get() / 16, 1);
 			glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 
 			glUniform1i(glGetUniformLocation(raymarch_program, "reset"), 0);
 		}
-		});
+	});
 
 	return 0;
 }
