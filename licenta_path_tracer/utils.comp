@@ -95,6 +95,7 @@ vec4 unpackColor(uint packedColor) {
 }
 m_mulAdd(float)
 m_mulAdd(double)
+m_mulAdd(vec2)
 m_mulAdd(vec3)
 m_mulAdd(vec4)
 
@@ -108,6 +109,7 @@ m_swap(int)
 m_swap(uint)
 m_swap(float)
 m_swap(double)
+m_swap(vec2)
 m_swap(vec3)
 m_swap(vec4)
 

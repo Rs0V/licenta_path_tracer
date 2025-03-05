@@ -450,7 +450,7 @@ int main(int argc, char* argv[]) {
 		SDL_SetWindowTitle(window.window_get(), std::to_string(1.0f / deltaTime).c_str());
 
 		// Setup Ray-Sampling
-		static constexpr uint max_samples = 64;
+		static constexpr uint max_samples = 1;
 		static int samples = max_samples;
 		auto reset_pathtracer = [&]() {
 			glUniform1i(glGetUniformLocation(raymarch_program, "reset"), 1);
@@ -607,7 +607,7 @@ int main(int argc, char* argv[]) {
 		glBindVertexArray(rtargetVAO);
 
 		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, blueNoiseTex);
+		glBindTexture(GL_TEXTURE_2D, output_tex);
 
 		glUniform1i(glGetUniformLocation(rtarget_program, "tex_output"), 0);
 
