@@ -73,6 +73,12 @@ vec3 diffuseVector(vec3 v, vec3 normal, float maxAngle) {
 	return normalize(mix(normal, rotX, 0.66));
 }
 
+mat2 rot2D(float angle) {
+	float s = sin(angle);
+	float c = cos(angle);
+	return mat2(c, -s, s, c);
+}
+
 
 uint packColor(vec4 color) {
 	return uint(color.r * 255.0) << 24 |

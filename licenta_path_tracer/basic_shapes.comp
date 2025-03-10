@@ -58,7 +58,14 @@ float signDistSphere(vec3 ray_pos, vec3 sphere_pos, float sphere_radius) {
 	return distance(sphere_pos, ray_pos) - sphere_radius;
 }
 float signDistSphere(vec3 ray_pos, in Sphere sphere) {
-	return distance(ray_pos / sphere.scale, sphere.location) - sphere.radius;
+	vec3 trp = ray_pos; // transformed ray_pos
+	trp    -= sphere.location;
+	trp.yz *= rot2D(radians(sphere.rotation.x));
+	trp.xz *= rot2D(radians(sphere.rotation.y));
+	trp.xy *= rot2D(radians(sphere.rotation.z));
+	trp    /= sphere.scale;
+
+	return length(trp) - sphere.radius;
 }
 vec3 normalSphere(vec3 ray_pos, vec3 sphere_pos, float sphere_radius) {
     float epsilon = 0.0001;
@@ -101,12 +108,14 @@ float signDistCube(vec3 ray_pos, vec3 cube_pos, vec3 dims) {
 	return length(max(q, 0.0)) + min(max(q.x, max(q.y, q.z)), 0.0);
 }
 float signDistCube(vec3 ray_pos, in Cube cube) {
-	vec3 trp  = ray_pos / cube.scale; // transformed ray_pos
-	trp *= rotateVector(normalize(trp), vec3(1.0, 0.0, 0.0), radians(cube.rotation.x));
-	trp *= rotateVector(normalize(trp), vec3(0.0, 1.0, 0.0), radians(cube.rotation.y));
-	trp *= rotateVector(normalize(trp), vec3(0.0, 0.0, 1.0), radians(cube.rotation.z));
+	vec3 trp = ray_pos; // transformed ray_pos
+	trp    -= cube.location;
+	trp.yz *= rot2D(radians(cube.rotation.x));
+	trp.xz *= rot2D(radians(cube.rotation.y));
+	trp.xy *= rot2D(radians(cube.rotation.z));
+	trp    /= cube.scale;
 
-	vec3 q = abs(trp - cube.location) - cube.dimensions / 2.0;
+	vec3 q = abs(trp) - cube.dimensions / 2.0;
 	return length(max(q, 0.0)) + min(max(q.x, max(q.y, q.z)), 0.0);
 }
 vec3 normalCube(vec3 ray_pos, vec3 cube_pos, vec3 dims) {
@@ -153,7 +162,14 @@ float signDistCylinder(vec3 ray_pos, vec3 cylinder_pos, float cylinder_radius, f
 	return min(max(d.x, d.y), 0.0) + length(max(d, 0.0));
 }
 float signDistCylinder(vec3 ray_pos, in Cylinder cylinder) {
-	vec2 d = abs(vec2(length(ray_pos.xy / cylinder.scale.xy - cylinder.location.xy), ray_pos.z / cylinder.scale.z - cylinder.location.z)) - vec2(cylinder.radius, cylinder.height / 2.0);
+	vec3 trp = ray_pos; // transformed ray_pos
+	trp    -= cylinder.location;
+	trp.yz *= rot2D(radians(cylinder.rotation.x));
+	trp.xz *= rot2D(radians(cylinder.rotation.y));
+	trp.xy *= rot2D(radians(cylinder.rotation.z));
+	trp    /= cylinder.scale;
+
+	vec2 d = abs(vec2(length(trp.xy), trp.z)) - vec2(cylinder.radius, cylinder.height / 2.0);
 	return min(max(d.x, d.y), 0.0) + length(max(d, 0.0));
 }
 vec3 normalCylinder(vec3 ray_pos, vec3 cylinder_pos, float cylinder_radius, float cylinder_height) {
@@ -215,11 +231,19 @@ float signDistCone(vec3 ray_pos, in Cone cone) {
 	// c is the sin/cos of the angle, h is height
 	// Alternatively pass q instead of (c,h),
 	// which is the point at the base in 2D
+
+	vec3 trp = ray_pos; // transformed ray_pos
+	trp    -= cone.location;
+	trp.yz *= rot2D(radians(cone.rotation.x));
+	trp.xz *= rot2D(radians(cone.rotation.y));
+	trp.xy *= rot2D(radians(cone.rotation.z));
+	trp    /= cone.scale;
+
 	float angle = atan(cone.radius / 2.0 / cone.height) * 2.0;
 	vec2 c = vec2(sin(angle), cos(angle));
 
 	vec2 q = cone.height * vec2(c.x / c.y, -1.0);
-	vec2 w = vec2(length(ray_pos.xy / cone.scale.xy - cone.location.xy), ray_pos.z / cone.scale.z - cone.location.z);
+	vec2 w = vec2(length(trp.xy), trp.z);
 	vec2 a = w - q * clamp(dot(w, q) / dot(q, q), 0.0, 1.0);
 	vec2 b = w - q * vec2(clamp(w.x / q.x, 0.0, 1.0), 1.0);
 	float k = sign(q.y);

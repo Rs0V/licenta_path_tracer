@@ -11,6 +11,7 @@
 #include "RMOStructs.hpp"
 #include "Cube.hpp"
 #include "FX.hpp"
+#include "Parent.hpp"
 
 
 
@@ -313,9 +314,9 @@ int main(int argc, char* argv[]) {
 	));
 	objects.emplace_back(new Sphere(
 		{
-			{ 5.0f, 15.0f, 5.0f },
-			{ 0.0f,  0.0f, 0.0f },
-			{ 1.0f,  1.0f, 2.0f }
+			{  5.0f, 15.0f, 5.0f },
+			{ 45.0f,  0.0f, 0.0f },
+			{  1.0f,  1.0f, 1.0f }
 		},
 		{ 1.0f, 0.5f, 0.0f, 1.0f },
 		10.0f
@@ -332,8 +333,8 @@ int main(int argc, char* argv[]) {
 	objects.emplace_back(new Cube(
 		{
 			{ 50.0f, 0.0f, 0.0f },
-			{ 0.0f, 0.0f, 0.0f },
-			{ 1.0f, 1.0f, 1.0f }
+			{  0.0f, 0.0f, 0.0f },
+			{  1.0f, 1.0f, 1.0f }
 		},
 		{ 1.0f, 1.0f, 1.0f, 1.0f },
 		{ 1.0f, 100.0f, 100.0f }
@@ -341,8 +342,8 @@ int main(int argc, char* argv[]) {
 	objects.emplace_back(new Cube(
 		{
 			{ -50.0f, 0.0f, 0.0f },
-			{ 0.0f, 0.0f, 0.0f },
-			{ 1.0f, 1.0f, 1.0f }
+			{   0.0f, 0.0f, 0.0f },
+			{   1.0f, 1.0f, 1.0f }
 		},
 		{ 1.0f, 1.0f, 1.0f, 1.0f },
 		{ 1.0f, 100.0f, 100.0f }
@@ -350,17 +351,17 @@ int main(int argc, char* argv[]) {
 	objects.emplace_back(new Cube(
 		{
 			{ 0.0f, 50.0f, 0.0f },
-			{ 0.0f, 0.0f, 0.0f },
-			{ 1.0f, 1.0f, 1.0f }
+			{ 0.0f,  0.0f, 0.0f },
+			{ 1.0f,  1.0f, 1.0f }
 		},
 		{ 1.0f, 1.0f, 1.0f, 1.0f },
 		{ 100.0f, 1.0f, 100.0f }
 	));
 	objects.emplace_back(new Cube(
 		{
-			{ -10.0f, -10.0f, 5.0f },
+			{ -10.0f, -10.0f,  5.0f },
 			{   0.0f,   0.0f, 45.0f },
-			{   2.0f,   1.0f, 1.0f }
+			{   2.0f,   1.0f,  1.0f }
 		},
 		{ 0.0f, 0.0f, 1.0f, 1.0f },
 		{ 10.0f, 10.0f, 10.0f }
@@ -378,8 +379,8 @@ int main(int argc, char* argv[]) {
 	objects.emplace_back(new Cylinder(
 		{
 			{ -35.0f, 10.0f, 0.0f },
-			{   0.0f, 0.0f, 0.0f },
-			{   1.0f, 1.0f, 4.0f }
+			{  45.0f, 45.0f, 0.0f },
+			{   1.0f,  1.0f, 4.0f }
 		},
 		{ 0.0f, 1.0f, 0.7f, 1.0f },
 		4.0f,
@@ -388,16 +389,13 @@ int main(int argc, char* argv[]) {
 	objects.emplace_back(new Cone(
 		{
 			{ 25.0f, -20.0f, 5.0f },
-			{  0.0f,   0.0f, 0.0f },
+			{  0.0f, -45.0f, 0.0f },
 			{  1.0f,   2.0f, 3.0f }
 		},
 		{ 1.0f, 0.1f, 0.2f, 1.0f },
 		4.0f,
 		6.0f
 	));
-	auto boolean = new boolean::Boolean(objects[0], boolean::Type::Difference);
-	objects[1]->components_getr().emplace_back(boolean);
-	objects[0]->visible_set(false);
 
 	#pragma endregion
 
@@ -442,6 +440,15 @@ int main(int argc, char* argv[]) {
 		sendCpuObjectsToGpu<Cube, rmo::Cube>(raymarch_program, objects, "cubes", 2);
 		sendCpuObjectsToGpu<Cylinder, rmo::Cylinder>(raymarch_program, objects, "cylinders", 3);
 		sendCpuObjectsToGpu<Cone, rmo::Cone>(raymarch_program, objects, "cones", 4);
+
+		// Add Components to Objects
+		auto boolean = new boolean::Boolean(objects[0], boolean::Type::Difference);
+		objects[1]->components_getr().emplace_back(boolean);
+		//objects[0]->visible_set(false);
+
+		auto cP01 = new Parent(objects[0], objects[1]);
+		objects[0]->components_getr().emplace_back(cP01);
+
 	});
 	// Application Update function
 	window.Update([&](float deltaTime) {
@@ -554,6 +561,18 @@ int main(int argc, char* argv[]) {
 			reset_pathtracer();
 		}
 
+
+		if (SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_N]) {
+			objects[1]->transform_getr().scale *= 0.9f;
+			dynamic_cast<Parent*>(*objects[0]->components_getrc().rbegin())->applyTransform();
+			reset_pathtracer();
+		}
+		if (SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_M]) {
+			objects[1]->transform_getr().scale *= 1.1f;
+			dynamic_cast<Parent*>(*objects[0]->components_getrc().rbegin())->applyTransform();
+			reset_pathtracer();
+		}
+
 		#pragma endregion
 
 
@@ -628,6 +647,7 @@ int main(int argc, char* argv[]) {
 
 			glUniform1i(glGetUniformLocation(raymarch_program, "reset"), 0);
 		}
+
 	});
 
 	return 0;
