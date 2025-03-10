@@ -154,6 +154,7 @@
     <ClCompile Include="Light.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Object.cpp" />
+    <ClCompile Include="Parent.cpp" />
     <ClCompile Include="PointLight.cpp" />
     <ClCompile Include="Ray.cpp" />
     <ClCompile Include="Sphere.cpp" />
@@ -171,6 +172,7 @@
     <ClInclude Include="FX.hpp" />
     <ClInclude Include="Light.hpp" />
     <ClInclude Include="Object.hpp" />
+    <ClInclude Include="Parent.hpp" />
     <ClInclude Include="RMOStructs.hpp" />
     <ClInclude Include="PointLight.hpp" />
     <ClInclude Include="Ray.hpp" />

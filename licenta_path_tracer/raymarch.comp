@@ -16,10 +16,10 @@ uniform int samples;
 
 const float hitThreshold = 0.001;
 const float farPlane = 1000.0;
-const int max_bounces = 1;
-const float diffusion_angle = 180.0; // in degrees
+const int max_bounces = 4;
+
 uniform vec3 light_pos = vec3(-20.0, -20.0, 20.0);
-uniform float light_radius = 2.0;
+uniform float light_radius = 10.0;
 uniform vec3 light_color = vec3(1.0, 1.0, 1.0);
 
 uniform sampler2D blueNoise;
@@ -71,13 +71,13 @@ float signDistBlendedObj(float obj_dist_0, float obj_dist_1, int booleanType = -
 float signDistObj(vec3 ray_pos, int obj_type, int obj_index) {
 	switch(obj_type) {
 	case 0:
-		return signDistSphere(ray_pos, spheres[obj_index].location, spheres[obj_index].radius);
+		return signDistSphere(ray_pos, spheres[obj_index]);
 	case 1:
-		return signDistCube(ray_pos, cubes[obj_index].location, cubes[obj_index].dimensions);
+		return signDistCube(ray_pos, cubes[obj_index]);
 	case 2:
-		return signDistCylinder(ray_pos, cylinders[obj_index].location, cylinders[obj_index].radius, cylinders[obj_index].height);
+		return signDistCylinder(ray_pos, cylinders[obj_index]);
 	case 3:
-		return signDistCone(ray_pos, cones[obj_index].location, cones[obj_index].radius, cones[obj_index].height);
+		return signDistCone(ray_pos, cones[obj_index]);
 	}
 	return -999999999;
 }
@@ -90,7 +90,7 @@ float signDistScene(vec3 ray_pos) {
 			continue;
 		}
 
-		float distToSphere = signDistSphere(ray_pos, spheres[i].location, spheres[i].radius);
+		float distToSphere = signDistSphere(ray_pos, spheres[i]);
 		float distToOther = signDistObj(ray_pos, spheres[i].booleanObjType, spheres[i].booleanObjIndex);
 		float booleanDist = signDistBlendedObj(distToSphere, distToOther, spheres[i].booleanType);
 		float closest = signDistBlendedObj(minDist, booleanDist);
@@ -105,7 +105,7 @@ float signDistScene(vec3 ray_pos) {
 			continue;
 		}
 
-		float distToCube = signDistCube(ray_pos, cubes[i].location, cubes[i].dimensions);
+		float distToCube = signDistCube(ray_pos, cubes[i]);
 		float distToOther = signDistObj(ray_pos, cubes[i].booleanObjType, cubes[i].booleanObjIndex);
 		float booleanDist = signDistBlendedObj(distToCube, distToOther, cubes[i].booleanType);
 		float closest = signDistBlendedObj(minDist, booleanDist);
@@ -120,7 +120,7 @@ float signDistScene(vec3 ray_pos) {
 			continue;
 		}
 
-		float distToCylinder = signDistCylinder(ray_pos, cylinders[i].location, cylinders[i].radius, cylinders[i].height);
+		float distToCylinder = signDistCylinder(ray_pos, cylinders[i]);
 		float distToOther = signDistObj(ray_pos, cylinders[i].booleanObjType, cylinders[i].booleanObjIndex);
 		float booleanDist = signDistBlendedObj(distToCylinder, distToOther, cylinders[i].booleanType);
 		float closest = signDistBlendedObj(minDist, booleanDist);
@@ -135,7 +135,7 @@ float signDistScene(vec3 ray_pos) {
 			continue;
 		}
 		
-		float distToCone = signDistCone(ray_pos, cones[i].location, cones[i].radius, cones[i].height);
+		float distToCone = signDistCone(ray_pos, cones[i]);
 		float distToOther = signDistObj(ray_pos, cones[i].booleanObjType, cones[i].booleanObjIndex);
 		float booleanDist = signDistBlendedObj(distToCone, distToOther, cones[i].booleanType);
 		float closest = signDistBlendedObj(minDist, booleanDist);
@@ -178,7 +178,7 @@ RaycastHit raycast(vec3 ray_pos, vec3 ray_dir) {
 				continue;
 			}
 
-			float distToSphere = signDistSphere(ray_pos, spheres[i].location, spheres[i].radius);
+			float distToSphere = signDistSphere(ray_pos, spheres[i]);
 			float distToOther = signDistObj(ray_pos, spheres[i].booleanObjType, spheres[i].booleanObjIndex);
 			float booleanDist = signDistBlendedObj(distToSphere, distToOther, spheres[i].booleanType);
 			float closest = signDistBlendedObj(minDist, booleanDist);
@@ -195,7 +195,7 @@ RaycastHit raycast(vec3 ray_pos, vec3 ray_dir) {
 				continue;
 			}
 
-			float distToCube = signDistCube(ray_pos, cubes[i].location, cubes[i].dimensions);
+			float distToCube = signDistCube(ray_pos, cubes[i]);
 			float distToOther = signDistObj(ray_pos, cubes[i].booleanObjType, cubes[i].booleanObjIndex);
 			float booleanDist = signDistBlendedObj(distToCube, distToOther, cubes[i].booleanType);
 			float closest = signDistBlendedObj(minDist, booleanDist);
@@ -212,7 +212,7 @@ RaycastHit raycast(vec3 ray_pos, vec3 ray_dir) {
 				continue;
 			}
 
-			float distToCylinder = signDistCylinder(ray_pos, cylinders[i].location, cylinders[i].radius, cylinders[i].height);
+			float distToCylinder = signDistCylinder(ray_pos, cylinders[i]);
 			float distToOther = signDistObj(ray_pos, cylinders[i].booleanObjType, cylinders[i].booleanObjIndex);
 			float booleanDist = signDistBlendedObj(distToCylinder, distToOther, cylinders[i].booleanType);
 			float closest = signDistBlendedObj(minDist, booleanDist);
@@ -229,7 +229,7 @@ RaycastHit raycast(vec3 ray_pos, vec3 ray_dir) {
 				continue;
 			}
 
-			float distToCone = signDistCone(ray_pos, cones[i].location, cones[i].radius, cones[i].height);
+			float distToCone = signDistCone(ray_pos, cones[i]);
 			float distToOther = signDistObj(ray_pos, cones[i].booleanObjType, cones[i].booleanObjIndex);
 			float booleanDist = signDistBlendedObj(distToCone, distToOther, cones[i].booleanType);
 			float closest = signDistBlendedObj(minDist, booleanDist);
@@ -432,9 +432,17 @@ void main() {
 	RaycastHit diffuse_hit = raycast(ray_pos, ray_dir);
 	RaycastHit specular_hit = diffuse_hit;
 
+	float diffuse_dist = 0.0;
+	float specular_dist = 0.0;
+	RaycastHit last_diffuse_hit;
+	RaycastHit last_specular_hit;
+
 	if (diffuse_hit.hit == true) {
 		while (bounces > 0) {
 			vec3 voutput[2];
+			last_diffuse_hit = diffuse_hit;
+			last_specular_hit = specular_hit;
+
 
 			pbr_shading(
 				diffuse_hit,
@@ -456,16 +464,23 @@ void main() {
 			);
 			vec3 specular_color = voutput[1];
 
-			ray_color += (specular_color) * light_color;
-
+			float diffuse_energy = (1.0 - min(diffuse_dist, light_radius) / light_radius) * exp((metallic + roughness) * reflectance);
+			float specular_energy = (1.0 - min(specular_dist, light_radius) / light_radius) * exp((metallic + roughness) * reflectance);
+			
+			diffuse_color = pow(diffuse_color, vec3(diffuse_energy));
+			specular_color = pow(specular_color, vec3(specular_energy));
+			//ray_color += (diffuse_color * specular_color) * light_color * 4;
+			ray_color += specular_color * 4;
 
 			vec3 diffuse_dir = generate_diffuse_ray(uv, diffuse_hit);
 			vec3 specular_dir = generate_specular_ray(uv + specular_hit.ray_dir.xy, specular_hit, roughness);
 			
-			RaycastHit diffuse_hit = raycast(diffuse_hit.ray_pos, diffuse_dir);
-			RaycastHit specular_hit = raycast(specular_hit.ray_pos, specular_dir);
+			diffuse_hit = raycast(diffuse_hit.ray_pos, diffuse_dir);
+			specular_hit = raycast(specular_hit.ray_pos, specular_dir);
 
 
+			diffuse_dist += distance(diffuse_hit.ray_pos, last_diffuse_hit.ray_pos);
+			specular_dist += distance(specular_hit.ray_pos, last_specular_hit.ray_pos);
 			bounces--;
 		}
 	}

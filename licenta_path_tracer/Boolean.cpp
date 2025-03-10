@@ -12,4 +12,4 @@ boolean::Boolean::Boolean(Object* other, Type type)
 	type(type)
 {}
 
-boolean::Boolean::~Boolean(){}
+boolean::Boolean::~Boolean() {}

@@ -315,7 +315,7 @@ int main(int argc, char* argv[]) {
 		{
 			{ 5.0f, 15.0f, 5.0f },
 			{ 0.0f,  0.0f, 0.0f },
-			{ 1.0f,  1.0f, 1.0f }
+			{ 1.0f,  1.0f, 2.0f }
 		},
 		{ 1.0f, 0.5f, 0.0f, 1.0f },
 		10.0f
@@ -359,8 +359,8 @@ int main(int argc, char* argv[]) {
 	objects.emplace_back(new Cube(
 		{
 			{ -10.0f, -10.0f, 5.0f },
-			{   0.0f,   0.0f, 0.0f },
-			{   1.0f,   1.0f, 1.0f }
+			{   0.0f,   0.0f, 45.0f },
+			{   2.0f,   1.0f, 1.0f }
 		},
 		{ 0.0f, 0.0f, 1.0f, 1.0f },
 		{ 10.0f, 10.0f, 10.0f }
@@ -369,7 +369,7 @@ int main(int argc, char* argv[]) {
 		{
 			{ -30.0f, 0.0f, 5.0f },
 			{   0.0f, 0.0f, 0.0f },
-			{   1.0f, 1.0f, 1.0f }
+			{   1.0f, 2.0f, 1.0f }
 		},
 		{ 0.0f, 1.0f, 0.0f, 1.0f },
 		4.0f,
@@ -379,7 +379,7 @@ int main(int argc, char* argv[]) {
 		{
 			{ -35.0f, 10.0f, 0.0f },
 			{   0.0f, 0.0f, 0.0f },
-			{   1.0f, 1.0f, 1.0f }
+			{   1.0f, 1.0f, 4.0f }
 		},
 		{ 0.0f, 1.0f, 0.7f, 1.0f },
 		4.0f,
@@ -389,7 +389,7 @@ int main(int argc, char* argv[]) {
 		{
 			{ 25.0f, -20.0f, 5.0f },
 			{  0.0f,   0.0f, 0.0f },
-			{  1.0f,   1.0f, 1.0f }
+			{  1.0f,   2.0f, 3.0f }
 		},
 		{ 1.0f, 0.1f, 0.2f, 1.0f },
 		4.0f,
@@ -450,7 +450,7 @@ int main(int argc, char* argv[]) {
 		SDL_SetWindowTitle(window.window_get(), std::to_string(1.0f / deltaTime).c_str());
 
 		// Setup Ray-Sampling
-		static constexpr uint max_samples = 1;
+		static constexpr uint max_samples = 64;
 		static int samples = max_samples;
 		auto reset_pathtracer = [&]() {
 			glUniform1i(glGetUniformLocation(raymarch_program, "reset"), 1);
@@ -588,7 +588,7 @@ int main(int argc, char* argv[]) {
 		// Denoiser
 		static constexpr uint denoisingPasses = 1;
 		glUseProgram(denoiser_program);
-		glUniform1i(glGetUniformLocation(denoiser_program, "samples"), max_samples);
+		glUniform1i(glGetUniformLocation(denoiser_program, "samples"), std::max((int)max_samples - samples, 1));
 		for (uint i = 0; i < denoisingPasses; i++) {
 			glDispatchCompute(window.width_get() / 16, window.height_get() / 16, 1);
 			glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
