@@ -30,8 +30,9 @@ void main() {
 	uint img_height = gl_NumWorkGroups.y * gl_WorkGroupSize.y;
 	uint pixel_index = gl_GlobalInvocationID.x + gl_GlobalInvocationID.y * img_width;
 
-	//imageStore(img_output, pixel_coords, imageLoad(img_input, pixel_coords));
-
+	imageStore(img_output, pixel_coords, vec4(imageLoad(img_input, pixel_coords).xyz / samples, 1.0));
+	
+	/*
 	uint sampleRadius = 1;
 	vec3 median = vec3(0.0);
 	for (int y = -int(sampleRadius); y <= sampleRadius; y++) {
@@ -52,6 +53,7 @@ void main() {
 		imageStore(img_input, pixel_coords, vec4(median, 1.0));
 	}
 	imageStore(img_output, pixel_coords, vec4(imageLoad(img_input, pixel_coords).xyz / samples, 1.0));
+	*/
 
 	/*
 	vec4 color = vec4(0.0);

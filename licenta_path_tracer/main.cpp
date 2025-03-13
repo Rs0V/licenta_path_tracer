@@ -434,20 +434,22 @@ int main(int argc, char* argv[]) {
 
 		glUseProgram(raymarch_program);
 		glUniformMatrix4fv(glGetUniformLocation(raymarch_program, "camera_proj"), 1, GL_FALSE, glm::value_ptr(proj));
+		
+
+		// Add Components to Objects
+		auto boolean = new boolean::Boolean(objects[0], boolean::Type::Difference);
+		objects[1]->components_getr().emplace_back(boolean);
+		objects[0]->visible_set(false);
+
+		auto cP01 = new Parent(objects[0], objects[1]);
+		objects[0]->components_getr().emplace_back(cP01);
+
 
 		// Send Object Data to Ray-Marching Shader
 		sendCpuObjectsToGpu<Sphere, rmo::Sphere>(raymarch_program, objects, "spheres", 1);
 		sendCpuObjectsToGpu<Cube, rmo::Cube>(raymarch_program, objects, "cubes", 2);
 		sendCpuObjectsToGpu<Cylinder, rmo::Cylinder>(raymarch_program, objects, "cylinders", 3);
 		sendCpuObjectsToGpu<Cone, rmo::Cone>(raymarch_program, objects, "cones", 4);
-
-		// Add Components to Objects
-		auto boolean = new boolean::Boolean(objects[0], boolean::Type::Difference);
-		objects[1]->components_getr().emplace_back(boolean);
-		//objects[0]->visible_set(false);
-
-		auto cP01 = new Parent(objects[0], objects[1]);
-		objects[0]->components_getr().emplace_back(cP01);
 
 	});
 	// Application Update function
@@ -457,10 +459,11 @@ int main(int argc, char* argv[]) {
 		SDL_SetWindowTitle(window.window_get(), std::to_string(1.0f / deltaTime).c_str());
 
 		// Setup Ray-Sampling
-		static constexpr uint max_samples = 64;
+		static constexpr uint max_samples = 32;
 		static int samples = max_samples;
 		auto reset_pathtracer = [&]() {
-			glUniform1i(glGetUniformLocation(raymarch_program, "reset"), 1);
+			glUseProgram(raymarch_program);
+			glUniform1i(glGetUniformLocation(raymarch_program, "scene_change"), 1);
 			samples = max_samples + 1;
 			updateGpuObjects<Sphere, rmo::Sphere>(raymarch_program, objects, "spheres");
 			updateGpuObjects<Cube, rmo::Cube>(raymarch_program, objects, "cubes");
@@ -637,15 +640,12 @@ int main(int argc, char* argv[]) {
 		// Initiate Path-Tracing Sampling process
 		if (samples == max_samples) { // Add random positive integer to right operand of comparison in order to disable sampling
 			glUseProgram(raymarch_program);
-			glUniform1i(glGetUniformLocation(raymarch_program, "reset"), -1);
 
-			glActiveTexture(GL_TEXTURE0);
-			glBindTexture(GL_TEXTURE_2D, blueNoiseTex);
-
+			glUniform1i(glGetUniformLocation(raymarch_program, "scene_change"), -1);
 			glDispatchCompute(window.width_get() / 16, window.height_get() / 16, 1);
 			glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 
-			glUniform1i(glGetUniformLocation(raymarch_program, "reset"), 0);
+			glUniform1i(glGetUniformLocation(raymarch_program, "scene_change"), 0);
 		}
 
 	});

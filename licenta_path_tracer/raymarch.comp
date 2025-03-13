@@ -7,11 +7,15 @@ layout (rgba32f, binding = 0) uniform image2D img_output;
 
 
 
+//  0 - accumulate samples;
+//  1 - rendered frame only
+// -1 - reset image buffer
+uniform int scene_change = 0;
+
 uniform mat4 camera_proj;
 uniform mat4 camera_view;
 uniform vec3 camera_pos;
 uniform int rng_seed;
-uniform int reset = 0; // -1: reseting, 0: reseted, 1: have to reset
 uniform int samples;
 
 const float hitThreshold = 0.001;
@@ -403,10 +407,11 @@ void main() {
 	ivec2 pixel_coords = ivec2(gl_GlobalInvocationID.xy);
 	vec2 uv = vec2(pixel_coords) / vec2(imageSize(img_output));
 
-	if (reset == -1) {
-		imageStore(img_output, pixel_coords, vec4(0.0, 0.0, 0.0, 1.0));
+	if (scene_change == -1) {
+		imageStore(img_output, pixel_coords, vec4(vec3(0.0), 1.0));
 		return;
 	}
+
 
 
 	int ray_index = pixel_coords.y * imageSize(img_output).x + pixel_coords.x;
@@ -429,76 +434,31 @@ void main() {
 	float metallic = 0.0;
 	float roughness = 0.5;
 	float reflectance = 0.5;
-	RaycastHit diffuse_hit = raycast(ray_pos, ray_dir);
-	RaycastHit specular_hit = diffuse_hit;
 
-	float diffuse_dist = 0.0;
-	float specular_dist = 0.0;
-	RaycastHit last_diffuse_hit;
-	RaycastHit last_specular_hit;
-
-	if (diffuse_hit.hit == true) {
+	float dist = 0.0;
+	RaycastHit hit = raycast(ray_pos, ray_dir);
+	RaycastHit last_hit;
+	if (hit.hit == true) {
 		while (bounces > 0) {
-			vec3 voutput[2];
-			last_diffuse_hit = diffuse_hit;
-			last_specular_hit = specular_hit;
+			last_hit = hit;
 
+			ray_color += hit.ray_color.xyz;
 
-			pbr_shading(
-				diffuse_hit,
-				diffuse_hit.ray_color.xyz,
-				metallic,
-				roughness,
-				reflectance,
-				voutput
-			);
-			vec3 diffuse_color = voutput[0];
+			//vec3 specular_dir = generate_specular_ray(uv + specular_hit.ray_dir.xy, specular_hit, roughness);
+			hit = raycast(hit.ray_pos, reflectHit(hit).ray_dir);
 
-			pbr_shading(
-				specular_hit,
-				specular_hit.ray_color.xyz,
-				metallic,
-				roughness,
-				reflectance,
-				voutput
-			);
-			vec3 specular_color = voutput[1];
-
-			float diffuse_energy = (1.0 - min(diffuse_dist, light_radius) / light_radius) * exp((metallic + roughness) * reflectance);
-			float specular_energy = (1.0 - min(specular_dist, light_radius) / light_radius) * exp((metallic + roughness) * reflectance);
-			
-			diffuse_color = pow(diffuse_color, vec3(diffuse_energy));
-			specular_color = pow(specular_color, vec3(specular_energy));
-			//ray_color += (diffuse_color * specular_color) * light_color * 4;
-			ray_color += specular_color * 4;
-
-			vec3 diffuse_dir = generate_diffuse_ray(uv, diffuse_hit);
-			vec3 specular_dir = generate_specular_ray(uv + specular_hit.ray_dir.xy, specular_hit, roughness);
-			
-			diffuse_hit = raycast(diffuse_hit.ray_pos, diffuse_dir);
-			specular_hit = raycast(specular_hit.ray_pos, specular_dir);
-
-
-			diffuse_dist += distance(diffuse_hit.ray_pos, last_diffuse_hit.ray_pos);
-			specular_dist += distance(specular_hit.ray_pos, last_specular_hit.ray_pos);
+			dist += distance(hit.ray_pos, last_hit.ray_pos);
 			bounces--;
 		}
 	}
-	ray_color = max(ray_color, 0.0) / samples;
+	ray_color = max(ray_color, 0.0) / samples * 4.0;
 
 
 
-	vec3 currect_pixel = max(vec3(imageLoad(img_output, pixel_coords)), 0.0);
+	vec3 currect_pixel = scene_change == 0 ? max(vec3(imageLoad(img_output, pixel_coords)), 0.0) : vec3(0.0);
 	vec4 final_color = vec4((currect_pixel + ray_color), 1.0);
 	final_color.a = 1.0;
-	if (reset == 1) {
-		imageStore(img_output, pixel_coords, vec4(ray_color * samples, 1.0));
-	}
-	else if (reset == 0) {
-		imageStore(img_output, pixel_coords, final_color);
-	}
-
-
+	imageStore(img_output, pixel_coords, final_color);
 
 	//imageStore(img_output, pixel_coords, texture(blueNoise, uv));
 }
