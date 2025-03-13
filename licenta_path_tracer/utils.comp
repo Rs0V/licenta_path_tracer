@@ -36,14 +36,7 @@ vec3 tangent(vec3 v) {
 	vec3 arby = vec3(0.0, 1.0, 0.0);
 	vec3 arbz = vec3(0.0, 0.0, 1.0);
 
-	vec3 arbitrary = arbx;
-	if (abs(dot(v, arby)) < abs(dot(v, arbitrary))) {
-		arbitrary = arby;
-	}
-	if (abs(dot(v, arbz)) < abs(dot(v, arbitrary))) {
-		arbitrary = arbz;
-	}
-
+	vec3 arbitrary = v.x < v.y ? (v.x < v.z ? arbx : arbz) : v.y < v.z ? arby : arbz;
 	return normalize(cross(v, arbitrary));
 }
 

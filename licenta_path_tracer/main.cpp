@@ -416,11 +416,22 @@ int main(int argc, char* argv[]) {
 
 
 	// Create Blue-Noise and Set Shader Uniforms
+	// Blue-noise Texture-01
 	auto blueNoiseImg = generators::generateBlueNoise(window.width_get(), window.height_get());
 	auto blueNoiseGS = generators::valuesToGrayscale(blueNoiseImg);
 
-	GLuint blueNoiseTex = createTexture(window.width_get(), window.height_get());
-	setTextureData(blueNoiseTex, blueNoiseGS);
+	GLuint blueNoiseTex01 = createTexture(window.width_get(), window.height_get());
+	setTextureData(blueNoiseTex01, blueNoiseGS);
+
+	// Blue-noise Texture-02
+	blueNoiseImg = generators::generateBlueNoise(window.width_get(), window.height_get());
+	blueNoiseGS = generators::valuesToGrayscale(blueNoiseImg);
+
+	GLuint blueNoiseTex02 = createTexture(window.width_get(), window.height_get());
+	setTextureData(blueNoiseTex02, blueNoiseGS);
+
+	GLuint blueNoiseTex = blueNoiseTex01;
+
 
 	glUseProgram(raymarch_program);
 	glUniform1i(glGetUniformLocation(raymarch_program, "blueNoise"), 0);
@@ -595,6 +606,7 @@ int main(int argc, char* argv[]) {
 
 			glActiveTexture(GL_TEXTURE0);
 			glBindTexture(GL_TEXTURE_2D, blueNoiseTex);
+			blueNoiseTex = blueNoiseTex == blueNoiseTex01 ? blueNoiseTex02 : blueNoiseTex01;
 
 			glDispatchCompute(window.width_get() / 16, window.height_get() / 16, 1);
 			glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
