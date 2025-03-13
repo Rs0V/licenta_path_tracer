@@ -1,12 +1,13 @@
 #pragma once
 #include "Utilities.hpp"
+#include "functional"
 
 
 interface UI {
 public:
 	virtual ~UI() = 0;
 
-	static std::vector<void(*)()> uiGenFuncs;
+	static std::vector<std::function<void()>> uiGenFuncs;
 
 	static std::string buffer;
 	static float value;

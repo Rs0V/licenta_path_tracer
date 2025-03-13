@@ -1,4 +1,4 @@
 #include "UI.hpp"
 
 
-std::vector<void(*)()> UI::uiGenFuncs;
+std::vector<std::function<void()>> UI::uiGenFuncs;

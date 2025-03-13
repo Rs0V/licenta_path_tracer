@@ -137,8 +137,8 @@ GLuint createTexture(uint width, uint height) {
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 
 	glTexImage2D(
 		GL_TEXTURE_2D,		// Target
@@ -163,8 +163,8 @@ GLuint createBoundTexture(uint width, uint height, uint texIndex) {
 	glTextureParameteri(texId, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTextureParameteri(texId, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
-	glTextureParameteri(texId, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTextureParameteri(texId, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTextureParameteri(texId, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTextureParameteri(texId, GL_TEXTURE_WRAP_T, GL_REPEAT);
 
 	glTextureStorage2D(texId, 1, GL_RGBA32F, width, height);
 	glBindImageTexture(texIndex, texId, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
@@ -412,7 +412,6 @@ int main(int argc, char* argv[]) {
 
 	int asdf;
 	glGetIntegerv(GL_MAX_COMPUTE_SHARED_MEMORY_SIZE, &asdf);
-	std::cout << asdf << std::endl;
 	*/
 
 
@@ -436,6 +435,20 @@ int main(int argc, char* argv[]) {
 
 	glUseProgram(raymarch_program);
 	glUniform1i(glGetUniformLocation(raymarch_program, "blueNoise"), 0);
+
+
+	// Setup Ray-Sampling
+	static constexpr uint max_samples = 64;
+	static int samples = max_samples;
+	auto reset_pathtracer = [&]() {
+		glUseProgram(raymarch_program);
+		glUniform1i(glGetUniformLocation(raymarch_program, "scene_change"), 1);
+		samples = max_samples + 1;
+		updateGpuObjects<Sphere, rmo::Sphere>(raymarch_program, objects, "spheres");
+		updateGpuObjects<Cube, rmo::Cube>(raymarch_program, objects, "cubes");
+		updateGpuObjects<Cylinder, rmo::Cylinder>(raymarch_program, objects, "cylinders");
+		updateGpuObjects<Cone, rmo::Cone>(raymarch_program, objects, "cones");
+	};
 
 
 	// Application Start function
@@ -468,24 +481,24 @@ int main(int argc, char* argv[]) {
 		UI::uiGenFuncs.emplace_back([]() {
 			ImGuiIO& imguiIO = ImGui::GetIO(); (void)imguiIO;
 			ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
-			{
-				static float f = 0.0f;
-				static int counter = 0;
 
-				ImGui::Begin("Hello, world!");                          // Create a window called "Hello, world!" and append into it.
+			ImGui::Begin("Context Menu");
+			
+			ImGui::Text("Rendering... %d/%d samples", std::min((int)max_samples, std::max(1, (int)max_samples - samples)), max_samples);
 
-				ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
-				ImGui::SliderFloat("float", &f, 0.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
-				ImGui::ColorEdit3("clear color", (float*)&clear_color); // Edit 3 floats representing a color
+			ImGui::End();
 
-				if (ImGui::Button("Button"))                            // Buttons return true when clicked (most widgets return true when edited/activated)
-					counter++;
-				ImGui::SameLine();
-				ImGui::Text("counter = %d", counter);
+			//ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
+			//ImGui::SliderFloat("float", &f, 0.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
+			//ImGui::ColorEdit3("clear color", (float*)&clear_color); // Edit 3 floats representing a color
 
-				ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / imguiIO.Framerate, imguiIO.Framerate);
-				ImGui::End();
-			}
+			//if (ImGui::Button("Button"))                            // Buttons return true when clicked (most widgets return true when edited/activated)
+				//counter++;
+			//ImGui::SameLine();
+			//ImGui::Text("counter = %d", counter);
+
+			//ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / imguiIO.Framerate, imguiIO.Framerate);
+			//ImGui::End();
 		});
 	});
 	// Application Update function
@@ -493,20 +506,6 @@ int main(int argc, char* argv[]) {
 
 		// Update App Title with current FPS
 		SDL_SetWindowTitle(window.window_get(), std::to_string(1.0f / deltaTime).c_str());
-
-		// Setup Ray-Sampling
-		static constexpr uint max_samples = 32;
-		static int samples = max_samples;
-		auto reset_pathtracer = [&]() {
-			glUseProgram(raymarch_program);
-			glUniform1i(glGetUniformLocation(raymarch_program, "scene_change"), 1);
-			samples = max_samples + 1;
-			updateGpuObjects<Sphere, rmo::Sphere>(raymarch_program, objects, "spheres");
-			updateGpuObjects<Cube, rmo::Cube>(raymarch_program, objects, "cubes");
-			updateGpuObjects<Cylinder, rmo::Cylinder>(raymarch_program, objects, "cylinders");
-			updateGpuObjects<Cone, rmo::Cone>(raymarch_program, objects, "cones");
-		};
-
 
 
 		// ****** UPDATE LOGIC ****** //
@@ -528,12 +527,12 @@ int main(int argc, char* argv[]) {
 		static float speed = 25.0f;
 		if (SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_I]) {
 			objects[0]->transform_getr().location += glm::vec3(0.0f, 0.0f, 1.0f) * -speed * deltaTime;
-			std::cout << objects[0]->transform_getr().location << std::endl;
+			//std::cout << objects[0]->transform_getr().location << std::endl;
 			reset_pathtracer();
 		}
 		if (SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_O]) {
 			objects[0]->transform_getr().location += glm::vec3(0.0f, 0.0f, 1.0f) * speed * deltaTime;
-			std::cout << objects[0]->transform_getr().location << std::endl;
+			//std::cout << objects[0]->transform_getr().location << std::endl;
 			reset_pathtracer();
 		}
 
@@ -639,7 +638,7 @@ int main(int argc, char* argv[]) {
 			samples--;
 		}
 		else if (samples == 0) {
-			std::cout << "Render finished..." << std::endl;
+			//std::cout << "Render finished..." << std::endl;
 			samples--;
 		}
 
@@ -675,7 +674,7 @@ int main(int argc, char* argv[]) {
 
 
 		// Initiate Path-Tracing Sampling process
-		if (samples == max_samples) { // Add random positive integer to right operand of comparison in order to disable sampling
+		if (samples == max_samples) {
 			glUseProgram(raymarch_program);
 
 			glUniform1i(glGetUniformLocation(raymarch_program, "scene_change"), -1);
