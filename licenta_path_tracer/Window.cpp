@@ -1,6 +1,7 @@
 #include "iostream"
 #include "Window.hpp"
 
+
 Window::Window(uint width, uint height, std::string title)
 	:
 	width(width),
@@ -39,6 +40,25 @@ Window::Window(uint width, uint height, std::string title)
 		SDL_Quit();
 	}
 
+
+	// Setup Dear ImGui context
+	IMGUI_CHECKVERSION();
+	ImGui::CreateContext();
+	ImGuiIO &imguiIO = ImGui::GetIO(); (void)imguiIO;
+
+	imguiIO.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
+	imguiIO.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+
+	// Setup Dear ImGui style
+	ImGui::StyleColorsDark();
+	//ImGui::StyleColorsLight();
+
+	// Setup Platform/Renderer backends
+	const char* glsl_version = "#version 460 core";
+	ImGui_ImplSDL2_InitForOpenGL(window, glContext);
+	ImGui_ImplOpenGL3_Init(glsl_version);
+
+
 	#if USE_GLAD == true
 	if (!gladLoadGLLoader((GLADloadproc)SDL_GL_GetProcAddress)) {
 		std::cerr << "Error initializing GLAD!" << std::endl;
@@ -60,6 +80,12 @@ Window::Window(uint width, uint height, std::string title)
 }
 
 Window::~Window() {
+	// Cleanup
+	ImGui_ImplOpenGL3_Shutdown();
+	ImGui_ImplSDL2_Shutdown();
+	ImGui::DestroyContext();
+
+	SDL_GL_DeleteContext(this->glContext);
 	SDL_DestroyWindow(this->window);
 	SDL_Quit();
 }

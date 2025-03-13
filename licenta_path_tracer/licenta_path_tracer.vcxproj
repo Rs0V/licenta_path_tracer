@@ -115,7 +115,7 @@
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalIncludeDirectories>D:\C++ Libraries\glew\include;D:\C++ Libraries\glad\include\glad;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>D:\C++ Libraries\glew\include;D:\C++ Libraries\glad\include\glad;$(ProjectDir)\imgui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -133,7 +133,7 @@
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalIncludeDirectories>D:\C++ Libraries\glew\include;D:\C++ Libraries\glad\include\glad;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>D:\C++ Libraries\glew\include;D:\C++ Libraries\glad\include\glad;$(ProjectDir)\imgui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -151,6 +151,14 @@
     <ClCompile Include="Cone.cpp" />
     <ClCompile Include="Cube.cpp" />
     <ClCompile Include="Cylinder.cpp" />
+    <ClCompile Include="imgui\backends\imgui_impl_opengl3.cpp" />
+    <ClCompile Include="imgui\backends\imgui_impl_sdl2.cpp" />
+    <ClCompile Include="imgui\backends\imgui_impl_sdlrenderer2.cpp" />
+    <ClCompile Include="imgui\imgui.cpp" />
+    <ClCompile Include="imgui\imgui_draw.cpp" />
+    <ClCompile Include="imgui\imgui_tables.cpp" />
+    <ClCompile Include="imgui\imgui_widgets.cpp" />
+    <ClCompile Include="imgui\misc\cpp\imgui_stdlib.cpp" />
     <ClCompile Include="Light.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Object.cpp" />
@@ -159,6 +167,7 @@
     <ClCompile Include="Ray.cpp" />
     <ClCompile Include="Sphere.cpp" />
     <ClCompile Include="Transform.cpp" />
+    <ClCompile Include="UI.cpp" />
     <ClCompile Include="Window.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -170,6 +179,18 @@
     <ClInclude Include="Cube.hpp" />
     <ClInclude Include="Cylinder.hpp" />
     <ClInclude Include="FX.hpp" />
+    <ClInclude Include="imgui\backends\imgui_impl_opengl3.h" />
+    <ClInclude Include="imgui\backends\imgui_impl_opengl3_loader.h" />
+    <ClInclude Include="imgui\backends\imgui_impl_sdl2.h" />
+    <ClInclude Include="imgui\backends\imgui_impl_sdlrenderer2.h" />
+    <ClInclude Include="imgui\imconfig.h" />
+    <ClInclude Include="imgui\imgui.h" />
+    <ClInclude Include="imgui\imgui_internal.h" />
+    <ClInclude Include="imgui\imstb_rectpack.h" />
+    <ClInclude Include="imgui\imstb_textedit.h" />
+    <ClInclude Include="imgui\imstb_truetype.h" />
+    <ClInclude Include="imgui\misc\cpp\imgui_stdlib.h" />
+    <ClInclude Include="imgui\misc\single_file\imgui_single_file.h" />
     <ClInclude Include="Light.hpp" />
     <ClInclude Include="Object.hpp" />
     <ClInclude Include="Parent.hpp" />
@@ -178,6 +199,7 @@
     <ClInclude Include="Ray.hpp" />
     <ClInclude Include="Sphere.hpp" />
     <ClInclude Include="Transform.hpp" />
+    <ClInclude Include="UI.hpp" />
     <ClInclude Include="Utilities.hpp" />
     <ClInclude Include="Window.hpp" />
   </ItemGroup>

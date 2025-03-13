@@ -3,6 +3,11 @@
 #include "SDL.h"
 #include "string"
 #include "Utilities.hpp"
+#include "imgui/imgui.h"
+#include "imgui/backends/imgui_impl_sdl2.h"
+#include "imgui/backends/imgui_impl_opengl3.h"
+#include "UI.hpp"
+
 
 class Window {
 protected:
@@ -40,6 +45,7 @@ template<class F> void Window::Update(F update) {
 	while (this->running) {
 		currTime = SDL_GetTicks();
 		while (SDL_PollEvent(&Event) != 0) {
+			ImGui_ImplSDL2_ProcessEvent(&Event);
 			if (Event.type == SDL_QUIT) {
 				this->running = false;
 			}
@@ -52,6 +58,24 @@ template<class F> void Window::Update(F update) {
 		update(deltaTime);
 
 		lastTime = currTime;
+		//SDL_GL_SwapWindow(this->window);
+
+
+
+		// Start the Dear ImGui frame
+		ImGui_ImplOpenGL3_NewFrame();
+		ImGui_ImplSDL2_NewFrame();
+		ImGui::NewFrame();
+
+
+		UI::CreateUI();
+		
+
+		// Rendering
+		ImGuiIO &imguiIO = ImGui::GetIO(); (void)imguiIO;
+		ImGui::Render();
+		glViewport(0, 0, (int)imguiIO.DisplaySize.x, (int)imguiIO.DisplaySize.y);
+		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 		SDL_GL_SwapWindow(this->window);
 	}
 }
