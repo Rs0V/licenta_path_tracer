@@ -644,7 +644,7 @@ int main(int argc, char* argv[]) {
 
 
 		// Denoiser
-		static constexpr uint denoisingPasses = 1;
+		static constexpr uint denoisingPasses = 8;
 		glUseProgram(denoiser_program);
 		glUniform1i(glGetUniformLocation(denoiser_program, "samples"), std::max((int)max_samples - samples, 1));
 		for (uint i = 0; i < denoisingPasses; i++) {

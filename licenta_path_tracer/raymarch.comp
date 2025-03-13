@@ -20,11 +20,11 @@ uniform int samples;
 
 const float hitThreshold = 0.001;
 const float farPlane = 1000.0;
-const int max_bounces = 16;
 
-uniform vec3 light_pos = vec3(-20.0, -20.0, 20.0);
-uniform float light_radius = 10.0;
-uniform vec3 light_color = vec3(1.0, 1.0, 1.0);
+uniform vec3  light_pos    = vec3(-20.0, -20.0, 20.0);
+uniform float light_radius = 100.0;
+uniform vec3  light_color  = vec3(1.0, 1.0, 1.0);
+uniform float light_power  = 7.0;
 
 uniform sampler2D blueNoise;
 
@@ -390,13 +390,13 @@ vec3 cook_torrance_brdf(in RaycastHit hit, vec3 light_dir, vec3 view_dir, vec3 F
     float NdotL = max(dot(hit.normal, light_dir), 0.0f);
     return (kD * albedo / pi + reflectance) * NdotL;
 }
-vec3 generate_specular_ray(vec2 uv, in RaycastHit hit, float roughness) {
+vec3 generate_glossy_ray(vec2 uv, in RaycastHit hit, float roughness) {
 	float rdisp = fract((hit.ray_pos.x + hit.ray_pos.y + hit.ray_pos.z) * 19.62173);
 	return normalize(mix(reflectHit(hit).ray_dir, randomVectorInHemisphere(uv + vec2(rdisp, fract(rdisp * 1.722459)), hit.normal), roughness));
 }
 
 
-void pbr_shading(in RaycastHit hit, vec3 albedo, float metallic, float roughness, float reflectance, out vec3 voutput[2]) {
+vec3 pbr_shading(in RaycastHit hit, vec3 albedo, float metallic, float roughness, float reflectance) {
     vec3 light_dir = normalize(light_pos - hit.ray_pos);
 	vec3 view_dir = normalize(camera_pos - hit.ray_pos);
     vec3 F0 = mix(vec3(0.04), albedo, metallic);
@@ -404,8 +404,7 @@ void pbr_shading(in RaycastHit hit, vec3 albedo, float metallic, float roughness
     vec3 vdiffuse = lambertian_shading(hit, light_dir, albedo);
     vec3 vspecular = cook_torrance_brdf(hit, light_dir, view_dir, F0, albedo, metallic, roughness, reflectance);
 
-	voutput[0] = vdiffuse;
-	voutput[1] = vspecular;
+	return vdiffuse * vspecular;
 }
 
 
@@ -437,30 +436,60 @@ void main() {
 
 	
 
-	int bounces = max_bounces;
 	float metallic = 0.0;
-	float roughness = 0.5;
+	float roughness = 0.38;
 	float reflectance = 0.5;
 
-	float dist = 0.0;
+	const int max_diffuse_bounces = 4;
+	const int max_glossy_bounces  = 8;
+
 	RaycastHit hit = raycast(ray_pos, ray_dir);
-	RaycastHit last_hit;
 	if (hit.hit == true) {
+		float dist = 0.0;
+		RaycastHit copy_hit = hit;
+		RaycastHit last_hit;
+
+		// Diffuse rays
+		vec3 diffuse_color = vec3(0.0);
+		int bounces = max_diffuse_bounces;
 		while (bounces > 0) {
 			last_hit = hit;
 
-			ray_color += pow(hit.ray_color.xyz, vec3(1.0 / max(max_bounces - bounces, 1)));
+			vec3 light_contrib = light_color * mix(0.0, light_power, 1.0 - min(1.0, distance(light_pos, hit.ray_pos) / light_radius));
+			diffuse_color += pbr_shading(hit, hit.ray_color.xyz, metallic, roughness, reflectance) * light_contrib;
 
-			//vec3 specular_dir = generate_specular_ray(uv + specular_hit.ray_dir.xy, specular_hit, roughness);
-			//vec2 ruv = uv * fract(sin(dot(uv * vec2(rng_seed / 93.4387, rng_seed / 143.1299), vec2(12.9898, 78.233))) * 43758.5453123);
-			//hit = raycast(hit.ray_pos, generate_diffuse_ray(ruv, hit));
-			hit = raycast(hit.ray_pos, generate_specular_ray(uv, hit, .2));
+			hit = raycast(hit.ray_pos, generate_diffuse_ray(uv, hit));
 
 			dist += distance(hit.ray_pos, last_hit.ray_pos);
 			bounces--;
 		}
+		diffuse_color /= max_diffuse_bounces;
+
+
+		// Go back to initial hit
+		dist = 0.0;
+		hit = copy_hit;
+
+		// Glossy rays
+		vec3 glossy_color = vec3(0.0);
+		bounces = max_glossy_bounces;
+		while (bounces > 0) {
+			last_hit = hit;
+
+			vec3 light_contrib = light_color * mix(0.0, light_power, 1.0 - min(1.0, distance(light_pos, hit.ray_pos) / light_radius));
+			glossy_color += pbr_shading(hit, hit.ray_color.xyz, metallic, roughness, reflectance) * light_contrib;
+
+			hit = raycast(hit.ray_pos, generate_glossy_ray(uv, hit, roughness));
+
+			dist += distance(hit.ray_pos, last_hit.ray_pos);
+			bounces--;
+		}
+		glossy_color /= max_glossy_bounces;
+
+
+		ray_color = diffuse_color * glossy_color;
 	}
-	ray_color = max(ray_color, 0.0) / samples * 4.0;
+	ray_color = max(ray_color, 0.0);
 
 
 
