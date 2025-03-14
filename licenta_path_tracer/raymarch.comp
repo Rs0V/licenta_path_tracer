@@ -15,7 +15,7 @@ uniform int scene_change = 0;
 uniform mat4 camera_proj;
 uniform mat4 camera_view;
 uniform vec3 camera_pos;
-uniform int rng_seed;
+uniform float random_f01;
 uniform int samples;
 
 const float hitThreshold = 0.001;
@@ -315,7 +315,7 @@ RaycastHit reflectHit(in RaycastHit hit) {
 
 
 float random(vec2 uv) {
-	return texture(blueNoise, uv).x;
+	return texture(blueNoise, uv + vec2(random_f01, fract(random_f01 * 7.931199))).x;
 }
 vec3 randomVectorInSphericalCap(vec2 uv, vec3 normal, float max_angle, bool signedSpread = true) {
 	vec3 tg1  = tangent(normal);
@@ -455,10 +455,15 @@ void main() {
 		while (bounces > 0) {
 			last_hit = hit;
 
+
+			// Need to make a special raycast_light function that tests hits taking into account light's radius
+			//RaycastHit shadow_hit = raycast_light(ray_pos, ray_dir);
+
 			vec3 light_contrib = light_color * mix(0.0, light_power, 1.0 - min(1.0, distance(light_pos, hit.ray_pos) / light_radius));
 			diffuse_color += pbr_shading(hit, hit.ray_color.xyz, metallic, roughness, reflectance) * light_contrib;
 
 			hit = raycast(hit.ray_pos, generate_diffuse_ray(uv, hit));
+
 
 			dist += distance(hit.ray_pos, last_hit.ray_pos);
 			bounces--;
@@ -476,10 +481,12 @@ void main() {
 		while (bounces > 0) {
 			last_hit = hit;
 
+
 			vec3 light_contrib = light_color * mix(0.0, light_power, 1.0 - min(1.0, distance(light_pos, hit.ray_pos) / light_radius));
 			glossy_color += pbr_shading(hit, hit.ray_color.xyz, metallic, roughness, reflectance) * light_contrib;
 
 			hit = raycast(hit.ray_pos, generate_glossy_ray(uv, hit, roughness));
+
 
 			dist += distance(hit.ray_pos, last_hit.ray_pos);
 			bounces--;

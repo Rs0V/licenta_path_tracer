@@ -624,7 +624,7 @@ int main(int argc, char* argv[]) {
 		// Compute Path-Tracing Samples
 		if (samples > 0) {
 			glUseProgram(raymarch_program);
-			glUniform1i(glGetUniformLocation(raymarch_program, "rng_seed"), random(1, 1000));
+			glUniform1f(glGetUniformLocation(raymarch_program, "random_f01"), random(0.0f, 1.0f));
 			glUniform1i(glGetUniformLocation(raymarch_program, "samples"), max_samples);
 			glUniform3fv(glGetUniformLocation(raymarch_program, "light_pos"), 1, glm::value_ptr(light_pos));
 
