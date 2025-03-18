@@ -8,12 +8,12 @@
 
 class Parent : public Component {
 protected:
-	Object *self;
+	Object *const self;
 	const Object *parent;
 	Transform last_parent_transform;
 
 public:
-	Parent(Object* self, const Object *parent);
+	Parent(Object *self, const Object *parent);
 	~Parent() override;
 
 	void applyTransform();

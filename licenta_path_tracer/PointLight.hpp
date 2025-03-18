@@ -1,14 +1,9 @@
 #pragma once
 #include "Light.hpp"
 
+
 class PointLight : public Light {
-protected:
-	float radius;
-
 public:
-	PointLight();
-	PointLight(Transform transform, Color color, float intensity, float radius);
+	PointLight(Transform &&transform, Color color = Color::white, float intensity = 2.0f, float radius = 25.0f);
 	~PointLight() override;
-
-	getset(radius)
 };

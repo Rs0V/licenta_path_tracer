@@ -1,34 +1,25 @@
 #pragma once
-#include "glm.hpp"
-#include "Transform.hpp"
-#include "Color.hpp"
-#include "Ray.hpp"
-#include "vector"
-#include "optional"
-#include "tuple"
+#include "Actor.hpp"
+#include "Material.hpp"
 
-interface Object {
+
+interface Object : public Actor {
 protected:
-	Transform transform;
-	Color color;
+	Material* material;
 
-	std::vector<Component*> components;
-	bool visible = true;
-	bool affectWorld = true;
+	bool visible;
+	bool affectWorld;
 
 	int type;
 	int index;
 
-	Object();
-	Object(Transform transform, Color color);
+
+	Object(int type, int index);
+	Object(int type, int index, Transform &&transform);
 
 public:
-	virtual ~Object() = 0;
-	virtual std::tuple<std::optional<Ray>, std::optional<Ray>> HitTest(const Ray& ray) const = 0;
+	~Object() override = 0;
 
-	getterr(transform)
-	getset(color)
-	getterr(components)
 	getset(visible)
 	getset(affectWorld)
 

@@ -31,9 +31,18 @@ class Color : public glm::vec4 {
 public:
 	using glm::vec4::vec4;
 
+
 	Color() = default;
 	Color(const glm::vec4& vec4);
 	Color(uint pixel255);
+
+	Color(const Color&) = default;
+	Color(Color&&) noexcept = default;
+
+	Color& operator=(const Color&) = default;
+	Color& operator=(Color&&) noexcept = default;
+
+	~Color() = default;
 
 	operator uint() const {
 		return (uint)(this->r * 255)
@@ -47,4 +56,7 @@ public:
 	}
 
 	static const Color zero;
+	static const Color white;
+	static const Color black;
+	static const Color transparent;
 };

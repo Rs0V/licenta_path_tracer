@@ -1,6 +1,7 @@
 #pragma once
 #include "Object.hpp"
 
+
 class Cone : public Object {
 	static int cone_index;
 
@@ -8,11 +9,8 @@ protected:
 	float radius, height;
 
 public:
-	Cone();
-	Cone(Transform transform, Color color, float radius, float height);
+	Cone(Transform &&transform, float radius = 1.0f, float height = 2.0f);
 	~Cone() override;
-
-	std::tuple<std::optional<Ray>, std::optional<Ray>> HitTest(const Ray& ray) const override;
 
 	getter(radius)
 	getter(height)

@@ -1,15 +1,12 @@
 #include "Boolean.hpp"
 
-boolean::Boolean::Boolean()
-	:
-	other(nullptr),
-	type(Type::Union)
-{}
 
-boolean::Boolean::Boolean(Object* other, Type type)
+boolean::Boolean::Boolean(Object *self, Object *other, Type type)
 	:
+	self(self),
 	other(other),
 	type(type)
-{}
+{
+}
 
 boolean::Boolean::~Boolean() {}

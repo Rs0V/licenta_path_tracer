@@ -1,6 +1,10 @@
 #include "Color.hpp"
 
-const Color Color::zero = Color(0.0f, 0.0f, 0.0f, 0.0f);
+const Color Color::zero        = Color(0.0f, 0.0f, 0.0f, 0.0f);
+const Color Color::white       = Color(1.0f, 1.0f, 1.0f, 1.0f);
+const Color Color::black       = Color(0.0f, 0.0f, 0.0f, 1.0f);
+const Color Color::transparent = Color(1.0f, 1.0f, 1.0f, 0.0f);
+
 
 Color::Color(const glm::vec4& vec4)
 	:
@@ -20,4 +24,5 @@ Color::Color(uint pixel255)
 		pixel255 >> 16 & 255,
 		pixel255 >> 24 & 255
 	)
-{}
+{
+}

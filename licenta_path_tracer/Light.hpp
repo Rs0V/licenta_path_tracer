@@ -1,21 +1,23 @@
 #pragma once
-#include "Transform.hpp"
+#include "Actor.hpp"
 #include "Color.hpp"
 
-interface Light {
+
+interface Light : public Actor {
 protected:
-	Transform transform;
 	Color color;
 	float intensity;
+	float radius;
 
-	Light(Transform transform, Color color, float intensity);
+
+	Light(Transform &&transform, Color color = Color::white, float intensity = 2.0f, float radius = 25.0f);
 
 public:
 	virtual ~Light() = 0;
 
-	getterr(transform)
 	getset(color)
 	getset(intensity)
+	getset(radius)
 };
 
 inline Light::~Light() {}

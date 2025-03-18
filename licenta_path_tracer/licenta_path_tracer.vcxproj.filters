@@ -55,6 +55,12 @@
     <Filter Include="Source Files\ImGUI">
       <UniqueIdentifier>{ba54c327-2ada-41f2-a739-16ace15e25c8}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\Materials">
+      <UniqueIdentifier>{3d3a4845-1028-4e6e-883d-9b1249201b19}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Materiales">
+      <UniqueIdentifier>{9108ebcf-d6a4-4334-b46a-7c33f6bc6f7a}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />
@@ -86,9 +92,6 @@
       <Filter>Source Files\Lighting</Filter>
     </ClCompile>
     <ClCompile Include="Light.cpp">
-      <Filter>Source Files\Lighting</Filter>
-    </ClCompile>
-    <ClCompile Include="Ray.cpp">
       <Filter>Source Files\Lighting</Filter>
     </ClCompile>
     <ClCompile Include="Transform.cpp">
@@ -127,6 +130,15 @@
     <ClCompile Include="UI.cpp">
       <Filter>Source Files\Utils</Filter>
     </ClCompile>
+    <ClCompile Include="Actor.cpp">
+      <Filter>Source Files\Actors</Filter>
+    </ClCompile>
+    <ClCompile Include="MPrincipledBSDF.cpp">
+      <Filter>Source Files\Materiales</Filter>
+    </ClCompile>
+    <ClCompile Include="MVolumeScatter.cpp">
+      <Filter>Source Files\Materiales</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Object.hpp">
@@ -164,9 +176,6 @@
     </ClInclude>
     <ClInclude Include="RMOStructs.hpp">
       <Filter>Header Files\Basic Shapes</Filter>
-    </ClInclude>
-    <ClInclude Include="Ray.hpp">
-      <Filter>Header Files\Lighting</Filter>
     </ClInclude>
     <ClInclude Include="PointLight.hpp">
       <Filter>Header Files\Lighting</Filter>
@@ -221,6 +230,18 @@
     </ClInclude>
     <ClInclude Include="imgui\backends\imgui_impl_sdlrenderer2.h">
       <Filter>Header Files\ImGUI</Filter>
+    </ClInclude>
+    <ClInclude Include="Actor.hpp">
+      <Filter>Header Files\Actors</Filter>
+    </ClInclude>
+    <ClInclude Include="Material.hpp">
+      <Filter>Header Files\Materials</Filter>
+    </ClInclude>
+    <ClInclude Include="MPrincipledBSDF.hpp">
+      <Filter>Header Files\Materials</Filter>
+    </ClInclude>
+    <ClInclude Include="MVolumeScatter.hpp">
+      <Filter>Header Files\Materials</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

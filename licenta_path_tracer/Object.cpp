@@ -1,19 +1,24 @@
 #include "Object.hpp"
 
-Object::Object()
-	:
-	transform(Transform()),
-	color(color),
-	components(),
-	visible(true),
-	affectWorld(true)
-{}
 
-Object::Object(Transform transform, Color color)
+Object::Object(int type, int index)
 	:
-	transform(transform),
-	color(color),
-	components(),
+	Actor(),
+	material(nullptr),
 	visible(true),
-	affectWorld(true)
-{}
+	affectWorld(true),
+	type(type),
+	index(index)
+{
+}
+
+Object::Object(int type, int index, Transform &&transform)
+	:
+	Actor(std::move(transform)),
+	material(nullptr),
+	visible(true),
+	affectWorld(true),
+	type(type),
+	index(index)
+{
+}

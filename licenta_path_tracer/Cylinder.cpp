@@ -2,36 +2,13 @@
 
 int Cylinder::cylinder_index = 0;
 
-Cylinder::Cylinder()
-	:
-	Object({}, { 1.0f, 1.0f, 1.0f, 1.0f }),
-	radius(1.0f),
-	height(1.0f)
-{
-	this->type = 2;
-	this->index = Cylinder::cylinder_index++;
-}
 
-Cylinder::Cylinder(Transform transform, Color color, float radius, float height)
+Cylinder::Cylinder(Transform &&transform, float radius, float height)
 	:
-	Object(transform, color),
+	Object(2, Cylinder::cylinder_index++, std::move(transform)),
 	radius(radius),
 	height(height)
 {
-	this->type = 2;
-	this->index = Cylinder::cylinder_index++;
 }
 
-Cylinder::~Cylinder() {
-}
-
-std::tuple<std::optional<Ray>, std::optional<Ray>> Cylinder::HitTest(const Ray& ray) const {
-	if (glm::distance(glm::vec2(ray.location_get()), glm::vec2(this->transform.location)) < this->radius
-	and ray.location_get().z > this->transform.location.z - this->height / 2.0f
-	and ray.location_get().z < this->transform.location.z + this->height / 2.0f) {
-		//return this->color;
-		return {};
-	}
-	//return Color::zero;
-	return {};
-}
+Cylinder::~Cylinder() {}

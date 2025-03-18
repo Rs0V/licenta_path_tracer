@@ -1,6 +1,7 @@
 #include "Parent.hpp"
 
-Parent::Parent(Object* self, const Object* parent)
+
+Parent::Parent(Object *self, const Object *parent)
 	:
 	self(self),
 	parent(parent),
@@ -9,6 +10,8 @@ Parent::Parent(Object* self, const Object* parent)
 }
 
 Parent::~Parent() {}
+
+
 
 void Parent::applyTransform() {
 	glm::vec3 deltaLoc   = parent->transform_getrc().location - last_parent_transform.location;

@@ -1,19 +1,9 @@
 #pragma once
-#include "Transform.hpp"
-#include "Utilities.hpp"
+#include "Actor.hpp"
 
-class Camera {
-protected:
-	Transform transform;
-	glm::vec3 right, forward, up;
 
+class Camera : public Actor {
 public:
-	Camera();
-	Camera(Transform transform);
-	~Camera();
-
-	getterr(transform)
-	getterr(right)
-	getterr(forward)
-	getterr(up)
+	Camera() = default;
+	Camera(Transform &&transform);
 };

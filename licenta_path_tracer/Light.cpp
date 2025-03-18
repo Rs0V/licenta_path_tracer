@@ -1,8 +1,11 @@
 #include "Light.hpp"
 
-Light::Light(Transform transform, Color color, float intensity)
+
+Light::Light(Transform &&transform, Color color, float intensity, float radius)
 	:
-	transform(transform),
+	Actor(std::move(transform)),
 	color(color),
-	intensity(intensity)
-{}
+	intensity(intensity),
+	radius(radius)
+{
+}

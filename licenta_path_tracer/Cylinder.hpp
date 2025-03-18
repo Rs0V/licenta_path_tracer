@@ -1,6 +1,7 @@
 #pragma once
 #include "Object.hpp"
 
+
 class Cylinder : public Object {
 	static int cylinder_index;
 
@@ -8,11 +9,8 @@ protected:
 	float radius, height;
 
 public:
-	Cylinder();
-	Cylinder(Transform transform, Color color, float radius, float height);
+	Cylinder(Transform &&transform, float radius = 1.0f, float height = 2.0f);
 	~Cylinder() override;
-
-	std::tuple<std::optional<Ray>, std::optional<Ray>> HitTest(const Ray& ray) const override;
 
 	getter(radius)
 	getter(height)
