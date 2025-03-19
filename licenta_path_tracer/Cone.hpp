@@ -9,7 +9,7 @@ protected:
 	float radius, height;
 
 public:
-	Cone(Transform &&transform, float radius = 1.0f, float height = 2.0f);
+	Cone(Transform &&transform, const Material* material, float radius = 1.0f, float height = 2.0f);
 	~Cone() override;
 
 	getter(radius)

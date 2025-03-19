@@ -1,10 +1,10 @@
 #include "Object.hpp"
 
 
-Object::Object(int type, int index)
+Object::Object(int type, int index, const Material *material)
 	:
 	Actor(),
-	material(nullptr),
+	material(material),
 	visible(true),
 	affectWorld(true),
 	type(type),
@@ -12,10 +12,10 @@ Object::Object(int type, int index)
 {
 }
 
-Object::Object(int type, int index, Transform &&transform)
+Object::Object(int type, int index, Transform &&transform, const Material *material)
 	:
 	Actor(std::move(transform)),
-	material(nullptr),
+	material(material),
 	visible(true),
 	affectWorld(true),
 	type(type),

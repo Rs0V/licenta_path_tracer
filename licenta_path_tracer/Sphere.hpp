@@ -9,7 +9,7 @@ protected:
 	float radius;
 
 public:
-	Sphere(Transform &&transform, float radius = 1.0f);
+	Sphere(Transform &&transform, const Material *material, float radius = 1.0f);
 	~Sphere() override;
 
 	getset(radius)

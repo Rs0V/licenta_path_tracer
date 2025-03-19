@@ -212,6 +212,8 @@
     <None Include="basic_shapes.comp" />
     <None Include="cpp.hint" />
     <None Include="denoiser.comp" />
+    <None Include="lights.comp" />
+    <None Include="materials.comp" />
     <None Include="raymarch.comp" />
     <None Include="rtarget.frag" />
     <None Include="rtarget.vert" />

@@ -1,11 +1,13 @@
 #include "Boolean.hpp"
 
 
-boolean::Boolean::Boolean(Object *self, Object *other, Type type)
+boolean::Boolean::Boolean(Object *self, Object *other, Type type, float blend)
 	:
+	Component(),
 	self(self),
 	other(other),
-	type(type)
+	type(type),
+	blend(blend)
 {
 }
 

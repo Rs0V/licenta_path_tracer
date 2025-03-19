@@ -174,9 +174,6 @@
     <ClInclude Include="Color.hpp">
       <Filter>Header Files\Utils</Filter>
     </ClInclude>
-    <ClInclude Include="RMOStructs.hpp">
-      <Filter>Header Files\Basic Shapes</Filter>
-    </ClInclude>
     <ClInclude Include="PointLight.hpp">
       <Filter>Header Files\Lighting</Filter>
     </ClInclude>
@@ -243,6 +240,9 @@
     <ClInclude Include="MVolumeScatter.hpp">
       <Filter>Header Files\Materials</Filter>
     </ClInclude>
+    <ClInclude Include="RMOStructs.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="cpp.hint" />
@@ -262,6 +262,12 @@
       <Filter>Shader Files\Headers</Filter>
     </None>
     <None Include="utils.comp">
+      <Filter>Shader Files\Headers</Filter>
+    </None>
+    <None Include="materials.comp">
+      <Filter>Shader Files\Headers</Filter>
+    </None>
+    <None Include="lights.comp">
       <Filter>Shader Files\Headers</Filter>
     </None>
   </ItemGroup>

@@ -4,7 +4,7 @@
 
 interface Component {
 protected:
-	Component();
+	Component() = default;
 
 public:
 	virtual ~Component() = 0;

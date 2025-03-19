@@ -8,7 +8,7 @@ protected:
 	int type;
 	int index;
 
-	Material(int type, int index);
+	Material(int type, int index) : type(type), index(index) {}
 
 public:
 	virtual ~Material() = 0;

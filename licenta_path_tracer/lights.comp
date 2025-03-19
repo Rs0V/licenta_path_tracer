@@ -1,0 +1,14 @@
+
+struct PointLight {
+	float intensity;
+	vec3 location;
+
+	float radius;
+	vec3 rotation;
+
+	float pad1;
+	vec3 scale;
+
+	float pad2;
+	vec3 color;
+};

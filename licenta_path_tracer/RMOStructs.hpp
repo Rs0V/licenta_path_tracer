@@ -37,11 +37,10 @@ namespace rmo {
 		float radius;
 		glm::vec3 scale;
 
-		int booleanObjType;
-		int booleanObjIndex;
-		int booleanType;
-		privb(int pad1);
-
+		int type;
+		int index;
+		int material_type;
+		int material_index;
 
 
 		Sphere& operator=(const ::Sphere &sphere) {
@@ -51,10 +50,10 @@ namespace rmo {
 
 			this->radius = sphere.radius_get();
 
-			auto boolean = vuni_cast<boolean::Boolean*>(sphere.components_getrc());
-			this->booleanObjType  = boolean ? boolean->other_get()->type_get()  : sphere.type_get();
-			this->booleanObjIndex = boolean ? boolean->other_get()->index_get() : sphere.index_get();
-			this->booleanType     = getBooleanType(boolean);
+			this->type  = sphere.type_get();
+			this->index = sphere.index_get();
+			this->material_type  = sphere.material_get()->type_get();
+			this->material_index = sphere.material_get()->index_get();
 
 			this->visible     = sphere.visible_get();
 			this->affectWorld = sphere.affectWorld_get();
@@ -70,17 +69,15 @@ namespace rmo {
 		int affectWorld;
 		glm::vec3 rotation;
 
-		privb(float pad1);
+		int material_type;
 		glm::vec3 scale;
 
-		privb(float pad2);
+		int material_index;
 		glm::vec3 dimensions;
 
-		int booleanObjType;
-		int booleanObjIndex;
-		int booleanType;
-		privb(int pad3);
-
+		int type;
+		int index;
+		privb(int pad1[2]);
 
 
 		Cube& operator=(const ::Cube &cube) {
@@ -90,10 +87,10 @@ namespace rmo {
 
 			this->dimensions = cube.dimensions_get();
 
-			auto boolean = vuni_cast<boolean::Boolean*>(cube.components_getrc());
-			this->booleanObjType  = boolean ? boolean->other_get()->type_get()  : cube.type_get();
-			this->booleanObjIndex = boolean ? boolean->other_get()->index_get() : cube.index_get();
-			this->booleanType     = getBooleanType(boolean);
+			this->type  = cube.type_get();
+			this->index = cube.index_get();
+			this->material_type  = cube.material_get()->type_get();
+			this->material_index = cube.material_get()->index_get();
 
 			this->visible     = cube.visible_get();
 			this->affectWorld = cube.affectWorld_get();
@@ -112,11 +109,13 @@ namespace rmo {
 		int visible;
 		glm::vec3 scale;
 
-		int booleanObjType;
-		int booleanObjIndex;
-		int booleanType;
 		int affectWorld;
+		privb(int pad1[3]);
 
+		int type;
+		int index;
+		int material_type;
+		int material_index;
 
 
 		Cylinder& operator=(const ::Cylinder &cylinder) {
@@ -127,10 +126,10 @@ namespace rmo {
 			this->radius = cylinder.radius_get();
 			this->height = cylinder.height_get();
 
-			auto boolean = vuni_cast<boolean::Boolean*>(cylinder.components_getrc());
-			this->booleanObjType  = boolean ? boolean->other_get()->type_get()  : cylinder.type_get();
-			this->booleanObjIndex = boolean ? boolean->other_get()->index_get() : cylinder.index_get();
-			this->booleanType     = getBooleanType(boolean);
+			this->type  = cylinder.type_get();
+			this->index = cylinder.index_get();
+			this->material_type = cylinder.material_get()->type_get();
+			this->material_index = cylinder.material_get()->index_get();
 
 			this->visible     = cylinder.visible_get();
 			this->affectWorld = cylinder.affectWorld_get();
@@ -149,11 +148,13 @@ namespace rmo {
 		int visible;
 		glm::vec3 scale;
 
-		int booleanObjType;
-		int booleanObjIndex;
-		int booleanType;
 		int affectWorld;
+		privb(int pad1[3]);
 
+		int type;
+		int index;
+		int material_type;
+		int material_index;
 
 
 		Cone& operator=(const ::Cone &cone) {
@@ -164,10 +165,10 @@ namespace rmo {
 			this->radius = cone.radius_get();
 			this->height = cone.height_get();
 
-			auto boolean = vuni_cast<boolean::Boolean*>(cone.components_getrc());
-			this->booleanObjType  = boolean ? boolean->other_get()->type_get()  : cone.type_get();
-			this->booleanObjIndex = boolean ? boolean->other_get()->index_get() : cone.index_get();
-			this->booleanType     = getBooleanType(boolean);
+			this->type  = cone.type_get();
+			this->index = cone.index_get();
+			this->material_type = cone.material_get()->type_get();
+			this->material_index = cone.material_get()->index_get();
 
 			this->visible     = cone.visible_get();
 			this->affectWorld = cone.affectWorld_get();
@@ -187,8 +188,8 @@ namespace rmo {
 		privb(float pad1);
 		glm::vec3 scale;
 
-		glm::vec4 color;
-
+		privb(float pad2);
+		glm::vec3 color;
 
 
 		PointLight& operator=(const ::PointLight &point_light) {
@@ -207,16 +208,13 @@ namespace rmo {
 
 
 	struct MPrincipledBSDF {
-		glm::vec4 albedo;
-
 		float metallic;
+		glm::vec3 albedo;
+
 		float roughness;
 		float ior;
 		float reflectance;
-		
 		float transmission;
-		privb(float pad1[3]);
-
 
 
 		MPrincipledBSDF& operator=(const ::MPrincipledBSDF &mprincipled_bsdf) {
@@ -234,12 +232,11 @@ namespace rmo {
 	};
 
 	struct MVolumeScatter {
-		glm::vec4 color;
-
 		float density;
-		float diameter;
-		privb(float pad1[2]);
+		glm::vec3 color;
 
+		float diameter;
+		privb(float pad1[3]);
 
 
 		MVolumeScatter& operator=(const ::MVolumeScatter &mvolume_scatter) {
@@ -259,9 +256,9 @@ namespace rmo {
 		int otherObjType;
 		int otherObjIndex;
 		
-		int booleanType;
-		privb(int pad1[3]);
-
+		int type;
+		float blend;
+		privb(int pad1[2]);
 
 
 		CBoolean& operator=(const ::boolean::Boolean &boolean) {
@@ -271,7 +268,8 @@ namespace rmo {
 			this->otherObjType  = boolean.other_get()->type_get();
 			this->otherObjIndex = boolean.other_get()->index_get();
 
-			this->booleanType = getBooleanType(&boolean);
+			this->type = getBooleanType(&boolean);
+			this->blend = boolean.blend_get();
 
 			return *this;
 		}

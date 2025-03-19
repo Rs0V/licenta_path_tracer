@@ -5,7 +5,7 @@
 
 interface Object : public Actor {
 protected:
-	Material* material;
+	const Material* material;
 
 	bool visible;
 	bool affectWorld;
@@ -14,11 +14,13 @@ protected:
 	int index;
 
 
-	Object(int type, int index);
-	Object(int type, int index, Transform &&transform);
+	Object(int type, int index, const Material *material);
+	Object(int type, int index, Transform &&transform, const Material* material);
 
 public:
 	~Object() override = 0;
+
+	getter(material)
 
 	getset(visible)
 	getset(affectWorld)

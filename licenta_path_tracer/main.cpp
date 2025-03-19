@@ -6,13 +6,14 @@
 #include "Object.hpp"
 #include "Light.hpp"
 #include "PointLight.hpp"
-#include "Ray.hpp"
 #include "Sphere.hpp"
 #include "RMOStructs.hpp"
 #include "Cube.hpp"
 #include "FX.hpp"
 #include "Parent.hpp"
 #include "UI.hpp"
+#include "MPrincipledBSDF.hpp"
+#include "MVolumeScatter.hpp"
 
 
 
@@ -86,46 +87,46 @@ GLuint createComputeShaderProgram(std::string computeSource) {
 
 
 static std::unordered_map<std::string, GLuint> buffers;
-template<class CAST, class RMO> void sendCpuObjectsToGpu(GLuint shader_program, const std::vector<Object*> &objects, const std::string &array_name, uint buffer_index) {
+template<class STRUCTS_PTR, class CAST, class RMO> void sendCpuStructsToGpu(GLuint shader_program, const std::vector<STRUCTS_PTR*> &structs, const std::string &array_name, uint buffer_index) {
 	glUseProgram(shader_program);
 
-	auto casts = get_of_type<CAST*>(objects);
-	RMO* rmo_objs = new RMO[casts.size()];
+	auto casts = get_of_type<CAST*>(structs);
+	RMO* rmo_structs = new RMO[casts.size()];
 	for (uint i = 0; i < casts.size(); i++) {
-		rmo_objs[i] = *casts[i];
+		rmo_structs[i] = *casts[i];
 	}
 
-	GLuint objs_ssbo;
-	glGenBuffers(1, &objs_ssbo);
-	glBindBuffer(GL_SHADER_STORAGE_BUFFER, objs_ssbo);
-	buffers[array_name] = objs_ssbo;
+	GLuint structs_ssbo;
+	glGenBuffers(1, &structs_ssbo);
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, structs_ssbo);
+	buffers[array_name] = structs_ssbo;
 
-	glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(RMO) * casts.size(), rmo_objs, GL_DYNAMIC_DRAW);
-	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, buffer_index, objs_ssbo);
+	glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(RMO) * casts.size(), rmo_structs, GL_DYNAMIC_DRAW);
+	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, buffer_index, structs_ssbo);
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
 	glUniform1i(glGetUniformLocation(shader_program, (array_name + "_no").c_str()), casts.size());
-	delete[] rmo_objs;
+	delete[] rmo_structs;
 }
 
-template<class CAST, class RMO> void updateGpuObjects(GLuint shader_program, const std::vector<Object*> &objects, const std::string &array_name) {
+template<class STRUCTS_PTR, class CAST, class RMO> void updateGpuStructs(GLuint shader_program, const std::vector<STRUCTS_PTR*> &structs, const std::string &array_name) {
 	glUseProgram(shader_program);
 
-	auto casts = get_of_type<CAST*>(objects);
-	RMO* rmo_objs = new RMO[casts.size()];
+	auto casts = get_of_type<CAST*>(structs);
+	RMO* rmo_structs = new RMO[casts.size()];
 	for (uint i = 0; i < casts.size(); i++) {
-		rmo_objs[i] = *casts[i];
+		rmo_structs[i] = *casts[i];
 	}
 
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, buffers[array_name]);
 	RMO* buffer_data = (RMO*)glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_WRITE_ONLY);
 	if (buffer_data) {
-		memcpy(buffer_data, rmo_objs, sizeof(RMO) * casts.size());
+		memcpy(buffer_data, rmo_structs, sizeof(RMO) * casts.size());
 		glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
 	}
 
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
-	delete[] rmo_objs;
+	delete[] rmo_structs;
 }
 
 
@@ -247,8 +248,10 @@ int main(int argc, char* argv[]) {
 
 
 	// Read Shader Header files
-	addGLSLHeaderToFileSystem("basic_shapes.comp");
 	addGLSLHeaderToFileSystem("utils.comp");
+	addGLSLHeaderToFileSystem("basic_shapes.comp");
+	addGLSLHeaderToFileSystem("materials.comp");
+	addGLSLHeaderToFileSystem("lights.comp");
 
 
 	// Compile Shaders
@@ -290,16 +293,44 @@ int main(int argc, char* argv[]) {
 
 
 	// Setup Camera Rays
-	Camera camera = Camera({
-		{ 0.0f, 0.0f, 0.0f },
-		{ 0.0f, 0.0f, 0.0f },
-		{ 1.0f, 1.0f, 1.0f }
-	});
+	Camera camera = Camera(Transform());
 	std::vector<Object*> objects;
 	std::vector<Light*> lights;
+	std::vector<Material*> materials;
+	std::vector<Component*> components;
 
-	std::vector<Ray> rays(window.width_get() * window.height_get());
 	auto proj = glm::perspectiveFovLH_ZO(glm::radians(60.0f), (float)window.width_get(), (float)window.height_get(), 0.1f, 1000.0f);
+
+
+	#pragma region Create Materials
+
+	materials.emplace_back(new MPrincipledBSDF(
+		Color({ 1.0f, 0.0f, 0.0f }),
+		1.0f,
+		0.18f
+	));
+	materials.emplace_back(new MPrincipledBSDF(
+		Color({ 0.0f, 1.0f, 0.0f }),
+		0.0f,
+		0.48f
+	));
+	materials.emplace_back(new MPrincipledBSDF(
+		Color({ 0.0f, 0.0f, 1.0f }),
+		0.0f,
+		0.28f
+	));
+	materials.emplace_back(new MPrincipledBSDF(
+		Color({ 1.0f, 0.5f, 0.0f }),
+		1.0f,
+		0.28f
+	));
+	materials.emplace_back(new MPrincipledBSDF(
+		Color({ 0.5f, 0.0f, 1.0f }),
+		0.0f,
+		0.01f
+	));
+
+	#pragma endregion
 
 
 	#pragma region Create Objects
@@ -310,7 +341,7 @@ int main(int argc, char* argv[]) {
 			{ 0.0f,  0.0f, 0.0f },
 			{ 1.0f,  1.0f, 1.0f }
 		},
-		{ 1.0f, 0.0f, 0.0f, 1.0f },
+		materials[0],
 		5.0f
 	));
 	objects.emplace_back(new Sphere(
@@ -319,7 +350,7 @@ int main(int argc, char* argv[]) {
 			{ 45.0f,  0.0f, 0.0f },
 			{  1.0f,  1.0f, 1.0f }
 		},
-		{ 1.0f, 0.5f, 0.0f, 1.0f },
+		materials[1],
 		10.0f
 	));
 	objects.emplace_back(new Cube(
@@ -328,7 +359,7 @@ int main(int argc, char* argv[]) {
 			{ 0.0f, 0.0f,  0.0f },
 			{ 1.0f, 1.0f,  1.0f }
 		},
-		{ 1.0f, 1.0f, 1.0f, 1.0f },
+		materials[2],
 		{ 100.0f, 100.0f, 1.0f }
 	));
 	objects.emplace_back(new Cube(
@@ -337,7 +368,7 @@ int main(int argc, char* argv[]) {
 			{  0.0f, 0.0f, 0.0f },
 			{  1.0f, 1.0f, 1.0f }
 		},
-		{ 1.0f, 1.0f, 1.0f, 1.0f },
+		materials[2],
 		{ 1.0f, 100.0f, 100.0f }
 	));
 	objects.emplace_back(new Cube(
@@ -346,7 +377,7 @@ int main(int argc, char* argv[]) {
 			{   0.0f, 0.0f, 0.0f },
 			{   1.0f, 1.0f, 1.0f }
 		},
-		{ 1.0f, 1.0f, 1.0f, 1.0f },
+		materials[2],
 		{ 1.0f, 100.0f, 100.0f }
 	));
 	objects.emplace_back(new Cube(
@@ -355,7 +386,7 @@ int main(int argc, char* argv[]) {
 			{ 0.0f,  0.0f, 0.0f },
 			{ 1.0f,  1.0f, 1.0f }
 		},
-		{ 1.0f, 1.0f, 1.0f, 1.0f },
+		materials[2],
 		{ 100.0f, 1.0f, 100.0f }
 	));
 	objects.emplace_back(new Cube(
@@ -364,7 +395,7 @@ int main(int argc, char* argv[]) {
 			{   0.0f,   0.0f, 45.0f },
 			{   2.0f,   1.0f,  1.0f }
 		},
-		{ 0.0f, 0.0f, 1.0f, 1.0f },
+		materials[3],
 		{ 10.0f, 10.0f, 10.0f }
 	));
 	objects.emplace_back(new Cylinder(
@@ -373,7 +404,7 @@ int main(int argc, char* argv[]) {
 			{   0.0f, 0.0f, 0.0f },
 			{   1.0f, 2.0f, 1.0f }
 		},
-		{ 0.0f, 1.0f, 0.0f, 1.0f },
+		materials[4],
 		4.0f,
 		12.0f
 	));
@@ -383,7 +414,7 @@ int main(int argc, char* argv[]) {
 			{  45.0f, 45.0f, 0.0f },
 			{   1.0f,  1.0f, 4.0f }
 		},
-		{ 0.0f, 1.0f, 0.7f, 1.0f },
+		materials[0],
 		4.0f,
 		6.0f
 	));
@@ -393,12 +424,24 @@ int main(int argc, char* argv[]) {
 			{  0.0f, -45.0f, 0.0f },
 			{  1.0f,   2.0f, 3.0f }
 		},
-		{ 1.0f, 0.1f, 0.2f, 1.0f },
+		materials[1],
 		4.0f,
 		6.0f
 	));
 
 	#pragma endregion
+
+
+	#pragma region Create Lights
+
+	lights.emplace_back(new PointLight(
+		{
+			{ -20.0, -20.0, 20.0 }
+		}
+	));
+
+	#pragma endregion
+
 
 	// Print GPU specifications
 	/*
@@ -444,10 +487,18 @@ int main(int argc, char* argv[]) {
 		glUseProgram(raymarch_program);
 		glUniform1i(glGetUniformLocation(raymarch_program, "scene_change"), 1);
 		samples = max_samples + 1;
-		updateGpuObjects<Sphere, rmo::Sphere>(raymarch_program, objects, "spheres");
-		updateGpuObjects<Cube, rmo::Cube>(raymarch_program, objects, "cubes");
-		updateGpuObjects<Cylinder, rmo::Cylinder>(raymarch_program, objects, "cylinders");
-		updateGpuObjects<Cone, rmo::Cone>(raymarch_program, objects, "cones");
+
+		updateGpuStructs<Object, Sphere, rmo::Sphere>(raymarch_program, objects, "spheres");
+		updateGpuStructs<Object, Cube, rmo::Cube>(raymarch_program, objects, "cubes");
+		updateGpuStructs<Object, Cylinder, rmo::Cylinder>(raymarch_program, objects, "cylinders");
+		updateGpuStructs<Object, Cone, rmo::Cone>(raymarch_program, objects, "cones");
+
+		updateGpuStructs<Component, boolean::Boolean, rmo::CBoolean>(raymarch_program, components, "booleans");
+
+		updateGpuStructs<Light, PointLight, rmo::PointLight>(raymarch_program, lights, "point_lights");
+
+		updateGpuStructs<Material, MPrincipledBSDF, rmo::MPrincipledBSDF>(raymarch_program, materials, "principled_bsdfs");
+		updateGpuStructs<Material, MVolumeScatter, rmo::MVolumeScatter>(raymarch_program, materials, "volume_scatters");
 	};
 
 
@@ -462,19 +513,23 @@ int main(int argc, char* argv[]) {
 		
 
 		// Add Components to Objects
-		auto boolean = new boolean::Boolean(objects[0], boolean::Type::Difference);
-		objects[1]->components_getr().emplace_back(boolean);
+		components.emplace_back(new boolean::Boolean(objects[1], objects[0], boolean::Type::Difference));
 		objects[0]->visible_set(false);
-
-		auto cP01 = new Parent(objects[0], objects[1]);
-		objects[0]->components_getr().emplace_back(cP01);
+		objects[0]->components_getr().emplace_back(new Parent(objects[0], objects[1]));
 
 
 		// Send Object Data to Ray-Marching Shader
-		sendCpuObjectsToGpu<Sphere, rmo::Sphere>(raymarch_program, objects, "spheres", 1);
-		sendCpuObjectsToGpu<Cube, rmo::Cube>(raymarch_program, objects, "cubes", 2);
-		sendCpuObjectsToGpu<Cylinder, rmo::Cylinder>(raymarch_program, objects, "cylinders", 3);
-		sendCpuObjectsToGpu<Cone, rmo::Cone>(raymarch_program, objects, "cones", 4);
+		sendCpuStructsToGpu<Object, Sphere, rmo::Sphere>(raymarch_program, objects, "spheres", 1);
+		sendCpuStructsToGpu<Object, Cube, rmo::Cube>(raymarch_program, objects, "cubes", 2);
+		sendCpuStructsToGpu<Object, Cylinder, rmo::Cylinder>(raymarch_program, objects, "cylinders", 3);
+		sendCpuStructsToGpu<Object, Cone, rmo::Cone>(raymarch_program, objects, "cones", 4);
+
+		sendCpuStructsToGpu<Component, boolean::Boolean, rmo::CBoolean>(raymarch_program, components, "booleans", 5);
+
+		sendCpuStructsToGpu<Light, PointLight, rmo::PointLight>(raymarch_program, lights, "point_lights", 6);
+
+		sendCpuStructsToGpu<Material, MPrincipledBSDF, rmo::MPrincipledBSDF>(raymarch_program, materials, "principled_bsdfs", 7);
+		sendCpuStructsToGpu<Material, MVolumeScatter, rmo::MVolumeScatter>(raymarch_program, materials, "volume_scatters", 8);
 
 
 		// UI
@@ -518,7 +573,7 @@ int main(int argc, char* argv[]) {
 		);
 		glUseProgram(raymarch_program);
 		glUniformMatrix4fv(glGetUniformLocation(raymarch_program, "camera_view"), 1, GL_FALSE, glm::value_ptr(view));
-		glUniform3fv(glGetUniformLocation(raymarch_program, "camera_pos"), 1, glm::value_ptr(camera.transform_getr().location));
+		glUniform3fv(glGetUniformLocation(raymarch_program, "camera_loc"), 1, glm::value_ptr(camera.transform_getr().location));
 
 
 		#pragma region Input
@@ -614,10 +669,6 @@ int main(int argc, char* argv[]) {
 		#pragma endregion
 
 
-		// Create Lights
-		static glm::vec3 light_pos(-20.0, -20.0, 20.0);
-
-
 
 		// ****** UPDATE RENDERING ****** //
 
@@ -626,7 +677,6 @@ int main(int argc, char* argv[]) {
 			glUseProgram(raymarch_program);
 			glUniform1f(glGetUniformLocation(raymarch_program, "random_f01"), random(0.0f, 1.0f));
 			glUniform1i(glGetUniformLocation(raymarch_program, "samples"), max_samples);
-			glUniform3fv(glGetUniformLocation(raymarch_program, "light_pos"), 1, glm::value_ptr(light_pos));
 
 			glActiveTexture(GL_TEXTURE0);
 			glBindTexture(GL_TEXTURE_2D, blueNoiseTex);

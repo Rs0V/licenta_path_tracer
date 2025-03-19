@@ -33,6 +33,7 @@ public:
 
 
 	Color() = default;
+	Color(const glm::vec3& vec3);
 	Color(const glm::vec4& vec4);
 	Color(uint pixel255);
 
