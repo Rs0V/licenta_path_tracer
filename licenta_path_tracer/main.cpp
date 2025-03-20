@@ -91,8 +91,8 @@ template<class STRUCTS_PTR, class CAST, class RMO> void sendCpuStructsToGpu(GLui
 	glUseProgram(shader_program);
 
 	auto casts = get_of_type<CAST*>(structs);
-	RMO* rmo_structs = new RMO[casts.size()];
-	for (uint i = 0; i < casts.size(); i++) {
+	std::vector<RMO> rmo_structs(casts.size());
+	for (uint i = 0; i < rmo_structs.size(); i++) {
 		rmo_structs[i] = *casts[i];
 	}
 
@@ -101,32 +101,30 @@ template<class STRUCTS_PTR, class CAST, class RMO> void sendCpuStructsToGpu(GLui
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, structs_ssbo);
 	buffers[array_name] = structs_ssbo;
 
-	glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(RMO) * casts.size(), rmo_structs, GL_DYNAMIC_DRAW);
+	glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(rmo_structs[0]) * rmo_structs.size(), rmo_structs.data(), GL_DYNAMIC_DRAW);
 	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, buffer_index, structs_ssbo);
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
 	glUniform1i(glGetUniformLocation(shader_program, (array_name + "_no").c_str()), casts.size());
-	delete[] rmo_structs;
 }
 
 template<class STRUCTS_PTR, class CAST, class RMO> void updateGpuStructs(GLuint shader_program, const std::vector<STRUCTS_PTR*> &structs, const std::string &array_name) {
 	glUseProgram(shader_program);
 
 	auto casts = get_of_type<CAST*>(structs);
-	RMO* rmo_structs = new RMO[casts.size()];
-	for (uint i = 0; i < casts.size(); i++) {
+	std::vector<RMO> rmo_structs(casts.size());
+	for (uint i = 0; i < rmo_structs.size(); i++) {
 		rmo_structs[i] = *casts[i];
 	}
 
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, buffers[array_name]);
 	RMO* buffer_data = (RMO*)glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_WRITE_ONLY);
 	if (buffer_data) {
-		memcpy(buffer_data, rmo_structs, sizeof(RMO) * casts.size());
+		memcpy(buffer_data, rmo_structs.data(), sizeof(rmo_structs[0]) * rmo_structs.size());
 		glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
 	}
 
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
-	delete[] rmo_structs;
 }
 
 

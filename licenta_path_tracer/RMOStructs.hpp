@@ -28,14 +28,14 @@ namespace rmo {
 
 
 	struct Sphere {
-		int visible;
 		glm::vec3 location;
+		int visible;
 
-		int affectWorld;
 		glm::vec3 rotation;
+		int affectWorld;
 
-		float radius;
 		glm::vec3 scale;
+		float radius;
 
 		int type;
 		int index;
@@ -63,17 +63,17 @@ namespace rmo {
 	};
 
 	struct Cube {
-		int visible;
 		glm::vec3 location;
+		int visible;
 
-		int affectWorld;
 		glm::vec3 rotation;
+		int affectWorld;
 
-		int material_type;
 		glm::vec3 scale;
+		int material_type;
 
-		int material_index;
 		glm::vec3 dimensions;
+		int material_index;
 
 		int type;
 		int index;
@@ -100,22 +100,22 @@ namespace rmo {
 	};
 
 	struct Cylinder {
-		float radius;
 		glm::vec3 location;
+		float radius;
 
-		float height;
 		glm::vec3 rotation;
+		float height;
 
-		int visible;
 		glm::vec3 scale;
+		int visible;
 
 		int affectWorld;
-		privb(int pad1[3]);
-
 		int type;
 		int index;
 		int material_type;
+
 		int material_index;
+		privb(int pad1[3]);
 
 
 		Cylinder& operator=(const ::Cylinder &cylinder) {
@@ -139,22 +139,22 @@ namespace rmo {
 	};
 
 	struct Cone {
-		float radius;
 		glm::vec3 location;
+		float radius;
 
-		float height;
 		glm::vec3 rotation;
+		float height;
 
-		int visible;
 		glm::vec3 scale;
+		int visible;
 
 		int affectWorld;
-		privb(int pad1[3]);
-
 		int type;
 		int index;
 		int material_type;
+
 		int material_index;
+		privb(int pad1[3]);
 
 
 		Cone& operator=(const ::Cone &cone) {
@@ -179,17 +179,17 @@ namespace rmo {
 
 
 	struct PointLight {
-		float intensity;
 		glm::vec3 location;
+		float intensity;
 
-		float radius;
 		glm::vec3 rotation;
+		float radius;
 
-		privb(float pad1);
 		glm::vec3 scale;
+		privb(float pad1);
 
-		privb(float pad2);
 		glm::vec3 color;
+		privb(float pad2);
 
 
 		PointLight& operator=(const ::PointLight &point_light) {
@@ -208,8 +208,8 @@ namespace rmo {
 
 
 	struct MPrincipledBSDF {
-		float metallic;
 		glm::vec3 albedo;
+		float metallic;
 
 		float roughness;
 		float ior;
@@ -232,8 +232,8 @@ namespace rmo {
 	};
 
 	struct MVolumeScatter {
-		float density;
 		glm::vec3 color;
+		float density;
 
 		float diameter;
 		privb(float pad1[3]);

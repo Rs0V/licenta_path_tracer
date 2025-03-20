@@ -1,7 +1,7 @@
 
 struct PrincipledBSDF {
-	float metallic;
 	vec3 albedo;
+	float metallic;
 
 	float roughness;
 	float ior;
@@ -10,8 +10,8 @@ struct PrincipledBSDF {
 };
 
 struct VolumeScatter {
-	float density;
 	vec3 color;
+	float density;
 
 	float diameter;
 	float pad1[3];
