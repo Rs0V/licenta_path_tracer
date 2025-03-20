@@ -14,5 +14,4 @@ struct VolumeScatter {
 	float density;
 
 	float diameter;
-	float pad1[3];
 };

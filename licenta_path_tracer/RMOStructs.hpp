@@ -28,13 +28,13 @@ namespace rmo {
 
 
 	struct Sphere {
-		glm::vec3 location;
+		alignas(16) glm::vec3 location;
 		int visible;
 
-		glm::vec3 rotation;
+		alignas(16) glm::vec3 rotation;
 		int affectWorld;
 
-		glm::vec3 scale;
+		alignas(16) glm::vec3 scale;
 		float radius;
 
 		int type;
@@ -63,21 +63,20 @@ namespace rmo {
 	};
 
 	struct Cube {
-		glm::vec3 location;
+		alignas(16) glm::vec3 location;
 		int visible;
 
-		glm::vec3 rotation;
+		alignas(16) glm::vec3 rotation;
 		int affectWorld;
 
-		glm::vec3 scale;
+		alignas(16) glm::vec3 scale;
 		int material_type;
 
-		glm::vec3 dimensions;
+		alignas(16) glm::vec3 dimensions;
 		int material_index;
 
 		int type;
 		int index;
-		privb(int pad1[2]);
 
 
 		Cube& operator=(const ::Cube &cube) {
@@ -100,13 +99,13 @@ namespace rmo {
 	};
 
 	struct Cylinder {
-		glm::vec3 location;
+		alignas(16) glm::vec3 location;
 		float radius;
 
-		glm::vec3 rotation;
+		alignas(16) glm::vec3 rotation;
 		float height;
 
-		glm::vec3 scale;
+		alignas(16) glm::vec3 scale;
 		int visible;
 
 		int affectWorld;
@@ -115,7 +114,6 @@ namespace rmo {
 		int material_type;
 
 		int material_index;
-		privb(int pad1[3]);
 
 
 		Cylinder& operator=(const ::Cylinder &cylinder) {
@@ -139,13 +137,13 @@ namespace rmo {
 	};
 
 	struct Cone {
-		glm::vec3 location;
+		alignas(16) glm::vec3 location;
 		float radius;
 
-		glm::vec3 rotation;
+		alignas(16) glm::vec3 rotation;
 		float height;
 
-		glm::vec3 scale;
+		alignas(16) glm::vec3 scale;
 		int visible;
 
 		int affectWorld;
@@ -154,7 +152,6 @@ namespace rmo {
 		int material_type;
 
 		int material_index;
-		privb(int pad1[3]);
 
 
 		Cone& operator=(const ::Cone &cone) {
@@ -179,17 +176,15 @@ namespace rmo {
 
 
 	struct PointLight {
-		glm::vec3 location;
+		alignas(16) glm::vec3 location;
 		float intensity;
 
-		glm::vec3 rotation;
+		alignas(16) glm::vec3 rotation;
 		float radius;
 
-		glm::vec3 scale;
-		privb(float pad1);
+		alignas(16) glm::vec3 scale;
 
-		glm::vec3 color;
-		privb(float pad2);
+		alignas(16) glm::vec3 color;
 
 
 		PointLight& operator=(const ::PointLight &point_light) {
@@ -208,7 +203,7 @@ namespace rmo {
 
 
 	struct MPrincipledBSDF {
-		glm::vec3 albedo;
+		alignas(16) glm::vec3 albedo;
 		float metallic;
 
 		float roughness;
@@ -232,11 +227,10 @@ namespace rmo {
 	};
 
 	struct MVolumeScatter {
-		glm::vec3 color;
+		alignas(16) glm::vec3 color;
 		float density;
 
 		float diameter;
-		privb(float pad1[3]);
 
 
 		MVolumeScatter& operator=(const ::MVolumeScatter &mvolume_scatter) {
@@ -258,7 +252,6 @@ namespace rmo {
 		
 		int type;
 		float blend;
-		privb(int pad1[2]);
 
 
 		CBoolean& operator=(const ::boolean::Boolean &boolean) {

@@ -7,8 +7,6 @@ struct PointLight {
 	float radius;
 
 	vec3 scale;
-	float pad1;
 
 	vec3 color;
-	float pad2;
 };

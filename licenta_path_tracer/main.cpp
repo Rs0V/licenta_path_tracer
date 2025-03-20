@@ -435,7 +435,10 @@ int main(int argc, char* argv[]) {
 	lights.emplace_back(new PointLight(
 		{
 			{ -20.0, -20.0, 20.0 }
-		}
+		},
+		Color::white,
+		100.0f,
+		100.0f
 	));
 
 	#pragma endregion
@@ -692,7 +695,7 @@ int main(int argc, char* argv[]) {
 
 
 		// Denoiser
-		static constexpr uint denoisingPasses = 8;
+		static constexpr uint denoisingPasses = 1;
 		glUseProgram(denoiser_program);
 		glUniform1i(glGetUniformLocation(denoiser_program, "samples"), std::max((int)max_samples - samples, 1));
 		for (uint i = 0; i < denoisingPasses; i++) {

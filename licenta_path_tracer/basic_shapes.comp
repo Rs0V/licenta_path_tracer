@@ -104,7 +104,6 @@ struct Cube {
 
 	int type;
 	int index;
-	int pad1[2];
 };
 float signDistCube(vec3 ray_pos, vec3 cube_pos, vec3 dims) {
 	vec3 q = abs(ray_pos - cube_pos) - dims / 2.0;
@@ -165,7 +164,6 @@ struct Cylinder {
 	int material_type;
 
 	int material_index;
-	int pad1[3];
 };
 float signDistCylinder(vec3 ray_pos, vec3 cylinder_pos, float cylinder_radius, float cylinder_height) {
 	vec2 d = abs(vec2(length(ray_pos.xy - cylinder_pos.xy), ray_pos.z - cylinder_pos.z)) - vec2(cylinder_radius, cylinder_height / 2.0);
@@ -226,7 +224,6 @@ struct Cone {
 	int material_type;
 
 	int material_index;
-	int pad1[3];
 };
 float signDistCone(vec3 ray_pos, vec3 cone_pos, float cone_radius, float cone_height) {
 	// c is the sin/cos of the angle, h is height
@@ -305,5 +302,4 @@ struct Boolean {
 		
 	int type;
 	float blend;
-	int pad1[2];
 };
