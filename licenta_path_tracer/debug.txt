@@ -1,0 +1,1017 @@
+#version 460 core
+vec3 rgb2hsv(vec3 color) {
+    vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
+    vec4 p = mix(vec4(color.bg, K.wz), vec4(color.gb, K.xy), step(color.b, color.g));
+    vec4 q = mix(vec4(p.xyw, color.r), vec4(color.r, p.yzx), step(p.x, color.r));
+
+    float d = q.x - min(q.w, q.y);
+    float e = 1.0e-10;
+    return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
+}
+vec3 hsv2rgb(vec3 color) {
+    vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
+    vec3 p = abs(fract(color.xxx + K.xyz) * 6.0 - K.www);
+    return color.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), color.y);
+}
+
+vec3 hueShift(vec3 color, float hue) {
+    vec3 hsv = rgb2hsv(color);
+    hsv.x = mod(hsv.x + hue / 360.0, 1.0);
+    return hsv2rgb(hsv);
+}
+vec3 saturationMul(vec3 color, float factor) {
+    vec3 hsv = rgb2hsv(color);
+    hsv.y *= factor;
+    return hsv2rgb(hsv);
+}
+vec3 valueMul(vec3 color, float factor) {
+    vec3 hsv = rgb2hsv(color);
+    hsv.z *= factor;
+    return hsv2rgb(hsv);
+}
+
+
+vec3 tangent(vec3 v) {
+	vec3 arbx = vec3(1.0, 0.0, 0.0);
+	vec3 arby = vec3(0.0, 1.0, 0.0);
+	vec3 arbz = vec3(0.0, 0.0, 1.0);
+
+	vec3 arbitrary = v.x < v.y ? (v.x < v.z ? arbx : arbz) : v.y < v.z ? arby : arbz;
+	return normalize(cross(v, arbitrary));
+}
+
+float angle(vec3 a, vec3 b) {
+	return acos(dot(a, b) / (length(a) * length(b)));
+}
+
+
+float random(float value) {
+	return fract(sqrt(value * 129.898) + 100.001 / 7.69 * 43758.5453);
+}
+vec3 rotateVector(vec3 v, vec3 axis, float angle) {
+	// Rodrigues' rotation formula
+	return mix(dot(axis, v) * axis, v, cos(angle)) + cross(axis, v) * sin(angle);
+}
+vec3 diffuseVector(vec3 v, vec3 normal, float maxAngle) {
+	float randomAngleX = random(dot(v, normal) * maxAngle + 12.68) * maxAngle - maxAngle / 2.0;
+	float randomAngleY = random(dot(v, normal) * maxAngle + 41.01) * maxAngle - maxAngle / 2.0;
+	float randomAngleZ = random(dot(v, normal) * maxAngle + 65.32) * maxAngle - maxAngle / 2.0;
+
+	vec3 tg = tangent(normal);
+
+	vec3 rotZ = rotateVector(v, normal, randomAngleZ);
+	vec3 rotY = rotateVector(rotZ, tg, randomAngleY);
+	vec3 rotX = rotateVector(rotY, normalize(cross(normal, tg)), randomAngleX);
+
+	return normalize(mix(normal, rotX, 0.66));
+}
+
+mat2 rot2D(float angle) {
+	float s = sin(angle);
+	float c = cos(angle);
+	return mat2(c, -s, s, c);
+}
+
+
+uint packColor(vec4 color) {
+	return uint(color.r * 255.0) << 24 |
+		   uint(color.g * 255.0) << 16 |
+		   uint(color.b * 255.0) <<  8 |
+		   uint(color.a * 255.0);
+}
+vec4 unpackColor(uint packedColor) {
+	return vec4(
+		float((packedColor >> 24) & 0xFF) / 255.0,
+		float((packedColor >> 16) & 0xFF) / 255.0,
+		float((packedColor >>  8) & 0xFF) / 255.0,
+		float( packedColor        & 0xFF) / 255.0
+	);
+}
+
+
+#define m_mulAdd(type) type mulAdd(type a, type base) { \
+	return fma(a, base, a); \
+}
+m_mulAdd(float)
+m_mulAdd(double)
+m_mulAdd(vec2)
+m_mulAdd(vec3)
+m_mulAdd(vec4)
+
+
+#define m_swap(type) void swap(inout type a, inout type b) { \
+    type temp = a; \
+    a = b; \
+    b = temp; \
+}
+m_swap(int)
+m_swap(uint)
+m_swap(float)
+m_swap(double)
+m_swap(vec2)
+m_swap(vec3)
+m_swap(vec4)
+
+
+
+const float pi = 3.14159;
+const float rpi = 0.31831;
+
+
+vec3 fresnelSchlick(float cosTheta, vec3 F0) {
+	return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);
+}
+float D_GGX(float NoH, float roughness) {
+	float alpha1 = roughness * roughness;
+	float alpha2 = alpha1 * alpha1;
+
+	float NoH2 = NoH * NoH;
+	float b = (NoH2 * (alpha2 - 1.0) + 1.0);
+
+	return alpha2 * rpi / (b * b);
+}
+float G1_GGX_Schlick(float NoV, float roughness) {
+	float alpha = roughness * roughness;
+	float k = alpha / 2.0;
+	return max(NoV, 0.001) / (NoV * (1.0 - k) + k);
+}
+float G_Smith(float NoV, float NoL, float roughness) {
+	return G1_GGX_Schlick(NoL, roughness) * G1_GGX_Schlick(NoV, roughness);
+}
+vec3 brdfMicrofacet(vec3 light_dir, vec3 view_dir, vec3 normal, vec3 color, float mettalic, float roughness, float reflectance) {
+	vec3 halflv = normalize(light_dir + view_dir);
+
+	float NoV = clamp(dot(normal,   view_dir),  0.0, 1.0);
+	float NoL = clamp(dot(normal,   light_dir), 0.0, 1.0);
+	float NoH = clamp(dot(normal,   halflv),    0.0, 1.0);
+	float VoH = clamp(dot(view_dir, halflv),    0.0, 1.0);
+
+	vec3 F0 = vec3(0.16 * reflectance * reflectance);
+	F0 = mix(F0, color, mettalic);
+
+	vec3 F = fresnelSchlick(VoH, F0);
+	float D = D_GGX(NoH, roughness);
+	float G = G_Smith(NoV, NoL, roughness);
+
+	vec3 spec = (F * D * G) / (4.0 * max(NoV, 0.001) * max(NoL, 0.001));
+
+	vec3 rhoD = color;
+	rhoD *= vec3(1.0) - F;
+	rhoD *= 1.0 - mettalic;
+	vec3 diff = rhoD * rpi;
+
+	return diff + spec;
+}
+
+
+float signDistRingCylinder(vec3 ray_loc, vec3 cylinder_loc, float cylinder_radius, float cylinder_height) {
+	vec3 p = ray_loc - cylinder_loc;
+	vec2 d = abs(vec2(length(p.xy) - cylinder_radius, p.z)) - vec2(cylinder_height / 2.0);
+	return min(max(d.x, d.y), 0.0) + length(max(d, 0.0));
+}
+vec3 normalRingCylinder(vec3 ray_loc, vec3 cylinder_loc, float cylinder_radius, float cylinder_height) {
+	if (abs(ray_loc.z - cylinder_loc.z) - cylinder_height / 2.0 < 0.001) {
+		return vec3(0.0, 0.0, (ray_loc.z > cylinder_loc.z) ? 1.0 : -1.0);
+	}
+	return normalize(vec3((ray_loc - cylinder_loc).xy, 0.0));
+}
+
+float smoothMin(float a, float b, float k) {
+	float h = max(k - abs(a - b), 0) / k;
+	return min(a, b) - pow(h, 3) * k / 6.0;
+}
+float smoothUnion(float a, float b, float k) {
+	float h = clamp(0.5 + (b - a) / 2 / k, 0.0, 1.0);
+	return mix(b, a, h) - k * h * (1.0 - h);
+}
+float smoothIntersect(float a, float b, float k) {
+	float h = clamp(0.5 - (b - a) / 2 / k, 0.0, 1.0);
+	return mix(b, a, h) + k * h * (1.0 - h);
+}
+float smoothDifference(float a, float b, float k) {
+	swap(a, b);
+	float h = clamp(0.5 - (b + a) / 2 / k, 0.0, 1.0);
+	return mix(b, -a, h) + k * h * (1.0 - h);
+}
+
+
+
+struct Sphere {
+	vec3 location;
+	int visible;
+
+	vec3 rotation;
+	int affectWorld;
+
+	vec3 scale;
+	float radius;
+
+	int type;
+	int index;
+	int material_type;
+	int material_index;
+};
+float signDistSphere(vec3 ray_loc, vec3 sphere_loc, float sphere_radius) {
+	return distance(sphere_loc, ray_loc) - sphere_radius;
+}
+float signDistSphere(vec3 ray_loc, inout Sphere sphere) {
+	vec3 trp = ray_loc; // transformed ray_loc
+	trp    -= sphere.location;
+	trp.yz *= rot2D(radians(sphere.rotation.x));
+	trp.xz *= rot2D(radians(sphere.rotation.y));
+	trp.xy *= rot2D(radians(sphere.rotation.z));
+	trp    /= sphere.scale;
+
+	return length(trp) - sphere.radius;
+}
+vec3 normalSphere(vec3 ray_loc, vec3 sphere_loc, float sphere_radius) {
+    float epsilon = 0.0001;
+    vec3 dx = vec3(epsilon, 0.0, 0.0);
+    vec3 dy = vec3(0.0, epsilon, 0.0);
+    vec3 dz = vec3(0.0, 0.0, epsilon);
+
+    float d  = signDistSphere(ray_loc     , sphere_loc, sphere_radius);
+    float nx = signDistSphere(ray_loc + dx, sphere_loc, sphere_radius) - d;
+    float ny = signDistSphere(ray_loc + dy, sphere_loc, sphere_radius) - d;
+    float nz = signDistSphere(ray_loc + dz, sphere_loc, sphere_radius) - d;
+
+    return normalize(vec3(nx, ny, nz));
+}
+vec3 normalSphere(vec3 ray_loc, inout Sphere sphere) {
+    float epsilon = 0.0001;
+    vec3 dx = vec3(epsilon, 0.0, 0.0);
+    vec3 dy = vec3(0.0, epsilon, 0.0);
+    vec3 dz = vec3(0.0, 0.0, epsilon);
+
+    float d  = signDistSphere(ray_loc     , sphere.location, sphere.radius);
+    float nx = signDistSphere(ray_loc + dx, sphere.location, sphere.radius) - d;
+    float ny = signDistSphere(ray_loc + dy, sphere.location, sphere.radius) - d;
+    float nz = signDistSphere(ray_loc + dz, sphere.location, sphere.radius) - d;
+
+    return normalize(vec3(nx, ny, nz));
+}
+
+
+struct Cube {
+	vec3 location;
+	int visible;
+
+	vec3 rotation;
+	int affectWorld;
+
+	vec3 scale;
+	int material_type;
+
+	vec3 dimensions;
+	int material_index;
+
+	int type;
+	int index;
+};
+float signDistCube(vec3 ray_loc, vec3 cube_loc, vec3 dims) {
+	vec3 q = abs(ray_loc - cube_loc) - dims / 2.0;
+	return length(max(q, 0.0)) + min(max(q.x, max(q.y, q.z)), 0.0);
+}
+float signDistCube(vec3 ray_loc, inout Cube cube) {
+	vec3 trp = ray_loc; // transformed ray_loc
+	trp    -= cube.location;
+	trp.yz *= rot2D(radians(cube.rotation.x));
+	trp.xz *= rot2D(radians(cube.rotation.y));
+	trp.xy *= rot2D(radians(cube.rotation.z));
+	trp    /= cube.scale;
+
+	vec3 q = abs(trp) - cube.dimensions / 2.0;
+	return length(max(q, 0.0)) + min(max(q.x, max(q.y, q.z)), 0.0);
+}
+vec3 normalCube(vec3 ray_loc, vec3 cube_loc, vec3 dims) {
+    float epsilon = 0.0001;
+    vec3 dx = vec3(epsilon, 0.0, 0.0);
+    vec3 dy = vec3(0.0, epsilon, 0.0);
+    vec3 dz = vec3(0.0, 0.0, epsilon);
+
+    float d  = signDistCube(ray_loc     , cube_loc, dims);
+    float nx = signDistCube(ray_loc + dx, cube_loc, dims) - d;
+    float ny = signDistCube(ray_loc + dy, cube_loc, dims) - d;
+    float nz = signDistCube(ray_loc + dz, cube_loc, dims) - d;
+
+    return normalize(vec3(nx, ny, nz));
+}
+vec3 normalCube(vec3 ray_loc, inout Cube cube) {
+    float epsilon = 0.0001;
+    vec3 dx = vec3(epsilon, 0.0, 0.0);
+    vec3 dy = vec3(0.0, epsilon, 0.0);
+    vec3 dz = vec3(0.0, 0.0, epsilon);
+
+    float d  = signDistCube(ray_loc     , cube.location, cube.dimensions);
+    float nx = signDistCube(ray_loc + dx, cube.location, cube.dimensions) - d;
+    float ny = signDistCube(ray_loc + dy, cube.location, cube.dimensions) - d;
+    float nz = signDistCube(ray_loc + dz, cube.location, cube.dimensions) - d;
+
+    return normalize(vec3(nx, ny, nz));
+}
+
+
+struct Cylinder {
+	vec3 location;
+	float radius;
+
+	vec3 rotation;
+	float height;
+
+	vec3 scale;
+	int visible;
+
+	int affectWorld;
+	int type;
+	int index;
+	int material_type;
+
+	int material_index;
+};
+float signDistCylinder(vec3 ray_loc, vec3 cylinder_loc, float cylinder_radius, float cylinder_height) {
+	vec2 d = abs(vec2(length(ray_loc.xy - cylinder_loc.xy), ray_loc.z - cylinder_loc.z)) - vec2(cylinder_radius, cylinder_height / 2.0);
+	return min(max(d.x, d.y), 0.0) + length(max(d, 0.0));
+}
+float signDistCylinder(vec3 ray_loc, inout Cylinder cylinder) {
+	vec3 trp = ray_loc; // transformed ray_loc
+	trp    -= cylinder.location;
+	trp.yz *= rot2D(radians(cylinder.rotation.x));
+	trp.xz *= rot2D(radians(cylinder.rotation.y));
+	trp.xy *= rot2D(radians(cylinder.rotation.z));
+	trp    /= cylinder.scale;
+
+	vec2 d = abs(vec2(length(trp.xy), trp.z)) - vec2(cylinder.radius, cylinder.height / 2.0);
+	return min(max(d.x, d.y), 0.0) + length(max(d, 0.0));
+}
+vec3 normalCylinder(vec3 ray_loc, vec3 cylinder_loc, float cylinder_radius, float cylinder_height) {
+    float epsilon = 0.0001;
+    vec3 dx = vec3(epsilon, 0.0, 0.0);
+    vec3 dy = vec3(0.0, epsilon, 0.0);
+    vec3 dz = vec3(0.0, 0.0, epsilon);
+
+    float d  = signDistCylinder(ray_loc     , cylinder_loc, cylinder_radius, cylinder_height);
+    float nx = signDistCylinder(ray_loc + dx, cylinder_loc, cylinder_radius, cylinder_height) - d;
+    float ny = signDistCylinder(ray_loc + dy, cylinder_loc, cylinder_radius, cylinder_height) - d;
+    float nz = signDistCylinder(ray_loc + dz, cylinder_loc, cylinder_radius, cylinder_height) - d;
+
+    return normalize(vec3(nx, ny, nz));
+}
+vec3 normalCylinder(vec3 ray_loc, inout Cylinder cylinder) {
+    float epsilon = 0.0001;
+    vec3 dx = vec3(epsilon, 0.0, 0.0);
+    vec3 dy = vec3(0.0, epsilon, 0.0);
+    vec3 dz = vec3(0.0, 0.0, epsilon);
+
+    float d  = signDistCylinder(ray_loc     , cylinder.location, cylinder.radius, cylinder.height);
+    float nx = signDistCylinder(ray_loc + dx, cylinder.location, cylinder.radius, cylinder.height) - d;
+    float ny = signDistCylinder(ray_loc + dy, cylinder.location, cylinder.radius, cylinder.height) - d;
+    float nz = signDistCylinder(ray_loc + dz, cylinder.location, cylinder.radius, cylinder.height) - d;
+
+    return normalize(vec3(nx, ny, nz));
+}
+
+
+struct Cone {
+	vec3 location;
+	float radius;
+
+	vec3 rotation;
+	float height;
+
+	vec3 scale;
+	int visible;
+
+	int affectWorld;
+	int type;
+	int index;
+	int material_type;
+
+	int material_index;
+};
+float signDistCone(vec3 ray_loc, vec3 cone_loc, float cone_radius, float cone_height) {
+	// c is the sin/cos of the angle, h is height
+	// Alternatively pass q instead of (c,h),
+	// which is the point at the base inout 2D
+	float angle = atan(cone_radius / 2.0 / cone_height) * 2.0;
+	vec2 c = vec2(sin(angle), cos(angle));
+
+	vec2 q = cone_height * vec2(c.x / c.y, -1.0);
+	vec2 w = vec2(length(ray_loc.xy - cone_loc.xy), ray_loc.z - cone_loc.z);
+	vec2 a = w - q * clamp(dot(w, q) / dot(q, q), 0.0, 1.0);
+	vec2 b = w - q * vec2(clamp(w.x / q.x, 0.0, 1.0), 1.0);
+	float k = sign(q.y);
+	float d = min(dot(a, a), dot(b, b));
+	float s = max(k * (w.x * q.y - w.y * q.x), k * (w.y - q.y));
+	return sqrt(d) * sign(s);
+}
+float signDistCone(vec3 ray_loc, inout Cone cone) {
+	// c is the sin/cos of the angle, h is height
+	// Alternatively pass q instead of (c,h),
+	// which is the point at the base inout 2D
+
+	vec3 trp = ray_loc; // transformed ray_loc
+	trp    -= cone.location;
+	trp.yz *= rot2D(radians(cone.rotation.x));
+	trp.xz *= rot2D(radians(cone.rotation.y));
+	trp.xy *= rot2D(radians(cone.rotation.z));
+	trp    /= cone.scale;
+
+	float angle = atan(cone.radius / 2.0 / cone.height) * 2.0;
+	vec2 c = vec2(sin(angle), cos(angle));
+
+	vec2 q = cone.height * vec2(c.x / c.y, -1.0);
+	vec2 w = vec2(length(trp.xy), trp.z);
+	vec2 a = w - q * clamp(dot(w, q) / dot(q, q), 0.0, 1.0);
+	vec2 b = w - q * vec2(clamp(w.x / q.x, 0.0, 1.0), 1.0);
+	float k = sign(q.y);
+	float d = min(dot(a, a), dot(b, b));
+	float s = max(k * (w.x * q.y - w.y * q.x), k * (w.y - q.y));
+	return sqrt(d) * sign(s);
+}
+vec3 normalCone(vec3 ray_loc, vec3 cone_loc, float cone_radius, float cone_height) {
+    float epsilon = 0.0001;
+    vec3 dx = vec3(epsilon, 0.0, 0.0);
+    vec3 dy = vec3(0.0, epsilon, 0.0);
+    vec3 dz = vec3(0.0, 0.0, epsilon);
+
+    float d  = signDistCone(ray_loc     , cone_loc, cone_radius, cone_height);
+    float nx = signDistCone(ray_loc + dx, cone_loc, cone_radius, cone_height) - d;
+    float ny = signDistCone(ray_loc + dy, cone_loc, cone_radius, cone_height) - d;
+    float nz = signDistCone(ray_loc + dz, cone_loc, cone_radius, cone_height) - d;
+
+    return normalize(vec3(nx, ny, nz));
+}
+vec3 normalCone(vec3 ray_loc, inout Cone cone) {
+    float epsilon = 0.0001;
+    vec3 dx = vec3(epsilon, 0.0, 0.0);
+    vec3 dy = vec3(0.0, epsilon, 0.0);
+    vec3 dz = vec3(0.0, 0.0, epsilon);
+
+    float d  = signDistCone(ray_loc     , cone.location, cone.radius, cone.height);
+    float nx = signDistCone(ray_loc + dx, cone.location, cone.radius, cone.height) - d;
+    float ny = signDistCone(ray_loc + dy, cone.location, cone.radius, cone.height) - d;
+    float nz = signDistCone(ray_loc + dz, cone.location, cone.radius, cone.height) - d;
+
+    return normalize(vec3(nx, ny, nz));
+}
+
+
+
+struct Boolean {
+	int selfObjType;
+	int selfObjIndex;
+	int otherObjType;
+	int otherObjIndex;
+		
+	int type;
+	float blend;
+};
+
+struct PrincipledBSDF {
+	vec3 albedo;
+	float metallic;
+
+	float roughness;
+	float ior;
+	float reflectance;
+	float transmission;
+};
+
+struct VolumeScatter {
+	vec3 color;
+	float density;
+
+	float diameter;
+};
+
+struct PointLight {
+	vec3 location;
+	float intensity;
+
+	vec3 rotation;
+	float radius;
+
+	vec3 scale;
+
+	vec3 color;
+};
+
+
+layout (local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+layout (rgba32f, binding = 0) uniform image2D img_output;
+
+
+
+//  0 - accumulate samples;
+//  1 - rendered frame only
+// -1 - reset image buffer
+uniform int scene_change = 0;
+
+uniform mat4 camera_proj;
+uniform mat4 camera_view;
+uniform vec3 camera_loc;
+
+uniform float random_f01;
+uniform int samples;
+
+const float hitThreshold = 0.001;
+const float farPlane = 1000.0;
+
+uniform sampler2D blueNoise;
+
+
+
+layout (std430, binding = 1) buffer Spheres {
+	Sphere[] spheres;
+};
+uniform int spheres_no;
+
+layout (std430, binding = 2) buffer Cubes {
+	Cube[] cubes;
+};
+uniform int cubes_no;
+
+layout (std430, binding = 3) buffer Cylinders {
+	Cylinder[] cylinders;
+};
+uniform int cylinders_no;
+
+layout (std430, binding = 4) buffer Cones {
+	Cone[] cones;
+};
+uniform int cones_no;
+
+
+layout (std430, binding = 5) buffer Booleans {
+	Boolean[] booleans;
+};
+uniform int booleans_no;
+
+
+layout (std430, binding = 6) buffer PointLights {
+	PointLight[] point_lights;
+};
+uniform int point_lights_no;
+
+
+layout (std430, binding = 7) buffer PrincipledBSDFs {
+	PrincipledBSDF[] principled_bsdfs;
+};
+uniform int principled_bsdfs_no;
+
+layout (std430, binding = 8) buffer VolumeScatters {
+	VolumeScatter[] volume_scatters;
+};
+uniform int volume_scatters_no;
+
+
+
+struct RaycastHit {
+	bool hit;
+	vec3 location;
+	vec3 direction;
+	vec3 normal;
+
+	int obj_type;
+	int obj_index;
+
+	int material_type;
+	int material_index;
+};
+
+float signDistBlendedObj(float obj_dist_1, float obj_dist_2, int booleanType = -1, float blend = 0.5) {
+	switch(booleanType) {
+	case -1:
+		return min(obj_dist_1, obj_dist_2);
+	case 0:
+		return smoothUnion(obj_dist_1, obj_dist_2, blend);
+	case 1:
+		return smoothIntersect(obj_dist_1, obj_dist_2, blend);
+	case 2:
+		return smoothDifference(obj_dist_1, obj_dist_2, blend);
+	}
+}
+float signDistObj(vec3 ray_loc, int obj_type, int obj_index) {
+	switch(obj_type) {
+	case 0:
+		return signDistSphere(ray_loc, spheres[obj_index]);
+	case 1:
+		return signDistCube(ray_loc, cubes[obj_index]);
+	case 2:
+		return signDistCylinder(ray_loc, cylinders[obj_index]);
+	case 3:
+		return signDistCone(ray_loc, cones[obj_index]);
+	}
+	return -999999999;
+}
+float signDistScene(vec3 ray_loc) {
+	float minDist = 999999999;
+
+	#define distCheckObjs(obj_name, objs, obj_type) \
+	for (int i = 0; i < objs##_no; i++) { \
+		if (objs[i].visible == 0) { \
+			continue; \
+		} \
+		minDist = min(minDist, signDist##obj_name(ray_loc, objs[i])); \
+	}
+
+
+	// Check for closest Sphere
+	distCheckObjs(Sphere, spheres, 0)
+
+	// Check for closest Cube
+	distCheckObjs(Cube, cubes, 1)
+
+	// Check for closest Cylinder
+	distCheckObjs(Cylinder, cylinders, 2)
+
+	// Check for closest Cone
+	distCheckObjs(Cone, cones, 3)
+
+
+	return minDist;
+}
+
+vec3 normalScene(vec3 ray_loc) {
+	const float epsilon = 0.001;
+	const mat3x3 d = mat3x3(
+		vec3(epsilon, 0, 0),
+		vec3(0, epsilon, 0),
+		vec3(0, 0, epsilon)
+	);
+
+	float cd = signDistScene(ray_loc);
+	return normalize((vec3(signDistScene(ray_loc + d[0]), signDistScene(ray_loc + d[1]), signDistScene(ray_loc + d[2])) - cd) / epsilon);
+}
+
+
+RaycastHit raycast(vec3 ray_loc, vec3 ray_dir) {
+	vec3 init_loc = ray_loc;
+	ray_loc += ray_dir * hitThreshold * 100.0;
+
+	int obj_type = -1; // 0 - sphere, 1 - cube, 2 - cylinder, 3 - cone
+	int obj_index = -1;
+	float minimumDistance = 999999999;
+	float mDepsDistMin = 0.5;
+	float mDepsDistDiff = 0.1;
+	int mDeqCount = 0;
+	while (distance(init_loc, ray_loc) < farPlane) {
+		float minDist = 999999999;
+
+		#define distCheckObjs1(obj_name, objs, _obj_type) \
+		for (int i = 0; i < objs##_no; i++) { \
+			if (objs[i].visible == 0) { \
+				continue; \
+			} \
+			float distTo##obj_name = signDist##obj_name(ray_loc, objs[i]); \
+			if (distTo##obj_name < minDist) { \
+				minDist = distTo##obj_name; \
+				obj_type = _obj_type; \
+				obj_index = i; \
+			} \
+		}
+
+
+		// Check for closest Sphere
+		distCheckObjs1(Sphere, spheres, 0)
+
+		// Check for closest Cube
+		distCheckObjs1(Cube, cubes, 1)
+		
+		// Check for closest Cylinder
+		distCheckObjs1(Cylinder, cylinders, 2)
+		
+		// Check for closest Cone
+		distCheckObjs1(Cone, cones, 3)
+		
+		
+		// Minimum distance aproximation for better performance
+		// when tracing against parallel surfaces
+		if (distance(minimumDistance, minDist) < mDepsDistDiff && minDist < mDepsDistMin) {
+			minDist *= pow(2, mDeqCount + 1);
+			mDeqCount++;
+		} else {
+			minimumDistance = minDist;
+			mDeqCount = 0;
+		}
+		ray_loc += ray_dir * minDist;
+
+
+
+		if (minDist < hitThreshold) {
+			int mat_type =
+				  obj_type == 0 ? spheres[obj_index].material_type
+				: obj_type == 1 ? cubes[obj_index].material_type
+				: obj_type == 2 ? cylinders[obj_index].material_type
+				: obj_type == 3 ? cones[obj_index].material_type
+				: -1
+			;
+			int mat_index =
+				  obj_type == 0 ? spheres[obj_index].material_index
+				: obj_type == 1 ? cubes[obj_index].material_index
+				: obj_type == 2 ? cylinders[obj_index].material_index
+				: obj_type == 3 ? cones[obj_index].material_index
+				: -1
+			;
+
+			return RaycastHit(true, ray_loc, ray_dir, normalScene(ray_loc), obj_type, obj_index, mat_type, mat_index);
+		}
+	}
+
+	return RaycastHit(false, vec3(0.0), vec3(0.0), vec3(0.0), -1, -1, -1, -1);
+}
+RaycastHit raycast_light(vec3 ray_loc, vec3 ray_dir, inout PointLight point_light) {
+	vec3 init_loc = ray_loc;
+	ray_loc += ray_dir * hitThreshold * 100.0;
+
+	while (distance(init_loc, ray_loc) < farPlane) {
+		float minDist = 999999999;
+		float temp = min(minDist, signDistSphere(ray_loc, point_light.location, point_light.radius));
+		if (temp < minDist) {
+			minDist = temp;
+		}
+		ray_loc += ray_dir * minDist;
+		
+		if (minDist < hitThreshold) {
+			vec3 normal = normalSphere(ray_loc, point_light.location, point_light.radius);
+			return RaycastHit(true, ray_loc, ray_dir, normal, -1, -1, -1, -1);
+		}
+	}
+
+	return RaycastHit(false, vec3(0.0), vec3(0.0), vec3(0.0), -1, -1, -1, -1);
+}
+
+RaycastHit reflectRay(inout RaycastHit ray) {
+	return RaycastHit(
+		ray.hit,
+		ray.location,
+		normalize(reflect(normalize(ray.direction), normalize(ray.normal))),
+		ray.normal,
+		ray.obj_type,
+		ray.obj_index,
+		ray.material_type,
+		ray.material_index
+	);
+}
+
+
+
+float random(vec2 uv) {
+	return texture(blueNoise, uv + vec2(random_f01, fract(random_f01 * 7.931199))).x;
+}
+vec3 randomVectorInSphericalCap(vec2 uv, vec3 normal, float max_angle, bool signedSpread = true) {
+	vec3 tg1  = tangent(normal);
+	vec3 tg2  = normalize(cross(normal, tg1));
+
+	float min_angle = signedSpread ? -max_angle / 2.0 : 0.0;
+	max_angle       = signedSpread ?  max_angle / 2.0 : max_angle;
+
+	float theta1 = mix(radians(min_angle), radians(max_angle), random(uv + vec2(0.000, 0.543)));
+	float theta2 = mix(radians(min_angle), radians(max_angle), random(uv + vec2(0.341, 0.121)));
+	float theta3 = mix(radians(min_angle), radians(max_angle), random(uv + vec2(0.859, 0.652)));
+
+	vec3 rot1 = rotateVector(normal, tg1,    theta1);
+	vec3 rot2 = rotateVector(rot1,   tg2,    theta2);
+	vec3 rot3 = rotateVector(rot2,   normal, theta3);
+	
+	return rot3;
+}
+vec3 randomVectorInHemisphere(vec2 uv, vec3 normal) {
+	return randomVectorInSphericalCap(uv, normal, 180.0);
+}
+
+
+vec3 fresnel_schlick(float cos_theta, vec3 F0) {
+    return F0 + (1.0 - F0) * pow(1.0 - cos_theta, 5.0);
+}
+float ndf_ggx(vec3 normal, vec3 half_vector, float roughness) {
+    float r2 = roughness * roughness;
+    float NdotH = max(dot(normal, half_vector), 0.0);
+    float NdotH2 = NdotH * NdotH;
+
+    float denominator = (NdotH2 * (r2 - 1.0) + 1.0);
+    return r2 / (pi * denominator * denominator);
+}
+float geometry_schlick_ggx(float NdotV, float roughness) {
+    float r = (roughness + 1.0);
+    float k = (r * r) / 8.0;
+    return NdotV / (NdotV * (1.0 - k) + k);
+}
+float geometry_smith(vec3 normal, vec3 view_dir, vec3 light_dir, float roughness) {
+    float NdotV = max(dot(normal, view_dir), 0.0);
+    float NdotL = max(dot(normal, light_dir), 0.0);
+    float ggx1 = geometry_schlick_ggx(NdotV, roughness);
+    float ggx2 = geometry_schlick_ggx(NdotL, roughness);
+    return ggx1 * ggx2;
+}
+
+vec3 generate_diffuse_ray(vec2 uv, in RaycastHit hit) {
+	float rdisp = fract((hit.location.x + hit.location.y + hit.location.z) * 23.49789);
+    return randomVectorInHemisphere(uv + vec2(rdisp, fract(rdisp * 3.65243)), hit.normal);
+}
+vec3 generate_glossy_ray(vec2 uv, in RaycastHit hit, float roughness) {
+	float rdisp = fract((hit.location.x + hit.location.y + hit.location.z) * 19.62173);
+	return normalize(mix(reflectRay(hit).direction, randomVectorInHemisphere(uv + vec2(rdisp, fract(rdisp * 1.722459)), hit.normal), roughness));
+}
+
+vec3 lambertian_shading(in RaycastHit hit, in PointLight point_light, vec3 albedo) {
+    vec3 light_dir = normalize(point_light.location - hit.location);
+
+    float diffuse_intensity = max(dot(hit.normal, light_dir), 0.0f);
+    vec3 diffuse_color = albedo * point_light.color * diffuse_intensity;
+    return diffuse_color;
+}
+vec3 cook_torrance_brdf(in RaycastHit hit, vec3 light_dir, vec3 view_dir, vec3 F0, in PrincipledBSDF material) {
+    vec3 half_vector = normalize(view_dir + light_dir);
+    float NDF = ndf_ggx(hit.normal, half_vector, material.roughness);
+    float G = geometry_smith(hit.normal, view_dir, light_dir, material.roughness);
+    vec3 F = fresnel_schlick(dot(hit.normal, half_vector), F0);
+
+    float denominator = 4.0 * max(dot(hit.normal, view_dir), 0.0) * max(dot(hit.normal, light_dir), 0.0);
+    vec3 specular = (NDF * G * F) / max(denominator, 0.001);
+
+    vec3 kS = F;
+    vec3 kD = vec3(1.0) - kS;
+    kD *= 1.0 - material.metallic;
+
+    float NdotL = max(dot(hit.normal, light_dir), 0.0f);
+    return (kD * material.albedo / pi + material.reflectance) * NdotL;
+}
+
+vec3 pbr_shading(in RaycastHit hit, in PointLight point_light, in PrincipledBSDF material) {
+    vec3 light_dir = normalize(point_light.location - hit.location);
+	vec3 view_dir = normalize(camera_loc - hit.location);
+    vec3 F0 = mix(vec3(0.04), material.albedo, material.metallic);
+
+    vec3 vdiffuse = lambertian_shading(hit, point_light, material.albedo);
+    vec3 vspecular = cook_torrance_brdf(hit, light_dir, view_dir, F0, material);
+
+	return vdiffuse * vspecular;
+}
+
+
+
+void main() {
+	ivec2 pixel_coords = ivec2(gl_GlobalInvocationID.xy);
+	vec2 uv = vec2(pixel_coords) / vec2(imageSize(img_output));
+
+	if (scene_change == -1) {
+		imageStore(img_output, pixel_coords, vec4(vec3(0.0), 1.0));
+		return;
+	}
+
+
+
+	int ray_index = pixel_coords.y * imageSize(img_output).x + pixel_coords.x;
+
+	float ndcX = 1.0 - (pixel_coords.x * 2.0) / imageSize(img_output).x;
+	float ndcY = 1.0 - (pixel_coords.y * 2.0) / imageSize(img_output).y;
+
+	vec4 ndcPoint = vec4(ndcX, ndcY, -1.0, 1.0);
+
+	vec4 worldPoint = inverse(camera_proj * camera_view) * ndcPoint;
+	worldPoint /= worldPoint.w;
+
+	vec3 ray_loc = camera_loc;
+	vec3 ray_dir = normalize(worldPoint.xyz - camera_loc);
+	vec3 ray_color = vec3(0.0);
+
+	
+
+	const int max_diffuse_bounces = 1;
+	const int max_glossy_bounces  = 2;
+
+	RaycastHit hit = raycast(ray_loc, ray_dir);
+	if (hit.hit == true) {
+		float dist = 0.0;
+		RaycastHit copy_hit = hit;
+		RaycastHit last_hit;
+
+		// Diffuse rays
+		vec3 diffuse_color = vec3(0.0);
+		int bounces = max_diffuse_bounces;
+		while (bounces > 0) {
+			last_hit = hit;
+
+
+			// Need to make a special raycast_light function that tests hits taking into account light's radius
+			//RaycastHit shadow_hit = raycast_light(ray_loc, ray_dir);
+
+			//vec3 light_contrib = light_color * mix(0.0, light_power, 1.0 - min(1.0, distance(light_loc, hit.ray_loc) / light_radius));
+			for (int i = 0; i < point_lights_no; i++) {
+				diffuse_color += pbr_shading(hit, point_lights[i], principled_bsdfs[hit.material_index]);
+			}
+
+			hit = raycast(hit.location, generate_diffuse_ray(uv, hit));
+
+
+			dist += distance(hit.location, last_hit.location);
+			bounces--;
+		}
+		diffuse_color /= max_diffuse_bounces;
+
+
+		// Go back to initial hit
+		dist = 0.0;
+		hit = copy_hit;
+
+		// Glossy rays
+		vec3 glossy_color = vec3(0.0);
+		bounces = max_glossy_bounces;
+		while (bounces > 0) {
+			last_hit = hit;
+
+
+			//vec3 light_contrib = light_color * mix(0.0, light_power, 1.0 - min(1.0, distance(light_loc, hit.ray_loc) / light_radius));
+			for (int i = 0; i < point_lights_no; i++) {
+				glossy_color += pbr_shading(hit, point_lights[i], principled_bsdfs[hit.material_index]);
+			}
+
+			hit = raycast(hit.location, generate_glossy_ray(uv, hit, principled_bsdfs[hit.material_index].roughness));
+
+
+			dist += distance(hit.location, last_hit.location);
+			bounces--;
+		}
+		glossy_color /= max_glossy_bounces;
+
+
+		ray_color = (diffuse_color + glossy_color) / 2.0;
+	}
+	ray_color = max(ray_color, 0.0);
+
+
+
+	vec3 currect_pixel = scene_change == 0 ? max(imageLoad(img_output, pixel_coords).xyz, 0.0) : vec3(0.0);
+	vec4 final_color = vec4((currect_pixel + ray_color), 1.0);
+	imageStore(img_output, pixel_coords, final_color);
+
+	
+
+
+
+	//-------------------------------------
+	//-------------DEBUGGING---------------
+	//-------------------------------------
+	int pixel_size = 40;
+	int xoffset = 0;
+	float pvalue;
+	#define sobj cylinders
+	#define sindex 1
+
+	pvalue = abs(sobj[sindex].location.x) / 35;
+	for (int y = 0; y < pixel_size; y++) {
+		for (int x = 0; x < pixel_size; x++) {
+			imageStore(img_output, ivec2(xoffset + x, y), vec4(pvalue, 0.0, 0.0, 1.0));
+		}
+	}
+	xoffset += pixel_size;
+
+
+	pvalue = abs(sobj[sindex].location.y) / 35;
+	for (int y = 0; y < pixel_size; y++) {
+		for (int x = 0; x < pixel_size; x++) {
+			imageStore(img_output, ivec2(xoffset + x, y), vec4(0.0, pvalue, 0.0, 1.0));
+		}
+	}
+	xoffset += pixel_size;
+
+
+	pvalue = abs(sobj[sindex].location.z) / 35;
+	for (int y = 0; y < pixel_size; y++) {
+		for (int x = 0; x < pixel_size; x++) {
+			imageStore(img_output, ivec2(xoffset + x, y), vec4(0.0, 0.0, pvalue, 1.0));
+		}
+	}
+	xoffset += pixel_size;
+
+
+	pvalue = sobj[sindex].rotation.x / 45;
+	for (int y = 0; y < pixel_size; y++) {
+		for (int x = 0; x < pixel_size; x++) {
+			imageStore(img_output, ivec2(xoffset + x, y), vec4(pvalue, 0.0, 0.0, 1.0));
+		}
+	}
+	xoffset += pixel_size;
+
+
+	pvalue = sobj[sindex].rotation.y / 45;
+	for (int y = 0; y < pixel_size; y++) {
+		for (int x = 0; x < pixel_size; x++) {
+			imageStore(img_output, ivec2(xoffset + x, y), vec4(0.0, pvalue, 0.0, 1.0));
+		}
+	}
+	xoffset += pixel_size;
+
+
+	pvalue = sobj[sindex].rotation.z / 45;
+	for (int y = 0; y < pixel_size; y++) {
+		for (int x = 0; x < pixel_size; x++) {
+			imageStore(img_output, ivec2(xoffset + x, y), vec4(0.0, 0.0, pvalue, 1.0));
+		}
+	}
+	xoffset += pixel_size;
+
+
+	//imageStore(img_output, pixel_coords, texture(blueNoise, uv));
+}

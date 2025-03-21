@@ -245,6 +245,44 @@ int main(int argc, char* argv[]) {
 	readFile("rtarget.frag", fragment);
 
 
+	/*
+	std::string sh_basic_shapes;
+	readFile("basic_shapes.comp", sh_basic_shapes);
+
+	std::string sh_lights;
+	readFile("lights.comp", sh_lights);
+
+	std::string sh_materials;
+	readFile("materials.comp", sh_materials);
+
+	std::string sh_utils;
+	readFile("utils.comp", sh_utils);
+
+	sh_basic_shapes.replace(
+		sh_basic_shapes.begin() + sh_basic_shapes.rfind("\n#include"),
+		sh_basic_shapes.begin() + sh_basic_shapes.find('\n', sh_basic_shapes.rfind("\n#include") + 1),
+		sh_utils
+	);
+	raymarch_compute.replace(
+		raymarch_compute.begin() + raymarch_compute.rfind("\n#include"),
+		raymarch_compute.begin() + raymarch_compute.find('\n', raymarch_compute.rfind("\n#include") + 1),
+		sh_lights
+	);
+	raymarch_compute.replace(
+		raymarch_compute.begin() + raymarch_compute.rfind("\n#include"),
+		raymarch_compute.begin() + raymarch_compute.find('\n', raymarch_compute.rfind("\n#include") + 1),
+		sh_materials
+	);
+	raymarch_compute.replace(
+		raymarch_compute.begin() + raymarch_compute.rfind("\n#include"),
+		raymarch_compute.begin() + raymarch_compute.find('\n', raymarch_compute.rfind("\n#include") + 1),
+		sh_basic_shapes
+	);
+	std::ofstream debug_out("debug.txt");
+	debug_out << raymarch_compute;
+	*/
+	
+
 	// Read Shader Header files
 	addGLSLHeaderToFileSystem("utils.comp");
 	addGLSLHeaderToFileSystem("basic_shapes.comp");
@@ -485,7 +523,7 @@ int main(int argc, char* argv[]) {
 
 
 	// Setup Ray-Sampling
-	static constexpr uint max_samples = 64;
+	static constexpr uint max_samples = 1;
 	static int samples = max_samples;
 	auto reset_pathtracer = [&]() {
 		glUseProgram(raymarch_program);
@@ -678,7 +716,7 @@ int main(int argc, char* argv[]) {
 
 
 		// Denoiser
-		static constexpr uint denoisingPasses = 8;
+		static constexpr uint denoisingPasses = 1;
 		glUseProgram(denoiser_program);
 		glUniform1i(glGetUniformLocation(denoiser_program, "samples"), std::max((int)max_samples - samples, 1));
 		for (uint i = 0; i < denoisingPasses; i++) {

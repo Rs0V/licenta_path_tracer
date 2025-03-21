@@ -317,71 +317,72 @@ vec3 randomVectorInHemisphere(vec2 uv, vec3 normal) {
 }
 
 
-vec3 fresnel_schlick(vec3 view_dir, vec3 half_vector, vec3 F0) {
-    return F0 + (1.0 - F0) * pow(1.0 - dot(view_dir, half_vector), 5.0);
+vec3 fresnel_schlick(float cos_theta, vec3 F0) {
+    return F0 + (1.0 - F0) * pow(1.0 - cos_theta, 5.0);
 }
 float ndf_ggx(vec3 normal, vec3 half_vector, float roughness) {
     float r2 = roughness * roughness;
-    float NdotH = dot(normal, half_vector);
+    float NdotH = max(dot(normal, half_vector), 0.0);
     float NdotH2 = NdotH * NdotH;
 
-    float pdenom = NdotH2 * (r2 - 1.0) + 1.0;
-    return r2 / (pi * pdenom * pdenom);
+    float denominator = (NdotH2 * (r2 - 1.0) + 1.0);
+    return r2 / (pi * denominator * denominator);
 }
-float geometry_schlick_ggx(float dp, float roughness) {
-    float k = (roughness * roughness) / 2.0;
-    return dp / (dp * (1.0 - k) + k);
+float geometry_schlick_ggx(float NdotV, float roughness) {
+    float r = (roughness + 1.0);
+    float k = (r * r) / 8.0;
+    return NdotV / (NdotV * (1.0 - k) + k);
 }
 float geometry_smith(vec3 normal, vec3 view_dir, vec3 light_dir, float roughness) {
-    float ggx1 = geometry_schlick_ggx(dot(normal, view_dir), roughness);
-    float ggx2 = geometry_schlick_ggx(dot(normal, light_dir), roughness);
+    float NdotV = max(dot(normal, view_dir), 0.0);
+    float NdotL = max(dot(normal, light_dir), 0.0);
+    float ggx1 = geometry_schlick_ggx(NdotV, roughness);
+    float ggx2 = geometry_schlick_ggx(NdotL, roughness);
     return ggx1 * ggx2;
 }
 
-vec3 generate_diffuse_ray(vec2 uv, inout RaycastHit ray) {
-	float rdisp = fract((ray.location.x + ray.location.y + ray.location.z) * 23.49789);
-    return randomVectorInHemisphere(uv + vec2(rdisp, fract(rdisp * 3.65243)), ray.normal);
+vec3 generate_diffuse_ray(vec2 uv, in RaycastHit hit) {
+	float rdisp = fract((hit.location.x + hit.location.y + hit.location.z) * 23.49789);
+    return randomVectorInHemisphere(uv + vec2(rdisp, fract(rdisp * 3.65243)), hit.normal);
 }
-vec3 generate_glossy_ray(vec2 uv, inout RaycastHit ray) {
-	float rdisp = fract((ray.location.x + ray.location.y + ray.location.z) * 19.62173);
-	return normalize(mix(reflectRay(ray).direction, randomVectorInHemisphere(uv + vec2(rdisp, fract(rdisp * 1.722459)), ray.normal), principled_bsdfs[ray.material_index].roughness));
+vec3 generate_glossy_ray(vec2 uv, in RaycastHit hit, float roughness) {
+	float rdisp = fract((hit.location.x + hit.location.y + hit.location.z) * 19.62173);
+	return normalize(mix(reflectRay(hit).direction, randomVectorInHemisphere(uv + vec2(rdisp, fract(rdisp * 1.722459)), hit.normal), roughness));
 }
 
-vec3 lambertian_shading(inout RaycastHit ray, inout PointLight point_light) {
-    vec3 light_dir = normalize(point_light.location - ray.location);
+vec3 lambertian_shading(in RaycastHit hit, in PointLight point_light, vec3 albedo) {
+    vec3 light_dir = normalize(point_light.location - hit.location);
 
-	float light_dist = distance(point_light.location, ray.location);
-	float light_attenuation = 1.0 / (0.8 + 0.1 * light_dist + 0.03 * light_dist * light_dist);
-	float light_intensity = point_light.intensity * light_attenuation;
-
-    float diffuse_intensity = max(dot(ray.normal, light_dir), 0.0) * light_intensity;
-    vec3 diffuse_color = principled_bsdfs[ray.material_index].albedo * point_light.color * diffuse_intensity;
+    float diffuse_intensity = max(dot(hit.normal, light_dir), 0.0f);
+    vec3 diffuse_color = albedo * point_light.color * diffuse_intensity;
     return diffuse_color;
 }
-vec3 cook_torrance_shading(inout RaycastHit ray, inout PointLight point_light) {
-    vec3 light_dir = normalize(point_light.location - ray.location);
-	vec3 view_dir = normalize(camera_loc - ray.location);
+vec3 cook_torrance_brdf(in RaycastHit hit, vec3 light_dir, vec3 view_dir, vec3 F0, in PrincipledBSDF material) {
     vec3 half_vector = normalize(view_dir + light_dir);
+    float NDF = ndf_ggx(hit.normal, half_vector, material.roughness);
+    float G = geometry_smith(hit.normal, view_dir, light_dir, material.roughness);
+    vec3 F = fresnel_schlick(dot(hit.normal, half_vector), F0);
 
-    vec3 F0 = mix(vec3(0.04), vec3(principled_bsdfs[ray.material_index].reflectance), principled_bsdfs[ray.material_index].metallic);
-
-    float NDF = ndf_ggx(ray.normal, half_vector, principled_bsdfs[ray.material_index].roughness);
-    float G = geometry_smith(ray.normal, view_dir, light_dir, principled_bsdfs[ray.material_index].roughness);
-    vec3 F = fresnel_schlick(view_dir, half_vector, F0);
-
-    float denom = 4.0 * dot(ray.normal, view_dir) * dot(ray.normal, light_dir);
-    vec3 specular = NDF * G * F / denom;
+    float denominator = 4.0 * max(dot(hit.normal, view_dir), 0.0) * max(dot(hit.normal, light_dir), 0.0);
+    vec3 specular = (NDF * G * F) / max(denominator, 0.001);
 
     vec3 kS = F;
     vec3 kD = vec3(1.0) - kS;
-    kD *= 1.0 - principled_bsdfs[ray.material_index].metallic;
+    kD *= 1.0 - material.metallic;
 
-	float light_dist = distance(point_light.location, ray.location);
-	float light_attenuation = 1.0 / (0.8 + 0.1 * light_dist + 0.03 * light_dist * light_dist);
-	float light_intensity = point_light.intensity * light_attenuation;
+    float NdotL = max(dot(hit.normal, light_dir), 0.0f);
+    return (kD * material.albedo / pi + material.reflectance) * NdotL;
+}
 
-    float NdotL = max(dot(ray.normal, light_dir), 0.0);
-    return (kD * principled_bsdfs[ray.material_index].albedo + specular * light_intensity) * NdotL;
+vec3 pbr_shading(in RaycastHit hit, in PointLight point_light, in PrincipledBSDF material) {
+    vec3 light_dir = normalize(point_light.location - hit.location);
+	vec3 view_dir = normalize(camera_loc - hit.location);
+    vec3 F0 = mix(vec3(0.04), material.albedo, material.metallic);
+
+    vec3 vdiffuse = lambertian_shading(hit, point_light, material.albedo);
+    vec3 vspecular = cook_torrance_brdf(hit, light_dir, view_dir, F0, material);
+
+	return vdiffuse * vspecular;
 }
 
 
@@ -434,7 +435,7 @@ void main() {
 
 			//vec3 light_contrib = light_color * mix(0.0, light_power, 1.0 - min(1.0, distance(light_loc, hit.ray_loc) / light_radius));
 			for (int i = 0; i < point_lights_no; i++) {
-				diffuse_color += cook_torrance_shading(hit, point_lights[i]);
+				diffuse_color += pbr_shading(hit, point_lights[i], principled_bsdfs[hit.material_index]);
 			}
 
 			hit = raycast(hit.location, generate_diffuse_ray(uv, hit));
@@ -459,10 +460,10 @@ void main() {
 
 			//vec3 light_contrib = light_color * mix(0.0, light_power, 1.0 - min(1.0, distance(light_loc, hit.ray_loc) / light_radius));
 			for (int i = 0; i < point_lights_no; i++) {
-				glossy_color += cook_torrance_shading(hit, point_lights[i]);
+				glossy_color += pbr_shading(hit, point_lights[i], principled_bsdfs[hit.material_index]);
 			}
 
-			hit = raycast(hit.location, generate_glossy_ray(uv, hit));
+			hit = raycast(hit.location, generate_glossy_ray(uv, hit, principled_bsdfs[hit.material_index].roughness));
 
 
 			dist += distance(hit.location, last_hit.location);
@@ -485,17 +486,17 @@ void main() {
 
 
 
+	{ /*
 	//-------------------------------------
 	//-------------DEBUGGING---------------
 	//-------------------------------------
-	/*
 	int pixel_size = 40;
 	int xoffset = 0;
 	float pvalue;
-	#define sobj point_lights
-	#define sindex 0
+	#define sobj cylinders
+	#define sindex 1
 
-	pvalue = sobj[sindex].location.x / 40 + .8;
+	pvalue = abs(sobj[sindex].location.x) / 35;
 	for (int y = 0; y < pixel_size; y++) {
 		for (int x = 0; x < pixel_size; x++) {
 			imageStore(img_output, ivec2(xoffset + x, y), vec4(pvalue, 0.0, 0.0, 1.0));
@@ -504,7 +505,7 @@ void main() {
 	xoffset += pixel_size;
 
 
-	pvalue = sobj[sindex].location.y / 40 + .8;
+	pvalue = abs(sobj[sindex].location.y) / 35;
 	for (int y = 0; y < pixel_size; y++) {
 		for (int x = 0; x < pixel_size; x++) {
 			imageStore(img_output, ivec2(xoffset + x, y), vec4(0.0, pvalue, 0.0, 1.0));
@@ -513,7 +514,7 @@ void main() {
 	xoffset += pixel_size;
 
 
-	pvalue = sobj[sindex].location.z / 40 + .8;
+	pvalue = abs(sobj[sindex].location.z) / 35;
 	for (int y = 0; y < pixel_size; y++) {
 		for (int x = 0; x < pixel_size; x++) {
 			imageStore(img_output, ivec2(xoffset + x, y), vec4(0.0, 0.0, pvalue, 1.0));
@@ -522,23 +523,32 @@ void main() {
 	xoffset += pixel_size;
 
 
-	pvalue = sobj[sindex].intensity / 2;
+	pvalue = sobj[sindex].rotation.x / 45;
 	for (int y = 0; y < pixel_size; y++) {
 		for (int x = 0; x < pixel_size; x++) {
-			imageStore(img_output, ivec2(xoffset + x, y), vec4(pvalue, pvalue, pvalue, 1.0));
+			imageStore(img_output, ivec2(xoffset + x, y), vec4(pvalue, 0.0, 0.0, 1.0));
 		}
 	}
 	xoffset += pixel_size;
 
 
-	pvalue = sobj[sindex].radius / 50;
+	pvalue = sobj[sindex].rotation.y / 45;
 	for (int y = 0; y < pixel_size; y++) {
 		for (int x = 0; x < pixel_size; x++) {
-			imageStore(img_output, ivec2(xoffset + x, y), vec4(pvalue, pvalue, pvalue, 1.0));
+			imageStore(img_output, ivec2(xoffset + x, y), vec4(0.0, pvalue, 0.0, 1.0));
 		}
 	}
 	xoffset += pixel_size;
-	*/
+
+
+	pvalue = sobj[sindex].rotation.z / 45;
+	for (int y = 0; y < pixel_size; y++) {
+		for (int x = 0; x < pixel_size; x++) {
+			imageStore(img_output, ivec2(xoffset + x, y), vec4(0.0, 0.0, pvalue, 1.0));
+		}
+	}
+	xoffset += pixel_size;
+	*/ }
 
 
 	//imageStore(img_output, pixel_coords, texture(blueNoise, uv));
