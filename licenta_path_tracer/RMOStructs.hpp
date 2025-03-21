@@ -12,21 +12,6 @@
 
 
 namespace rmo {
-	int getBooleanType(const boolean::Boolean *boolean) {
-		if (boolean == nullptr) {
-			return -1;
-		}
-		switch (boolean->type_get()) {
-		case boolean::Type::Union:
-			return 0;
-		case boolean::Type::Intersect:
-			return 1;
-		case boolean::Type::Difference:
-			return 2;
-		}
-	}
-
-
 	struct Sphere {
 		alignas(16) glm::vec3 location;
 		int visible;
@@ -175,22 +160,41 @@ namespace rmo {
 	};
 
 
+	struct CBoolean {
+		int selfObjType;
+		int selfObjIndex;
+		int otherObjType;
+		int otherObjIndex;
+
+		int type;
+		float blend;
+
+
+		CBoolean& operator=(const ::boolean::Boolean& boolean) {
+			this->selfObjType = boolean.self_get()->type_get();
+			this->selfObjIndex = boolean.self_get()->index_get();
+
+			this->otherObjType = boolean.other_get()->type_get();
+			this->otherObjIndex = boolean.other_get()->index_get();
+
+			this->type = boolean.type_get();
+			this->blend = boolean.blend_get();
+
+			return *this;
+		}
+	};
+
+
 	struct PointLight {
 		alignas(16) glm::vec3 location;
 		float intensity;
 
-		alignas(16) glm::vec3 rotation;
-		float radius;
-
-		alignas(16) glm::vec3 scale;
-
 		alignas(16) glm::vec3 color;
+		float radius;
 
 
 		PointLight& operator=(const ::PointLight &point_light) {
 			this->location = point_light.transform_getrc().location;
-			this->rotation = point_light.transform_getrc().rotation;
-			this->scale    = point_light.transform_getrc().scale;
 
 			this->intensity = point_light.intensity_get();
 			this->radius    = point_light.radius_get();
@@ -238,31 +242,6 @@ namespace rmo {
 
 			this->density  = mvolume_scatter.density_get();
 			this->diameter = mvolume_scatter.diameter_get();
-
-			return *this;
-		}
-	};
-
-
-	struct CBoolean {
-		int selfObjType;
-		int selfObjIndex;
-		int otherObjType;
-		int otherObjIndex;
-		
-		int type;
-		float blend;
-
-
-		CBoolean& operator=(const ::boolean::Boolean &boolean) {
-			this->selfObjType  = boolean.self_get()->type_get();
-			this->selfObjIndex = boolean.self_get()->index_get();
-
-			this->otherObjType  = boolean.other_get()->type_get();
-			this->otherObjIndex = boolean.other_get()->index_get();
-
-			this->type = getBooleanType(&boolean);
-			this->blend = boolean.blend_get();
 
 			return *this;
 		}

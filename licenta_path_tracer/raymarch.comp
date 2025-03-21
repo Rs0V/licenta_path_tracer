@@ -28,48 +28,24 @@ uniform sampler2D blueNoise;
 
 
 
-layout (std430, binding = 1) buffer Spheres {
-	Sphere[] spheres;
+#define spheres_no 100
+#define cubes_no 100
+#define cylinders_no 100
+#define cones_no 100
+#define booleans_no 100
+#define point_lights_no 100
+#define principled_bsdfs_no 100
+#define volume_scatters_no 100
+layout (std430, binding = 1) buffer CPUData {
+	Sphere spheres[spheres_no];
+	Cube cubes[cubes_no];
+	Cylinder cylinders[cylinders_no];
+	Cone cones[cones_no];
+	Boolean booleans[booleans_no];
+	PointLight point_lights[point_lights_no];
+	PrincipledBSDF principled_bsdfs[principled_bsdfs_no];
+	VolumeScatter volume_scatters[volume_scatters_no];
 };
-uniform int spheres_no;
-
-layout (std430, binding = 2) buffer Cubes {
-	Cube[] cubes;
-};
-uniform int cubes_no;
-
-layout (std430, binding = 3) buffer Cylinders {
-	Cylinder[] cylinders;
-};
-uniform int cylinders_no;
-
-layout (std430, binding = 4) buffer Cones {
-	Cone[] cones;
-};
-uniform int cones_no;
-
-
-layout (std430, binding = 5) buffer Booleans {
-	Boolean[] booleans;
-};
-uniform int booleans_no;
-
-
-layout (std430, binding = 6) buffer PointLights {
-	PointLight[] point_lights;
-};
-uniform int point_lights_no;
-
-
-layout (std430, binding = 7) buffer PrincipledBSDFs {
-	PrincipledBSDF[] principled_bsdfs;
-};
-uniform int principled_bsdfs_no;
-
-layout (std430, binding = 8) buffer VolumeScatters {
-	VolumeScatter[] volume_scatters;
-};
-uniform int volume_scatters_no;
 
 
 
@@ -414,8 +390,8 @@ void main() {
 
 	
 
-	const int max_diffuse_bounces = 1;
-	const int max_glossy_bounces  = 2;
+	const int max_diffuse_bounces = 3;
+	const int max_glossy_bounces  = 6;
 
 	RaycastHit hit = raycast(ray_loc, ray_dir);
 	if (hit.hit == true) {
@@ -486,16 +462,18 @@ void main() {
 
 
 
-	{ /*
 	//-------------------------------------
 	//-------------DEBUGGING---------------
 	//-------------------------------------
-	int pixel_size = 40;
+	int pixel_size = 32;
 	int xoffset = 0;
+	int yoffset = 0;
 	float pvalue;
-	#define sobj cylinders
-	#define sindex 1
+	#define sobj 
+	#define sindex 0
 
+	// Output location
+	{ /*
 	pvalue = abs(sobj[sindex].location.x) / 35;
 	for (int y = 0; y < pixel_size; y++) {
 		for (int x = 0; x < pixel_size; x++) {
@@ -521,34 +499,58 @@ void main() {
 		}
 	}
 	xoffset += pixel_size;
-
-
-	pvalue = sobj[sindex].rotation.x / 45;
-	for (int y = 0; y < pixel_size; y++) {
-		for (int x = 0; x < pixel_size; x++) {
-			imageStore(img_output, ivec2(xoffset + x, y), vec4(pvalue, 0.0, 0.0, 1.0));
-		}
-	}
-	xoffset += pixel_size;
-
-
-	pvalue = sobj[sindex].rotation.y / 45;
-	for (int y = 0; y < pixel_size; y++) {
-		for (int x = 0; x < pixel_size; x++) {
-			imageStore(img_output, ivec2(xoffset + x, y), vec4(0.0, pvalue, 0.0, 1.0));
-		}
-	}
-	xoffset += pixel_size;
-
-
-	pvalue = sobj[sindex].rotation.z / 45;
-	for (int y = 0; y < pixel_size; y++) {
-		for (int x = 0; x < pixel_size; x++) {
-			imageStore(img_output, ivec2(xoffset + x, y), vec4(0.0, 0.0, pvalue, 1.0));
-		}
-	}
-	xoffset += pixel_size;
 	*/ }
+
+	
+	#define print(value, color) { pvalue = abs(value); \
+	for (int y = 0; y < pixel_size; y++) { \
+		for (int x = 0; x < pixel_size; x++) { \
+			if (x == 0 || x == pixel_size - 1 || y == 0 || y == pixel_size - 1) { \
+				imageStore(img_output, ivec2(xoffset + x, yoffset + y), vec4(1.0, 0.0, 0.0, 1.0)); \
+			} \
+			else { \
+				imageStore(img_output, ivec2(xoffset + x, yoffset + y), vec4(vec3(pvalue) * (color), 1.0)); \
+			} \
+		} \
+	} \
+	yoffset += (xoffset + pixel_size) / 640 * pixel_size; \
+	xoffset = (xoffset + pixel_size) % 640; \
+	}
+	#define white vec3(1.0)
+	#define red   vec3(1.0, 0.0, 0.0)
+	#define green vec3(0.0, 1.0, 0.0)
+	#define blue  vec3(0.0, 0.0, 1.0)
+	#define neg(color) vec3(1.0) - (color)
+
+	#define print_transform(objs, index) { \
+	print(objs[index].location.x / 50.0, objs[index].location.x > 0.0 ? red   : neg(red)); \
+	print(objs[index].location.y / 50.0, objs[index].location.y > 0.0 ? green : neg(green)); \
+	print(objs[index].location.z / 50.0, objs[index].location.z > 0.0 ? blue  : neg(blue)); \
+	\
+	print(objs[index].rotation.x / 50.0, objs[index].rotation.x > 0.0 ? red   : neg(red)); \
+	print(objs[index].rotation.y / 50.0, objs[index].rotation.y > 0.0 ? green : neg(green)); \
+	print(objs[index].rotation.z / 50.0, objs[index].rotation.z > 0.0 ? blue  : neg(blue)); \
+	\
+	print(objs[index].scale.x / 50.0, objs[index].scale.x > 0.0 ? red   : neg(red)); \
+	print(objs[index].scale.y / 50.0, objs[index].scale.y > 0.0 ? green : neg(green)); \
+	print(objs[index].scale.z / 50.0, objs[index].scale.z > 0.0 ? blue  : neg(blue)); \
+	}
+	#define next_row() { xoffset = 0; yoffset += pixel_size; }
+	#define next_column() { xoffset += pixel_size; }
+
+	
+	for (int i = 0; i < spheres_no; i++) {
+		print_transform(spheres, i);
+		print(spheres[i].radius / 10.0, white);
+		next_row();
+	}
+
+	print(point_lights[0].location.x / 20.0, point_lights[0].location.x > 0.0 ? red   : neg(red));
+	print(point_lights[0].location.y / 20.0, point_lights[0].location.y > 0.0 ? green : neg(green));
+	print(point_lights[0].location.z / 20.0, point_lights[0].location.z > 0.0 ? blue  : neg(blue));
+
+	print(point_lights[0].intensity / 20.0, white);
+	print(point_lights[0].radius / 80.0, white);
 
 
 	//imageStore(img_output, pixel_coords, texture(blueNoise, uv));

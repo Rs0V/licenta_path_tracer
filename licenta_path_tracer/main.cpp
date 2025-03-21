@@ -87,43 +87,28 @@ GLuint createComputeShaderProgram(std::string computeSource) {
 
 
 static std::unordered_map<std::string, GLuint> buffers;
-template<class STRUCTS_PTR, class CAST, class RMO> void sendCpuStructsToGpu(GLuint shader_program, const std::vector<STRUCTS_PTR*> &structs, const std::string &array_name, uint buffer_index) {
-	glUseProgram(shader_program);
-
-	auto casts = get_of_type<CAST*>(structs);
-	std::vector<RMO> rmo_structs(casts.size());
-	for (uint i = 0; i < rmo_structs.size(); i++) {
-		rmo_structs[i] = *casts[i];
-	}
-
+void createSSBO(std::string buffer_name, int buffer_index, size_t buffer_size) {
 	GLuint structs_ssbo;
 	glGenBuffers(1, &structs_ssbo);
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, structs_ssbo);
-	buffers[array_name] = structs_ssbo;
+	buffers[buffer_name] = structs_ssbo;
 
-	glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(rmo_structs[0]) * rmo_structs.size(), rmo_structs.data(), GL_DYNAMIC_DRAW);
 	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, buffer_index, structs_ssbo);
+	glBufferData(GL_SHADER_STORAGE_BUFFER, buffer_size, nullptr, GL_DYNAMIC_DRAW);
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
-
-	glUniform1i(glGetUniformLocation(shader_program, (array_name + "_no").c_str()), casts.size());
 }
-
-template<class STRUCTS_PTR, class CAST, class RMO> void updateGpuStructs(GLuint shader_program, const std::vector<STRUCTS_PTR*> &structs, const std::string &array_name) {
-	glUseProgram(shader_program);
-
+template<class STRUCTS_PTR, class CAST, class RMO> void setSSBOData(std::string buffer_name, const std::vector<STRUCTS_PTR*> &structs, int offset) {
 	auto casts = get_of_type<CAST*>(structs);
 	std::vector<RMO> rmo_structs(casts.size());
 	for (uint i = 0; i < rmo_structs.size(); i++) {
 		rmo_structs[i] = *casts[i];
 	}
 
-	glBindBuffer(GL_SHADER_STORAGE_BUFFER, buffers[array_name]);
-	RMO* buffer_data = (RMO*)glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_WRITE_ONLY);
-	if (buffer_data) {
-		memcpy(buffer_data, rmo_structs.data(), sizeof(rmo_structs[0]) * rmo_structs.size());
-		glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
-	}
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, buffers[buffer_name]);
+	void* ptr = glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_WRITE_ONLY);
+	memcpy((char*)ptr + offset, rmo_structs.data(), sizeof(RMO) * rmo_structs.size());
 
+	glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 }
 
@@ -291,7 +276,7 @@ int main(int argc, char* argv[]) {
 
 
 	// Compile Shaders
-	GLuint raymarch_program = createComputeShaderProgram(raymarch_compute);
+	GLuint raymarch_program = -1;
 	GLuint denoiser_program = createComputeShaderProgram(denoiser_compute);
 	GLuint rtarget_program = createShaderProgram(vertex, fragment);
 
@@ -367,6 +352,10 @@ int main(int argc, char* argv[]) {
 		Color({ 0.5f, 0.7f, 1.0f }),
 		0.0f,
 		0.01f
+	));
+	materials.emplace_back(new MVolumeScatter(
+		Color::white,
+		0.2f
 	));
 
 	#pragma endregion
@@ -478,8 +467,8 @@ int main(int argc, char* argv[]) {
 			{ -20.0, -20.0, 20.0 }
 		},
 		Color::white,
-		100.0f,
-		100.0f
+		10.0f,
+		80.0f
 	));
 
 	#pragma endregion
@@ -530,17 +519,31 @@ int main(int argc, char* argv[]) {
 		glUniform1i(glGetUniformLocation(raymarch_program, "scene_change"), 1);
 		samples = max_samples + 1;
 
-		updateGpuStructs<Object, Sphere, rmo::Sphere>(raymarch_program, objects, "spheres");
-		updateGpuStructs<Object, Cube, rmo::Cube>(raymarch_program, objects, "cubes");
-		updateGpuStructs<Object, Cylinder, rmo::Cylinder>(raymarch_program, objects, "cylinders");
-		updateGpuStructs<Object, Cone, rmo::Cone>(raymarch_program, objects, "cones");
+		
+		int spheres = get_of_type<Sphere*>(objects).size() * sizeof(rmo::Sphere);
+		int cubes = get_of_type<Cube*>(objects).size() * sizeof(rmo::Cube);
+		int cylinders = get_of_type<Cylinder*>(objects).size() * sizeof(rmo::Cylinder);
+		int cones = get_of_type<Cone*>(objects).size() * sizeof(rmo::Cone);
 
-		updateGpuStructs<Component, boolean::Boolean, rmo::CBoolean>(raymarch_program, components, "booleans");
+		int booleans = get_of_type<boolean::Boolean*>(components).size() * sizeof(rmo::CBoolean);
 
-		updateGpuStructs<Light, PointLight, rmo::PointLight>(raymarch_program, lights, "point_lights");
+		int point_lights = get_of_type<PointLight*>(lights).size() * sizeof(rmo::PointLight);
 
-		updateGpuStructs<Material, MPrincipledBSDF, rmo::MPrincipledBSDF>(raymarch_program, materials, "principled_bsdfs");
-		updateGpuStructs<Material, MVolumeScatter, rmo::MVolumeScatter>(raymarch_program, materials, "volume_scatters");
+		int principled_bsdfs = get_of_type<MPrincipledBSDF*>(materials).size() * sizeof(rmo::MPrincipledBSDF);
+		int volume_scatters = get_of_type<MVolumeScatter*>(materials).size() * sizeof(rmo::MVolumeScatter);
+
+
+		setSSBOData<Object, Sphere, rmo::Sphere>("CPUData", objects, 0);
+		setSSBOData<Object, Cube, rmo::Cube>("CPUData", objects, spheres);
+		setSSBOData<Object, Cylinder, rmo::Cylinder>("CPUData", objects, spheres + cubes);
+		setSSBOData<Object, Cone, rmo::Cone>("CPUData", objects, spheres + cubes + cylinders);
+
+		setSSBOData<Component, boolean::Boolean, rmo::CBoolean>("CPUData", components, spheres + cubes + cylinders + cones);
+
+		setSSBOData<Light, PointLight, rmo::PointLight>("CPUData", lights, spheres + cubes + cylinders + cones + booleans);
+
+		setSSBOData<Material, MPrincipledBSDF, rmo::MPrincipledBSDF>("CPUData", materials, spheres + cubes + cylinders + cones + booleans + point_lights);
+		setSSBOData<Material, MVolumeScatter, rmo::MVolumeScatter>("CPUData", materials, spheres + cubes + cylinders + cones + booleans + point_lights + principled_bsdfs);
 	};
 
 
@@ -561,18 +564,64 @@ int main(int argc, char* argv[]) {
 
 
 		// Send Object Data to Ray-Marching Shader
-		sendCpuStructsToGpu<Object, Sphere, rmo::Sphere>(raymarch_program, objects, "spheres", 1);
-		sendCpuStructsToGpu<Object, Cube, rmo::Cube>(raymarch_program, objects, "cubes", 2);
-		sendCpuStructsToGpu<Object, Cylinder, rmo::Cylinder>(raymarch_program, objects, "cylinders", 3);
-		sendCpuStructsToGpu<Object, Cone, rmo::Cone>(raymarch_program, objects, "cones", 4);
+		{
+			int spheres = get_of_type<Sphere*>(objects).size() * sizeof(rmo::Sphere);
+			int cubes = get_of_type<Cube*>(objects).size() * sizeof(rmo::Cube);
+			int cylinders = get_of_type<Cylinder*>(objects).size() * sizeof(rmo::Cylinder);
+			int cones = get_of_type<Cone*>(objects).size() * sizeof(rmo::Cone);
 
-		sendCpuStructsToGpu<Component, boolean::Boolean, rmo::CBoolean>(raymarch_program, components, "booleans", 5);
+			int booleans = get_of_type<boolean::Boolean*>(components).size() * sizeof(rmo::CBoolean);
 
-		sendCpuStructsToGpu<Light, PointLight, rmo::PointLight>(raymarch_program, lights, "point_lights", 6);
+			int point_lights = get_of_type<PointLight*>(lights).size() * sizeof(rmo::PointLight);
 
-		sendCpuStructsToGpu<Material, MPrincipledBSDF, rmo::MPrincipledBSDF>(raymarch_program, materials, "principled_bsdfs", 7);
-		sendCpuStructsToGpu<Material, MVolumeScatter, rmo::MVolumeScatter>(raymarch_program, materials, "volume_scatters", 8);
+			int principled_bsdfs = get_of_type<MPrincipledBSDF*>(materials).size() * sizeof(rmo::MPrincipledBSDF);
+			int volume_scatters = get_of_type<MVolumeScatter*>(materials).size() * sizeof(rmo::MVolumeScatter);
 
+
+			createSSBO("CPUData", 1, spheres + cubes + cylinders + cones + booleans + point_lights + principled_bsdfs + volume_scatters);
+
+			setSSBOData<Object, Sphere, rmo::Sphere>("CPUData", objects, 0);
+			setSSBOData<Object, Cube, rmo::Cube>("CPUData", objects, spheres);
+			setSSBOData<Object, Cylinder, rmo::Cylinder>("CPUData", objects, spheres + cubes);
+			setSSBOData<Object, Cone, rmo::Cone>("CPUData", objects, spheres + cubes + cylinders);
+
+			setSSBOData<Component, boolean::Boolean, rmo::CBoolean>("CPUData", components, spheres + cubes + cylinders + cones);
+
+			setSSBOData<Light, PointLight, rmo::PointLight>("CPUData", lights, spheres + cubes + cylinders + cones + booleans);
+
+			setSSBOData<Material, MPrincipledBSDF, rmo::MPrincipledBSDF>("CPUData", materials, spheres + cubes + cylinders + cones + booleans + point_lights);
+			setSSBOData<Material, MVolumeScatter, rmo::MVolumeScatter>("CPUData", materials, spheres + cubes + cylinders + cones + booleans + point_lights + principled_bsdfs);
+
+
+			// Set buffer sizes from SSBO
+			auto set_buffer_size = [&](int size) {
+				size_t define_index = raymarch_compute.find("#define");
+				size_t space1 = raymarch_compute.find(' ', define_index);
+				size_t space2 = raymarch_compute.find(' ', space1 + 1);
+
+				raymarch_compute.replace(
+					raymarch_compute.begin() + define_index,
+					raymarch_compute.begin() + raymarch_compute.find('\n', define_index),
+					"const int " + raymarch_compute.substr(space1 + 1, space2 - space1 - 1) + " = " + std::to_string(size) + ";\n"
+				);
+			};
+
+			set_buffer_size(spheres / sizeof(rmo::Sphere));
+			set_buffer_size(cubes / sizeof(rmo::Cube));
+			set_buffer_size(cylinders / sizeof(rmo::Cylinder));
+			set_buffer_size(cones / sizeof(rmo::Cone));
+
+			set_buffer_size(booleans / sizeof(rmo::CBoolean));
+
+			set_buffer_size(point_lights / sizeof(rmo::PointLight));
+
+			set_buffer_size(principled_bsdfs / sizeof(rmo::MPrincipledBSDF));
+			set_buffer_size(volume_scatters / sizeof(rmo::MVolumeScatter));
+				
+
+			raymarch_program = createComputeShaderProgram(raymarch_compute);
+		}
+		
 
 		// UI
 		UI::uiGenFuncs.emplace_back([]() {

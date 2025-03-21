@@ -4,9 +4,9 @@
 
 
 namespace boolean {
-	enum class Type {
-		Intersect,
+	enum Type {
 		Union,
+		Intersect,
 		Difference
 	};
 
