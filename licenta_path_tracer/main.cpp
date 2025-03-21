@@ -291,7 +291,10 @@ int main(int argc, char* argv[]) {
 
 
 	// Setup Camera Rays
-	Camera camera = Camera(Transform());
+	Camera camera = Camera(Transform(
+		{ -10.0f, -50.0f,  25.0f },
+		{  20.0f,   0.0f, -25.0f }
+	));
 	std::vector<Object*> objects;
 	std::vector<Light*> lights;
 	std::vector<Material*> materials;
@@ -303,27 +306,27 @@ int main(int argc, char* argv[]) {
 	#pragma region Create Materials
 
 	materials.emplace_back(new MPrincipledBSDF(
-		Color({ 1.0f, 0.0f, 0.0f }),
+		Color({ 1.0f, 1.0f, 1.0f }),
 		1.0f,
 		0.18f
 	));
 	materials.emplace_back(new MPrincipledBSDF(
-		Color({ 0.0f, 1.0f, 0.0f }),
+		Color({ 0.5f, 0.9f, 0.3f }),
 		0.0f,
 		0.48f
 	));
 	materials.emplace_back(new MPrincipledBSDF(
-		Color({ 0.0f, 0.0f, 1.0f }),
+		Color({ 0.1f, 0.3f, 0.2f }),
 		0.0f,
 		0.28f
 	));
 	materials.emplace_back(new MPrincipledBSDF(
-		Color({ 1.0f, 0.5f, 0.0f }),
+		Color({ 1.0f, 0.8f, 0.6f }),
 		1.0f,
 		0.28f
 	));
 	materials.emplace_back(new MPrincipledBSDF(
-		Color({ 0.5f, 0.0f, 1.0f }),
+		Color({ 0.5f, 0.7f, 1.0f }),
 		0.0f,
 		0.01f
 	));
@@ -408,9 +411,9 @@ int main(int argc, char* argv[]) {
 	));
 	objects.emplace_back(new Cylinder(
 		{
-			{ -35.0f, 10.0f, 0.0f },
-			{  45.0f, 45.0f, 0.0f },
-			{   1.0f,  1.0f, 4.0f }
+			{ -35.0f, 10.0f,  0.0f },
+			{  45.0f,  0.0f, 45.0f },
+			{   1.0f,  1.0f,  4.0f }
 		},
 		materials[0],
 		4.0f,
@@ -593,65 +596,45 @@ int main(int argc, char* argv[]) {
 		}
 
 		if (SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_W]) {
-			camera.transform_getr().location += camera.forward_getr() * speed * deltaTime;
+			camera.translate({ 0.0f, speed * deltaTime, 0.0f }, 2);
 			reset_pathtracer();
 		}
 		if (SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_S]) {
-			camera.transform_getr().location += camera.forward_getr() * -speed * deltaTime;
+			camera.translate({ 0.0f, -speed * deltaTime, 0.0f }, 2);
 			reset_pathtracer();
 		}
 		if (SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_A]) {
-			camera.transform_getr().location += camera.right_getr() * -speed * deltaTime;
+			camera.translate({ -speed * deltaTime, 0.0f, 0.0f }, 2);
 			reset_pathtracer();
 		}
 		if (SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_D]) {
-			camera.transform_getr().location += camera.right_getr() * speed * deltaTime;
+			camera.translate({ speed * deltaTime, 0.0f, 0.0f }, 2);
 			reset_pathtracer();
 		}
 		if (SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_Q]) {
-			camera.transform_getr().location += glm::vec3(0.0f, 0.0f, 1.0f) * -speed * deltaTime;
+			camera.translate({ 0.0f, 0.0f, -speed * deltaTime });
 			reset_pathtracer();
 		}
 		if (SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_E]) {
-			camera.transform_getr().location += glm::vec3(0.0f, 0.0f, 1.0f) * speed * deltaTime;
+			camera.translate({ 0.0f, 0.0f, speed * deltaTime });
 			reset_pathtracer();
 		}
 
 		static float sensitivity = 2.0f;
 		if (SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_UP]) {
-			auto rotation = glm::mat4(1.0)
-				* glm::rotate(-1.0f * sensitivity * deltaTime, camera.right_getr())
-				;
-			camera.right_getr() = glm::vec4(camera.right_getr(), 1.0) * rotation;
-			camera.forward_getr() = glm::vec4(camera.forward_getr(), 1.0) * rotation;
-			camera.up_getr() = glm::vec4(camera.up_getr(), 1.0) * rotation;
+			camera.rotate({ -sensitivity * deltaTime, 0.0f, 0.0f }, 2);
 			reset_pathtracer();
 		}
 		if (SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_DOWN]) {
-			auto rotation = glm::mat4(1.0)
-				* glm::rotate(1.0f * sensitivity * deltaTime, camera.right_getr())
-				;
-			camera.right_getr() = glm::vec4(camera.right_getr(), 1.0) * rotation;
-			camera.forward_getr() = glm::vec4(camera.forward_getr(), 1.0) * rotation;
-			camera.up_getr() = glm::vec4(camera.up_getr(), 1.0) * rotation;
+			camera.rotate({ sensitivity * deltaTime, 0.0f, 0.0f }, 2);
 			reset_pathtracer();
 		}
 		if (SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_LEFT]) {
-			auto rotation = glm::mat4(1.0)
-				* glm::rotate(-1.0f * sensitivity * deltaTime, glm::vec3(0.0f, 0.0f, 1.0f))
-				;
-			camera.right_getr() = glm::vec4(camera.right_getr(), 1.0) * rotation;
-			camera.forward_getr() = glm::vec4(camera.forward_getr(), 1.0) * rotation;
-			camera.up_getr() = glm::vec4(camera.up_getr(), 1.0) * rotation;
+			camera.rotate({ 0.0f, 0.0f, -sensitivity * deltaTime });
 			reset_pathtracer();
 		}
 		if (SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_RIGHT]) {
-			auto rotation = glm::mat4(1.0)
-				* glm::rotate(1.0f * sensitivity * deltaTime, glm::vec3(0.0f, 0.0f, 1.0f))
-				;
-			camera.right_getr() = glm::vec4(camera.right_getr(), 1.0) * rotation;
-			camera.forward_getr() = glm::vec4(camera.forward_getr(), 1.0) * rotation;
-			camera.up_getr() = glm::vec4(camera.up_getr(), 1.0) * rotation;
+			camera.rotate({ 0.0f, 0.0f, sensitivity * deltaTime });
 			reset_pathtracer();
 		}
 
@@ -695,7 +678,7 @@ int main(int argc, char* argv[]) {
 
 
 		// Denoiser
-		static constexpr uint denoisingPasses = 1;
+		static constexpr uint denoisingPasses = 8;
 		glUseProgram(denoiser_program);
 		glUniform1i(glGetUniformLocation(denoiser_program, "samples"), std::max((int)max_samples - samples, 1));
 		for (uint i = 0; i < denoisingPasses; i++) {

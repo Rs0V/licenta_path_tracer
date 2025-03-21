@@ -1,5 +1,4 @@
 #pragma once
-#include "glm.hpp"
 #include "Utilities.hpp"
 
 #define break4(_vec4) _vec4.x, _vec4.y, _vec4.z, _vec4.w

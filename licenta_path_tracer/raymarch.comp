@@ -132,6 +132,8 @@ float signDistScene(vec3 ray_loc) {
 		\
 		if (closest < minDist) { \
 			minDist = closest; \
+		} else if (distTo##obj_name < minDist) { \
+			minDist = distTo##obj_name; \
 		} \
 	}
 
@@ -198,6 +200,10 @@ RaycastHit raycast(vec3 ray_loc, vec3 ray_dir) {
 				minDist = closest; \
 				obj_type = _obj_type; \
 				obj_index = i; \
+			} else if (distTo##obj_name < minDist) { \
+				minDist = distTo##obj_name; \
+				obj_type = _obj_type; \
+				obj_index = i; \
 			} \
 		}
 
@@ -215,8 +221,8 @@ RaycastHit raycast(vec3 ray_loc, vec3 ray_dir) {
 		distCheckObjs1(Cone, cones, 3)
 		
 		
-		//float normalScale = max(0.5, abs(dot(normalScene(ray_loc), ray_dir)));
-		//ray_loc += ray_dir * max(minDist, minDist / normalScale);
+		// Minimum distance aproximation for better performance
+		// when tracing against parallel surfaces
 		if (distance(minimumDistance, minDist) < mDepsDistDiff && minDist < mDepsDistMin) {
 			minDist *= pow(2, mDeqCount + 1);
 			mDeqCount++;
@@ -226,16 +232,9 @@ RaycastHit raycast(vec3 ray_loc, vec3 ray_dir) {
 		}
 		ray_loc += ray_dir * minDist;
 
+
+
 		if (minDist < hitThreshold) {
-			/*
-			vec3 normal =
-				  obj_type == 0 ? normalSphere(ray_loc, spheres[obj_index].location, spheres[obj_index].radius)
-				: obj_type == 1 ? normalCube(ray_loc, cubes[obj_index].location, cubes[obj_index].dimensions)
-				: obj_type == 2 ? normalCylinder(ray_loc, cylinders[obj_index].location, cylinders[obj_index].radius, cylinders[obj_index].height)
-				: obj_type == 3 ? normalCone(ray_loc, cones[obj_index].location, cones[obj_index].radius, cones[obj_index].height)
-				: vec3(0.0)
-			;
-			*/
 			int mat_type =
 				  obj_type == 0 ? spheres[obj_index].material_type
 				: obj_type == 1 ? cubes[obj_index].material_type
@@ -414,8 +413,8 @@ void main() {
 
 	
 
-	const int max_diffuse_bounces = 4;
-	const int max_glossy_bounces  = 8;
+	const int max_diffuse_bounces = 1;
+	const int max_glossy_bounces  = 2;
 
 	RaycastHit hit = raycast(ray_loc, ray_dir);
 	if (hit.hit == true) {
@@ -472,7 +471,7 @@ void main() {
 		glossy_color /= max_glossy_bounces;
 
 
-		ray_color = diffuse_color * glossy_color;
+		ray_color = (diffuse_color + glossy_color) / 2.0;
 	}
 	ray_color = max(ray_color, 0.0);
 

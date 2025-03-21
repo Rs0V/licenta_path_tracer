@@ -17,6 +17,13 @@ protected:
 public:
 	virtual ~Actor() = 0;
 
+	/// <param name="type">- 0 = world|absolute;	1 = world|delta;	2 = local|delta</param>
+	void translate(glm::vec3 value, int type = 1);
+	/// <param name="type">- 0 = world|absolute;	1 = world|delta;	2 = local|delta</param>
+	void rotate(glm::vec3 value, int type = 1);
+	/// <param name="type">- 0 = world|absolute;	1 = world|delta;	2 = local|delta</param>
+	void scale(glm::vec3 value, int type = 1);
+
 	getterr(transform)
 
 	getterr(right)
