@@ -1,8 +1,8 @@
 
 struct PointLight {
 	vec3 location;
-	float intensity;
-
 	vec3 color;
+
+	float intensity;
 	float radius;
 };

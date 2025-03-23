@@ -35,16 +35,17 @@ float smoothDifference(float a, float b, float k) {
 
 struct Sphere {
 	vec3 location;
-	int visible;
-
 	vec3 rotation;
-	int affectWorld;
-
 	vec3 scale;
+
 	float radius;
+
+	int visible;
+	int affectWorld;
 
 	int type;
 	int index;
+
 	int material_type;
 	int material_index;
 };
@@ -91,19 +92,18 @@ vec3 normalSphere(vec3 ray_loc, inout Sphere sphere) {
 
 struct Cube {
 	vec3 location;
-	int visible;
-
 	vec3 rotation;
-	int affectWorld;
-
 	vec3 scale;
-	int material_type;
-
 	vec3 dimensions;
-	int material_index;
+
+	int visible;
+	int affectWorld;
 
 	int type;
 	int index;
+
+	int material_type;
+	int material_index;
 };
 float signDistCube(vec3 ray_loc, vec3 cube_loc, vec3 dims) {
 	vec3 q = abs(ray_loc - cube_loc) - dims / 2.0;
@@ -150,19 +150,19 @@ vec3 normalCube(vec3 ray_loc, inout Cube cube) {
 
 struct Cylinder {
 	vec3 location;
-	float radius;
-
 	vec3 rotation;
+	vec3 scale;
+
+	float radius;
 	float height;
 
-	vec3 scale;
 	int visible;
-
 	int affectWorld;
+
 	int type;
 	int index;
-	int material_type;
 
+	int material_type;
 	int material_index;
 };
 float signDistCylinder(vec3 ray_loc, vec3 cylinder_loc, float cylinder_radius, float cylinder_height) {
@@ -210,19 +210,19 @@ vec3 normalCylinder(vec3 ray_loc, inout Cylinder cylinder) {
 
 struct Cone {
 	vec3 location;
-	float radius;
-
 	vec3 rotation;
+	vec3 scale;
+
+	float radius;
 	float height;
 
-	vec3 scale;
 	int visible;
-
 	int affectWorld;
+
 	int type;
 	int index;
-	int material_type;
 
+	int material_type;
 	int material_index;
 };
 float signDistCone(vec3 ray_loc, vec3 cone_loc, float cone_radius, float cone_height) {

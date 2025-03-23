@@ -533,17 +533,17 @@ int main(int argc, char* argv[]) {
 		int volume_scatters = get_of_type<MVolumeScatter*>(materials).size() * sizeof(rmo::MVolumeScatter);
 
 
-		setSSBOData<Object, Sphere, rmo::Sphere>("CPUData", objects, 0);
-		setSSBOData<Object, Cube, rmo::Cube>("CPUData", objects, spheres);
-		setSSBOData<Object, Cylinder, rmo::Cylinder>("CPUData", objects, spheres + cubes);
-		setSSBOData<Object, Cone, rmo::Cone>("CPUData", objects, spheres + cubes + cylinders);
+		setSSBOData<Object, Sphere, rmo::Sphere>("BasicShapes", objects, 0);
+		setSSBOData<Object, Cube, rmo::Cube>("BasicShapes", objects, spheres);
+		setSSBOData<Object, Cylinder, rmo::Cylinder>("BasicShapes", objects, spheres + cubes);
+		setSSBOData<Object, Cone, rmo::Cone>("BasicShapes", objects, spheres + cubes + cylinders);
 
-		setSSBOData<Component, boolean::Boolean, rmo::CBoolean>("CPUData", components, spheres + cubes + cylinders + cones);
+		setSSBOData<Component, boolean::Boolean, rmo::CBoolean>("BasicShapes", components, spheres + cubes + cylinders + cones);
 
-		setSSBOData<Light, PointLight, rmo::PointLight>("CPUData", lights, spheres + cubes + cylinders + cones + booleans);
+		setSSBOData<Light, PointLight, rmo::PointLight>("Props", lights, 0);
 
-		setSSBOData<Material, MPrincipledBSDF, rmo::MPrincipledBSDF>("CPUData", materials, spheres + cubes + cylinders + cones + booleans + point_lights);
-		setSSBOData<Material, MVolumeScatter, rmo::MVolumeScatter>("CPUData", materials, spheres + cubes + cylinders + cones + booleans + point_lights + principled_bsdfs);
+		setSSBOData<Material, MPrincipledBSDF, rmo::MPrincipledBSDF>("Props", materials, point_lights);
+		setSSBOData<Material, MVolumeScatter, rmo::MVolumeScatter>("Props", materials, point_lights + principled_bsdfs);
 	};
 
 
@@ -578,19 +578,20 @@ int main(int argc, char* argv[]) {
 			int volume_scatters = get_of_type<MVolumeScatter*>(materials).size() * sizeof(rmo::MVolumeScatter);
 
 
-			createSSBO("CPUData", 1, spheres + cubes + cylinders + cones + booleans + point_lights + principled_bsdfs + volume_scatters);
+			createSSBO("BasicShapes", 1, spheres + cubes + cylinders + cones + booleans);
+			createSSBO("Props", 2, point_lights + principled_bsdfs + volume_scatters);
 
-			setSSBOData<Object, Sphere, rmo::Sphere>("CPUData", objects, 0);
-			setSSBOData<Object, Cube, rmo::Cube>("CPUData", objects, spheres);
-			setSSBOData<Object, Cylinder, rmo::Cylinder>("CPUData", objects, spheres + cubes);
-			setSSBOData<Object, Cone, rmo::Cone>("CPUData", objects, spheres + cubes + cylinders);
+			setSSBOData<Object, Sphere, rmo::Sphere>("BasicShapes", objects, 0);
+			setSSBOData<Object, Cube, rmo::Cube>("BasicShapes", objects, spheres);
+			setSSBOData<Object, Cylinder, rmo::Cylinder>("BasicShapes", objects, spheres + cubes);
+			setSSBOData<Object, Cone, rmo::Cone>("BasicShapes", objects, spheres + cubes + cylinders);
 
-			setSSBOData<Component, boolean::Boolean, rmo::CBoolean>("CPUData", components, spheres + cubes + cylinders + cones);
+			setSSBOData<Component, boolean::Boolean, rmo::CBoolean>("BasicShapes", components, spheres + cubes + cylinders + cones);
 
-			setSSBOData<Light, PointLight, rmo::PointLight>("CPUData", lights, spheres + cubes + cylinders + cones + booleans);
+			setSSBOData<Light, PointLight, rmo::PointLight>("Props", lights, 0);
 
-			setSSBOData<Material, MPrincipledBSDF, rmo::MPrincipledBSDF>("CPUData", materials, spheres + cubes + cylinders + cones + booleans + point_lights);
-			setSSBOData<Material, MVolumeScatter, rmo::MVolumeScatter>("CPUData", materials, spheres + cubes + cylinders + cones + booleans + point_lights + principled_bsdfs);
+			setSSBOData<Material, MPrincipledBSDF, rmo::MPrincipledBSDF>("Props", materials, point_lights);
+			setSSBOData<Material, MVolumeScatter, rmo::MVolumeScatter>("Props", materials, point_lights + principled_bsdfs);
 
 
 			// Set buffer sizes from SSBO

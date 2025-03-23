@@ -14,16 +14,17 @@
 namespace rmo {
 	struct Sphere {
 		alignas(16) glm::vec3 location;
-		int visible;
-
 		alignas(16) glm::vec3 rotation;
-		int affectWorld;
-
 		alignas(16) glm::vec3 scale;
+
 		float radius;
+
+		int visible;
+		int affectWorld;
 
 		int type;
 		int index;
+
 		int material_type;
 		int material_index;
 
@@ -49,19 +50,18 @@ namespace rmo {
 
 	struct Cube {
 		alignas(16) glm::vec3 location;
-		int visible;
-
 		alignas(16) glm::vec3 rotation;
-		int affectWorld;
-
 		alignas(16) glm::vec3 scale;
-		int material_type;
-
 		alignas(16) glm::vec3 dimensions;
-		int material_index;
+
+		int visible;
+		int affectWorld;
 
 		int type;
 		int index;
+
+		int material_type;
+		int material_index;
 
 
 		Cube& operator=(const ::Cube &cube) {
@@ -85,19 +85,19 @@ namespace rmo {
 
 	struct Cylinder {
 		alignas(16) glm::vec3 location;
-		float radius;
-
 		alignas(16) glm::vec3 rotation;
+		alignas(16) glm::vec3 scale;
+
+		float radius;
 		float height;
 
-		alignas(16) glm::vec3 scale;
 		int visible;
-
 		int affectWorld;
+
 		int type;
 		int index;
-		int material_type;
 
+		int material_type;
 		int material_index;
 
 
@@ -123,19 +123,19 @@ namespace rmo {
 
 	struct Cone {
 		alignas(16) glm::vec3 location;
-		float radius;
-
 		alignas(16) glm::vec3 rotation;
+		alignas(16) glm::vec3 scale;
+
+		float radius;
 		float height;
 
-		alignas(16) glm::vec3 scale;
 		int visible;
-
 		int affectWorld;
+
 		int type;
 		int index;
-		int material_type;
 
+		int material_type;
 		int material_index;
 
 
@@ -187,9 +187,9 @@ namespace rmo {
 
 	struct PointLight {
 		alignas(16) glm::vec3 location;
-		float intensity;
-
 		alignas(16) glm::vec3 color;
+
+		float intensity;
 		float radius;
 
 
@@ -208,8 +208,8 @@ namespace rmo {
 
 	struct MPrincipledBSDF {
 		alignas(16) glm::vec3 albedo;
-		float metallic;
 
+		float metallic;
 		float roughness;
 		float ior;
 		float reflectance;
@@ -232,8 +232,8 @@ namespace rmo {
 
 	struct MVolumeScatter {
 		alignas(16) glm::vec3 color;
-		float density;
 
+		float density;
 		float diameter;
 
 

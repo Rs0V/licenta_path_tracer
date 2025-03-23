@@ -36,12 +36,14 @@ uniform sampler2D blueNoise;
 #define point_lights_no 100
 #define principled_bsdfs_no 100
 #define volume_scatters_no 100
-layout (std430, binding = 1) buffer CPUData {
+layout (std430, binding = 1) buffer BasicShapes {
 	Sphere spheres[spheres_no];
 	Cube cubes[cubes_no];
 	Cylinder cylinders[cylinders_no];
 	Cone cones[cones_no];
 	Boolean booleans[booleans_no];
+};
+layout (std430, binding = 2) buffer Props {
 	PointLight point_lights[point_lights_no];
 	PrincipledBSDF principled_bsdfs[principled_bsdfs_no];
 	VolumeScatter volume_scatters[volume_scatters_no];
@@ -62,7 +64,7 @@ struct RaycastHit {
 	int material_index;
 };
 
-float signDistBlendedObj(float obj_dist_1, float obj_dist_2, int booleanType = -1, float blend = 0.5) {
+float signDistBlendedObj(float obj_dist_1, float obj_dist_2, int booleanType, float blend) {
 	switch(booleanType) {
 	case -1:
 		return min(obj_dist_1, obj_dist_2);
@@ -90,41 +92,41 @@ float signDistObj(vec3 ray_loc, int obj_type, int obj_index) {
 float signDistScene(vec3 ray_loc) {
 	float minDist = 999999999;
 
-	#define distCheckObjs(obj_name, objs, obj_type) \
+	#define distCheckObjs(signFunc, objs, obj_type) \
 	for (int i = 0; i < objs##_no; i++) { \
 		if (objs[i].visible == 0) { \
 			continue; \
 		} \
 		float closest = 999999999; \
 		\
-		float distTo##obj_name = signDist##obj_name(ray_loc, objs[i]); \
+		float distToObj = signFunc(ray_loc, objs[i]); \
 		for (int j = 0; j < booleans_no; j++) { \
 			if (booleans[j].selfObjType == obj_type && booleans[j].selfObjIndex == i) { \
 				float distToOther = signDistObj(ray_loc, booleans[j].otherObjType, booleans[j].otherObjIndex); \
-				float booleanDist = signDistBlendedObj(distTo##obj_name, distToOther, booleans[j].type, booleans[j].blend); \
-				closest = signDistBlendedObj(minDist, booleanDist); \
+				float booleanDist = signDistBlendedObj(distToObj, distToOther, booleans[j].type, booleans[j].blend); \
+				closest = signDistBlendedObj(minDist, booleanDist, -1, 0.5); \
 			} \
 		} \
 		\
 		if (closest < minDist) { \
 			minDist = closest; \
-		} else if (distTo##obj_name < minDist) { \
-			minDist = distTo##obj_name; \
+		} else if (distToObj < minDist) { \
+			minDist = distToObj; \
 		} \
 	}
 
 
 	// Check for closest Sphere
-	distCheckObjs(Sphere, spheres, 0)
+	distCheckObjs(signDistSphere, spheres, 0)
 
 	// Check for closest Cube
-	distCheckObjs(Cube, cubes, 1)
+	distCheckObjs(signDistCube, cubes, 1)
 
 	// Check for closest Cylinder
-	distCheckObjs(Cylinder, cylinders, 2)
+	distCheckObjs(signDistCylinder, cylinders, 2)
 
 	// Check for closest Cone
-	distCheckObjs(Cone, cones, 3)
+	distCheckObjs(signDistCone, cones, 3)
 
 
 	return minDist;
@@ -156,19 +158,19 @@ RaycastHit raycast(vec3 ray_loc, vec3 ray_dir) {
 	while (distance(init_loc, ray_loc) < farPlane) {
 		float minDist = 999999999;
 
-		#define distCheckObjs1(obj_name, objs, _obj_type) \
+		#define distCheckObjs1(signFunc, objs, _obj_type) \
 		for (int i = 0; i < objs##_no; i++) { \
 			if (objs[i].visible == 0) { \
 				continue; \
 			} \
 			float closest = 999999999; \
 			\
-			float distTo##obj_name = signDist##obj_name(ray_loc, objs[i]); \
+			float distToObj = signFunc(ray_loc, objs[i]); \
 			for (int j = 0; j < booleans_no; j++) { \
 				if (booleans[j].selfObjType == obj_type && booleans[j].selfObjIndex == i) { \
 					float distToOther = signDistObj(ray_loc, booleans[j].otherObjType, booleans[j].otherObjIndex); \
-					float booleanDist = signDistBlendedObj(distTo##obj_name, distToOther, booleans[j].type, booleans[j].blend); \
-					closest = signDistBlendedObj(minDist, booleanDist); \
+					float booleanDist = signDistBlendedObj(distToObj, distToOther, booleans[j].type, booleans[j].blend); \
+					closest = signDistBlendedObj(minDist, booleanDist, -1, 0.5); \
 				} \
 			} \
 			\
@@ -176,8 +178,8 @@ RaycastHit raycast(vec3 ray_loc, vec3 ray_dir) {
 				minDist = closest; \
 				obj_type = _obj_type; \
 				obj_index = i; \
-			} else if (distTo##obj_name < minDist) { \
-				minDist = distTo##obj_name; \
+			} else if (distToObj < minDist) { \
+				minDist = distToObj; \
 				obj_type = _obj_type; \
 				obj_index = i; \
 			} \
@@ -185,16 +187,16 @@ RaycastHit raycast(vec3 ray_loc, vec3 ray_dir) {
 
 
 		// Check for closest Sphere
-		distCheckObjs1(Sphere, spheres, 0)
+		distCheckObjs1(signDistSphere, spheres, 0)
 
 		// Check for closest Cube
-		distCheckObjs1(Cube, cubes, 1)
+		distCheckObjs1(signDistCube, cubes, 1)
 		
 		// Check for closest Cylinder
-		distCheckObjs1(Cylinder, cylinders, 2)
+		distCheckObjs1(signDistCylinder, cylinders, 2)
 		
 		// Check for closest Cone
-		distCheckObjs1(Cone, cones, 3)
+		distCheckObjs1(signDistCone, cones, 3)
 		
 		
 		// Minimum distance aproximation for better performance
@@ -271,7 +273,7 @@ RaycastHit reflectRay(inout RaycastHit ray) {
 float random(vec2 uv) {
 	return texture(blueNoise, uv + vec2(random_f01, fract(random_f01 * 7.931199))).x;
 }
-vec3 randomVectorInSphericalCap(vec2 uv, vec3 normal, float max_angle, bool signedSpread = true) {
+vec3 randomVectorInSphericalCap(vec2 uv, vec3 normal, float max_angle, bool signedSpread) {
 	vec3 tg1  = tangent(normal);
 	vec3 tg2  = normalize(cross(normal, tg1));
 
@@ -289,7 +291,7 @@ vec3 randomVectorInSphericalCap(vec2 uv, vec3 normal, float max_angle, bool sign
 	return rot3;
 }
 vec3 randomVectorInHemisphere(vec2 uv, vec3 normal) {
-	return randomVectorInSphericalCap(uv, normal, 180.0);
+	return randomVectorInSphericalCap(uv, normal, 180.0, true);
 }
 
 
