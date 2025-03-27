@@ -7,8 +7,8 @@ Actor::Actor()
 	:
 	transform(Transform()),
 	right(1.0f, 0.0f, 0.0f),
-	forward(0.0f, 1.0f, 0.0f),
-	up(0.0f, 0.0f, 1.0f),
+	forward(0.0f, 0.0f, 1.0f),
+	up(0.0f, 1.0f, 0.0f),
 	components()
 {
 	auto rot = this->transform.rotation;
@@ -20,8 +20,8 @@ Actor::Actor(Transform &&transform)
 	:
 	transform(std::move(transform)),
 	right(1.0f, 0.0f, 0.0f),
-	forward(0.0f, 1.0f, 0.0f),
-	up(0.0f, 0.0f, 1.0f),
+	forward(0.0f, 0.0f, 1.0f),
+	up(0.0f, 1.0f, 0.0f),
 	components()
 {
 	auto rot = this->transform.rotation;
@@ -31,8 +31,8 @@ Actor::Actor(Transform &&transform)
 
 void Actor::translate(glm::vec3 value, int type) {
 	glm::vec3 xdir = type < 2 ? glm::vec3(1.0f, 0.0f, 0.0f) : this->right;
-	glm::vec3 ydir = type < 2 ? glm::vec3(0.0f, 1.0f, 0.0f) : this->forward;
-	glm::vec3 zdir = type < 2 ? glm::vec3(0.0f, 0.0f, 1.0f) : this->up;
+	glm::vec3 ydir = type < 2 ? glm::vec3(0.0f, 1.0f, 0.0f) : this->up;
+	glm::vec3 zdir = type < 2 ? glm::vec3(0.0f, 0.0f, 1.0f) : this->forward;
 
 	glm::vec3 trans = type < 1 ? value - this->transform.location : value;
 
@@ -41,8 +41,8 @@ void Actor::translate(glm::vec3 value, int type) {
 
 void Actor::rotate(glm::vec3 value, int type) {
 	glm::vec3 xdir = type < 2 ? glm::vec3(1.0f, 0.0f, 0.0f) : this->right;
-	glm::vec3 ydir = type < 2 ? glm::vec3(0.0f, 1.0f, 0.0f) : this->forward;
-	glm::vec3 zdir = type < 2 ? glm::vec3(0.0f, 0.0f, 1.0f) : this->up;
+	glm::vec3 ydir = type < 2 ? glm::vec3(0.0f, 1.0f, 0.0f) : this->up;
+	glm::vec3 zdir = type < 2 ? glm::vec3(0.0f, 0.0f, 1.0f) : this->forward;
 
 	glm::vec3 rot = type < 1 ? value - this->transform.rotation : value;
 	rot = glm::radians(rot);
@@ -74,8 +74,8 @@ void Actor::rotate(glm::vec3 value, int type) {
 
 void Actor::scale(glm::vec3 value, int type) {
 	glm::vec3 xdir = type < 2 ? glm::vec3(1.0f, 0.0f, 0.0f) : this->right;
-	glm::vec3 ydir = type < 2 ? glm::vec3(0.0f, 1.0f, 0.0f) : this->forward;
-	glm::vec3 zdir = type < 2 ? glm::vec3(0.0f, 0.0f, 1.0f) : this->up;
+	glm::vec3 ydir = type < 2 ? glm::vec3(0.0f, 1.0f, 0.0f) : this->up;
+	glm::vec3 zdir = type < 2 ? glm::vec3(0.0f, 0.0f, 1.0f) : this->forward;
 
 	glm::vec3 scl = type < 1 ? value / this->transform.scale : value;
 

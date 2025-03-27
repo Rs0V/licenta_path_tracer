@@ -1,0 +1,208 @@
+
+int debug_pixel_size = 32;
+
+int debug_xoffset = 0;
+int debug_yoffset = 0;
+
+int   debug_int = 0;
+float debug_float = 0.0;
+vec3  debug_vec3 = vec3(0.0);
+vec4  debug_vec4 = vec4(0.0);
+
+#define print(value, color) { \
+for (int y = 0; y < debug_pixel_size; y++) { \
+	for (int x = 0; x < debug_pixel_size; x++) { \
+		if (x == 0 || x == debug_pixel_size - 1 || y == 0 || y == debug_pixel_size - 1) { \
+			imageStore(img_output, ivec2(debug_xoffset + x, debug_yoffset + y), vec4(1.0, 0.0, 0.0, 1.0)); \
+		} \
+		else { \
+			imageStore(img_output, ivec2(debug_xoffset + x, debug_yoffset + y), vec4(vec3(abs(float(value))) * (color), 1.0)); \
+		} \
+	} \
+} \
+debug_yoffset += (debug_xoffset + debug_pixel_size) / 640 * debug_pixel_size; \
+debug_xoffset = (debug_xoffset + debug_pixel_size) % 640; \
+}
+
+#define next_row() { debug_xoffset = 0; debug_yoffset += debug_pixel_size; }
+#define next_column() { debug_xoffset += debug_pixel_size; }
+
+#define white      vec3(1.0)
+#define gray       vec3(0.5)
+#define black      vec3(0.0)
+#define red        vec3(1.0, 0.0, 0.0)
+#define green      vec3(0.0, 1.0, 0.0)
+#define blue       vec3(0.0, 0.0, 1.0)
+#define yellow     vec3(1.0, 1.0, 0.0)
+#define magenta    vec3(1.0, 0.0, 1.0)
+#define cyan       vec3(0.0, 1.0, 1.0)
+#define orange     vec3(1.0, 0.5, 0.0)
+#define aqua       vec3(0.0, 1.0, 0.5)
+#define purple     vec3(1.0, 0.0, 0.5)
+#define neg(color) vec3(1.0) - (color)
+
+#define print_vec3(value) { \
+print(value.x, (value.x > 0.0) ? red   : neg(red)); \
+print(value.y, (value.y > 0.0) ? green : neg(green)); \
+print(value.z, (value.z > 0.0) ? blue  : neg(blue)); \
+}
+#define print_transform(obj) { \
+print_vec3(obj.location); \
+print_vec3(obj.rotation); \
+print_vec3(obj.scale); \
+}
+
+#define print_sphere(_index) { \
+print_transform(spheres[_index]); \
+print(spheres[_index].radius, gray); \
+\
+print(spheres[_index].visible, gray); \
+print(spheres[_index].affectWorld, gray); \
+\
+print(spheres[_index].type, gray); \
+print(spheres[_index].index, gray); \
+\
+print(spheres[_index].material_type, gray); \
+print(spheres[_index].material_index, gray); \
+}
+#define print_cube(_index) { \
+print_transform(cubes[_index]); \
+print_vec3(cubes[_index].dimensions) \
+\
+print(cubes[_index].visible, gray); \
+print(cubes[_index].affectWorld, gray); \
+\
+print(cubes[_index].type, gray); \
+print(cubes[_index].index, gray); \
+\
+print(cubes[_index].material_type, gray); \
+print(cubes[_index].material_index, gray); \
+}
+#define print_cylinder(_index) { \
+print_transform(cylinders[_index]); \
+print(cylinders[_index].radius, gray); \
+print(cylinders[_index].height, gray); \
+\
+print(cylinders[_index].visible, gray); \
+print(cylinders[_index].affectWorld, gray); \
+\
+print(cylinders[_index].type, gray); \
+print(cylinders[_index].index, gray); \
+\
+print(cylinders[_index].material_type, gray); \
+print(cylinders[_index].material_index, gray); \
+}
+#define print_cone(_index) { \
+print_transform(cones[_index]); \
+print(cones[_index].radius, gray); \
+print(cones[_index].height, gray); \
+\
+print(cones[_index].visible, gray); \
+print(cones[_index].affectWorld, gray); \
+\
+print(cones[_index].type, gray); \
+print(cones[_index].index, gray); \
+\
+print(cones[_index].material_type, gray); \
+print(cones[_index].material_index, gray); \
+}
+#define print_boolean(_index) { \
+print(booleans[_index].selfObjType, gray); \
+print(booleans[_index].selfObjIndex, gray); \
+\
+print(booleans[_index].otherObjType, gray); \
+print(booleans[_index].otherObjIndex, gray); \
+\
+print(booleans[_index].type, gray); \
+print(booleans[_index].blend, gray); \
+}
+#define print_point_light(_index) { \
+print_vec3(point_lights[_index].location); \
+\
+print_vec3(point_lights[_index].color); \
+\
+print(point_lights[_index].intensity, gray); \
+print(point_lights[_index].radius, gray); \
+}
+#define print_principled_bsdf(_index) { \
+print_vec3(principled_bsdfs[_index].albedo); \
+\
+print(principled_bsdfs[_index].metallic, gray); \
+print(principled_bsdfs[_index].roughness, gray); \
+print(principled_bsdfs[_index].ior, gray); \
+\
+print(principled_bsdfs[_index].reflectance, gray); \
+print(principled_bsdfs[_index].transmission, gray); \
+}
+#define print_volume_scatter(_index) { \
+print_vec3(volume_scatters[_index].color); \
+\
+print(volume_scatters[_index].density, gray); \
+print(volume_scatters[_index].diameter, gray); \
+}
+
+#define print_spheres() { \
+for (int _i = 0; _i < spheres_no; _i++) { \
+	print_sphere(_i); \
+	next_row(); \
+} \
+}
+#define print_cubes() { \
+for (int _i = 0; _i < cubes_no; _i++) { \
+	print_cube(_i); \
+	next_row(); \
+} \
+}
+#define print_cylinders() { \
+for (int _i = 0; _i < cylinders_no; _i++) { \
+	print_cylinder(_i); \
+	next_row(); \
+} \
+}
+#define print_cones() { \
+for (int _i = 0; _i < cones_no; _i++) { \
+	print_cone(_i); \
+	next_row(); \
+} \
+}
+#define print_booleans() { \
+for (int _i = 0; _i < booleans_no; _i++) { \
+	print_boolean(_i); \
+	next_row(); \
+} \
+}
+#define print_point_lights() { \
+for (int _i = 0; _i < point_lights_no; _i++) { \
+	print_point_light(_i); \
+	next_row(); \
+} \
+}
+#define print_principled_bsdfs() { \
+for (int _i = 0; _i < principled_bsdfs_no; _i++) { \
+	print_principled_bsdf(_i); \
+	next_row(); \
+} \
+}
+#define print_volume_scatters() { \
+for (int _i = 0; _i < volume_scatters_no; _i++) { \
+	print_volume_scatter(_i); \
+	next_row(); \
+} \
+}
+
+#define print_mat4_row(mat, row) { \
+print(abs(mat[0].row), mat[0].row > 0.0 ? red    : neg(red)); \
+print(abs(mat[1].row), mat[1].row > 0.0 ? green  : neg(green)); \
+print(abs(mat[2].row), mat[2].row > 0.0 ? blue   : neg(blue)); \
+print(abs(mat[3].row), mat[3].row > 0.0 ? mix(orange, purple, 0.5) : mix(magenta, blue, 0.5)); \
+}
+#define print_mat4(mat) { \
+print_mat4_row(mat, x); \
+next_row(); \
+print_mat4_row(mat, y); \
+next_row(); \
+print_mat4_row(mat, z); \
+next_row(); \
+print_mat4_row(mat, w); \
+next_row(); \
+}

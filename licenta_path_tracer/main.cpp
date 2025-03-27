@@ -273,12 +273,13 @@ int main(int argc, char* argv[]) {
 	addGLSLHeaderToFileSystem("basic_shapes.comp");
 	addGLSLHeaderToFileSystem("materials.comp");
 	addGLSLHeaderToFileSystem("lights.comp");
-
+	addGLSLHeaderToFileSystem("shader_debug.comp");
+	
 
 	// Compile Shaders
-	GLuint raymarch_program = -1;
+	GLuint raymarch_program = createComputeShaderProgram(raymarch_compute);
 	GLuint denoiser_program = createComputeShaderProgram(denoiser_compute);
-	GLuint rtarget_program = createShaderProgram(vertex, fragment);
+	GLuint rtarget_program  = createShaderProgram(vertex, fragment);
 
 	#pragma region Create Render Target
 
@@ -315,15 +316,15 @@ int main(int argc, char* argv[]) {
 
 	// Setup Camera Rays
 	Camera camera = Camera(Transform(
-		{ -10.0f, -50.0f,  25.0f },
-		{  20.0f,   0.0f, -25.0f }
+		{ 20.0f,  25.0f, -50.0f },
+		{ -20.0f, 25.0f,   0.0f }
 	));
 	std::vector<Object*> objects;
 	std::vector<Light*> lights;
 	std::vector<Material*> materials;
 	std::vector<Component*> components;
 
-	auto proj = glm::perspectiveFovLH_ZO(glm::radians(60.0f), (float)window.width_get(), (float)window.height_get(), 0.1f, 1000.0f);
+	glm::mat4 proj = glm::perspectiveFovLH_ZO(glm::radians(60.0f), (float)window.width_get(), (float)window.height_get(), 0.1f, 1000.0f);
 
 
 	#pragma region Create Materials
@@ -365,94 +366,46 @@ int main(int argc, char* argv[]) {
 
 	objects.emplace_back(new Sphere(
 		{
-			{ 0.0f, 10.0f, 0.0f },
-			{ 0.0f,  0.0f, 0.0f },
-			{ 1.0f,  1.0f, 1.0f }
+			{ 0.0f, 5.0f, 0.0f },
+			{ 0.0f, 0.0f, 0.0f },
+			{ 1.0f, 1.0f, 1.0f }
 		},
 		materials[0],
 		5.0f
 	));
 	objects.emplace_back(new Sphere(
 		{
-			{  5.0f, 15.0f, 5.0f },
-			{ 45.0f,  0.0f, 0.0f },
-			{  1.0f,  1.0f, 1.0f }
+			{  0.0f,  20.0f, 0.0f },
+			{ 60.0f, 180.0f, 0.0f },
+			{  1.0f,   1.0f, 1.0f }
 		},
 		materials[1],
 		10.0f
 	));
 	objects.emplace_back(new Cube(
 		{
-			{ 0.0f, 0.0f, -5.0f },
-			{ 0.0f, 0.0f,  0.0f },
-			{ 1.0f, 1.0f,  1.0f }
+			{ 0.0f, -0.05f, 0.0f }
 		},
 		materials[2],
-		{ 100.0f, 100.0f, 1.0f }
-	));
-	objects.emplace_back(new Cube(
-		{
-			{ 50.0f, 0.0f, 0.0f },
-			{  0.0f, 0.0f, 0.0f },
-			{  1.0f, 1.0f, 1.0f }
-		},
-		materials[2],
-		{ 1.0f, 100.0f, 100.0f }
-	));
-	objects.emplace_back(new Cube(
-		{
-			{ -50.0f, 0.0f, 0.0f },
-			{   0.0f, 0.0f, 0.0f },
-			{   1.0f, 1.0f, 1.0f }
-		},
-		materials[2],
-		{ 1.0f, 100.0f, 100.0f }
-	));
-	objects.emplace_back(new Cube(
-		{
-			{ 0.0f, 50.0f, 0.0f },
-			{ 0.0f,  0.0f, 0.0f },
-			{ 1.0f,  1.0f, 1.0f }
-		},
-		materials[2],
-		{ 100.0f, 1.0f, 100.0f }
-	));
-	objects.emplace_back(new Cube(
-		{
-			{ -10.0f, -10.0f,  5.0f },
-			{   0.0f,   0.0f, 45.0f },
-			{   2.0f,   1.0f,  1.0f }
-		},
-		materials[3],
-		{ 10.0f, 10.0f, 10.0f }
+		{ 100.0f, 0.1f, 100.0f }
 	));
 	objects.emplace_back(new Cylinder(
 		{
-			{ -30.0f, 0.0f, 5.0f },
-			{   0.0f, 0.0f, 0.0f },
-			{   1.0f, 2.0f, 1.0f }
+			{ -30.0f, 12.0f, 10.0f },
+			{   0.0f,  0.0f,  0.0f },
+			{   1.0f,  2.0f,  1.0f }
 		},
-		materials[4],
+		materials[3],
 		4.0f,
 		12.0f
 	));
-	objects.emplace_back(new Cylinder(
-		{
-			{ -35.0f, 10.0f,  0.0f },
-			{  45.0f,  0.0f, 45.0f },
-			{   1.0f,  1.0f,  4.0f }
-		},
-		materials[0],
-		4.0f,
-		6.0f
-	));
 	objects.emplace_back(new Cone(
 		{
-			{ 25.0f, -20.0f, 5.0f },
-			{  0.0f, -45.0f, 0.0f },
-			{  1.0f,   2.0f, 3.0f }
+			{  25.0f, 6.0f, -5.0f },
+			{ 180.0f, 0.0f,  0.0f },
+			{   1.0f, 2.0f,  3.0f }
 		},
-		materials[1],
+		materials[4],
 		4.0f,
 		6.0f
 	));
@@ -464,11 +417,10 @@ int main(int argc, char* argv[]) {
 
 	lights.emplace_back(new PointLight(
 		{
-			{ -20.0, -20.0, 20.0 }
+			{ -20.0, 20.0, -20.0 }
 		},
 		Color::white,
-		10.0f,
-		80.0f
+		100.0f
 	));
 
 	#pragma endregion
@@ -514,12 +466,21 @@ int main(int argc, char* argv[]) {
 	// Setup Ray-Sampling
 	static constexpr uint max_samples = 1;
 	static int samples = max_samples;
-	auto reset_pathtracer = [&]() {
-		glUseProgram(raymarch_program);
+	auto reset_pathtracer = [&](bool actuator = true) {
+		static bool active = false;
+		if (actuator) {
+			active = true;
+		}
+		if (!active) {
+			return;
+		}
+
 		glUniform1i(glGetUniformLocation(raymarch_program, "scene_change"), 1);
 		samples = max_samples + 1;
-
 		
+		active = false;
+		
+		/*
 		int spheres = get_of_type<Sphere*>(objects).size() * sizeof(rmo::Sphere);
 		int cubes = get_of_type<Cube*>(objects).size() * sizeof(rmo::Cube);
 		int cylinders = get_of_type<Cylinder*>(objects).size() * sizeof(rmo::Cylinder);
@@ -533,17 +494,18 @@ int main(int argc, char* argv[]) {
 		int volume_scatters = get_of_type<MVolumeScatter*>(materials).size() * sizeof(rmo::MVolumeScatter);
 
 
-		setSSBOData<Object, Sphere, rmo::Sphere>("CPUData", objects, 0);
-		setSSBOData<Object, Cube, rmo::Cube>("CPUData", objects, spheres);
-		setSSBOData<Object, Cylinder, rmo::Cylinder>("CPUData", objects, spheres + cubes);
-		setSSBOData<Object, Cone, rmo::Cone>("CPUData", objects, spheres + cubes + cylinders);
+		setSSBOData<Object, Sphere, rmo::Sphere>("BasicShapes", objects, 0);
+		setSSBOData<Object, Cube, rmo::Cube>("BasicShapes", objects, spheres);
+		setSSBOData<Object, Cylinder, rmo::Cylinder>("BasicShapes", objects, spheres + cubes);
+		setSSBOData<Object, Cone, rmo::Cone>("BasicShapes", objects, spheres + cubes + cylinders);
 
-		setSSBOData<Component, boolean::Boolean, rmo::CBoolean>("CPUData", components, spheres + cubes + cylinders + cones);
+		setSSBOData<Component, boolean::Boolean, rmo::CBoolean>("BasicShapes", components, spheres + cubes + cylinders + cones);
 
-		setSSBOData<Light, PointLight, rmo::PointLight>("CPUData", lights, spheres + cubes + cylinders + cones + booleans);
+		setSSBOData<Light, PointLight, rmo::PointLight>("Props", lights, 0);
 
-		setSSBOData<Material, MPrincipledBSDF, rmo::MPrincipledBSDF>("CPUData", materials, spheres + cubes + cylinders + cones + booleans + point_lights);
-		setSSBOData<Material, MVolumeScatter, rmo::MVolumeScatter>("CPUData", materials, spheres + cubes + cylinders + cones + booleans + point_lights + principled_bsdfs);
+		setSSBOData<Material, MPrincipledBSDF, rmo::MPrincipledBSDF>("Props", materials, point_lights);
+		setSSBOData<Material, MVolumeScatter, rmo::MVolumeScatter>("Props", materials, point_lights + principled_bsdfs);
+		*/
 	};
 
 
@@ -553,9 +515,6 @@ int main(int argc, char* argv[]) {
 		glEnable(GL_BLEND);
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-		glUseProgram(raymarch_program);
-		glUniformMatrix4fv(glGetUniformLocation(raymarch_program, "camera_proj"), 1, GL_FALSE, glm::value_ptr(proj));
-		
 
 		// Add Components to Objects
 		components.emplace_back(new boolean::Boolean(objects[1], objects[0], boolean::Type::Difference));
@@ -578,19 +537,20 @@ int main(int argc, char* argv[]) {
 			int volume_scatters = get_of_type<MVolumeScatter*>(materials).size() * sizeof(rmo::MVolumeScatter);
 
 
-			createSSBO("CPUData", 1, spheres + cubes + cylinders + cones + booleans + point_lights + principled_bsdfs + volume_scatters);
+			createSSBO("BasicShapes", 1, spheres + cubes + cylinders + cones + booleans);
+			createSSBO("Props", 2, point_lights + principled_bsdfs + volume_scatters);
 
-			setSSBOData<Object, Sphere, rmo::Sphere>("CPUData", objects, 0);
-			setSSBOData<Object, Cube, rmo::Cube>("CPUData", objects, spheres);
-			setSSBOData<Object, Cylinder, rmo::Cylinder>("CPUData", objects, spheres + cubes);
-			setSSBOData<Object, Cone, rmo::Cone>("CPUData", objects, spheres + cubes + cylinders);
+			setSSBOData<Object, Sphere, rmo::Sphere>("BasicShapes", objects, 0);
+			setSSBOData<Object, Cube, rmo::Cube>("BasicShapes", objects, spheres);
+			setSSBOData<Object, Cylinder, rmo::Cylinder>("BasicShapes", objects, spheres + cubes);
+			setSSBOData<Object, Cone, rmo::Cone>("BasicShapes", objects, spheres + cubes + cylinders);
 
-			setSSBOData<Component, boolean::Boolean, rmo::CBoolean>("CPUData", components, spheres + cubes + cylinders + cones);
+			setSSBOData<Component, boolean::Boolean, rmo::CBoolean>("BasicShapes", components, spheres + cubes + cylinders + cones);
 
-			setSSBOData<Light, PointLight, rmo::PointLight>("CPUData", lights, spheres + cubes + cylinders + cones + booleans);
+			setSSBOData<Light, PointLight, rmo::PointLight>("Props", lights, 0);
 
-			setSSBOData<Material, MPrincipledBSDF, rmo::MPrincipledBSDF>("CPUData", materials, spheres + cubes + cylinders + cones + booleans + point_lights);
-			setSSBOData<Material, MVolumeScatter, rmo::MVolumeScatter>("CPUData", materials, spheres + cubes + cylinders + cones + booleans + point_lights + principled_bsdfs);
+			setSSBOData<Material, MPrincipledBSDF, rmo::MPrincipledBSDF>("Props", materials, point_lights);
+			setSSBOData<Material, MVolumeScatter, rmo::MVolumeScatter>("Props", materials, point_lights + principled_bsdfs);
 
 
 			// Set buffer sizes from SSBO
@@ -662,9 +622,6 @@ int main(int argc, char* argv[]) {
 			camera.transform_getr().location + camera.forward_getr(),
 			camera.up_getr()
 		);
-		glUseProgram(raymarch_program);
-		glUniformMatrix4fv(glGetUniformLocation(raymarch_program, "camera_view"), 1, GL_FALSE, glm::value_ptr(view));
-		glUniform3fv(glGetUniformLocation(raymarch_program, "camera_loc"), 1, glm::value_ptr(camera.transform_getr().location));
 
 
 		#pragma region Input
@@ -683,11 +640,11 @@ int main(int argc, char* argv[]) {
 		}
 
 		if (SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_W]) {
-			camera.translate({ 0.0f, speed * deltaTime, 0.0f }, 2);
+			camera.translate({ 0.0f, 0.0f, speed * deltaTime }, 2);
 			reset_pathtracer();
 		}
 		if (SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_S]) {
-			camera.translate({ 0.0f, -speed * deltaTime, 0.0f }, 2);
+			camera.translate({ 0.0f, 0.0f, -speed * deltaTime }, 2);
 			reset_pathtracer();
 		}
 		if (SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_A]) {
@@ -699,29 +656,29 @@ int main(int argc, char* argv[]) {
 			reset_pathtracer();
 		}
 		if (SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_Q]) {
-			camera.translate({ 0.0f, 0.0f, -speed * deltaTime });
+			camera.translate({ 0.0f, -speed * deltaTime, 0.0f });
 			reset_pathtracer();
 		}
 		if (SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_E]) {
-			camera.translate({ 0.0f, 0.0f, speed * deltaTime });
+			camera.translate({ 0.0f, speed * deltaTime, 0.0f });
 			reset_pathtracer();
 		}
 
-		static float sensitivity = 2.0f;
+		static float sensitivity = 15.0f;
 		if (SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_UP]) {
-			camera.rotate({ -sensitivity * deltaTime, 0.0f, 0.0f }, 2);
-			reset_pathtracer();
-		}
-		if (SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_DOWN]) {
 			camera.rotate({ sensitivity * deltaTime, 0.0f, 0.0f }, 2);
 			reset_pathtracer();
 		}
+		if (SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_DOWN]) {
+			camera.rotate({ -sensitivity * deltaTime, 0.0f, 0.0f }, 2);
+			reset_pathtracer();
+		}
 		if (SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_LEFT]) {
-			camera.rotate({ 0.0f, 0.0f, -sensitivity * deltaTime });
+			camera.rotate({ 0.0f, sensitivity * deltaTime, 0.0f });
 			reset_pathtracer();
 		}
 		if (SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_RIGHT]) {
-			camera.rotate({ 0.0f, 0.0f, sensitivity * deltaTime });
+			camera.rotate({ 0.0f, -sensitivity * deltaTime, 0.0f });
 			reset_pathtracer();
 		}
 
@@ -746,12 +703,21 @@ int main(int argc, char* argv[]) {
 		// Compute Path-Tracing Samples
 		if (samples > 0) {
 			glUseProgram(raymarch_program);
+			reset_pathtracer(false);
 			glUniform1f(glGetUniformLocation(raymarch_program, "random_f01"), random(0.0f, 1.0f));
 			glUniform1i(glGetUniformLocation(raymarch_program, "samples"), max_samples);
 
+			glUniformMatrix4fv(glGetUniformLocation(raymarch_program, "camera_proj"), 1, GL_FALSE, &proj[0][0]);
+			glUniformMatrix4fv(glGetUniformLocation(raymarch_program, "camera_view"), 1, GL_FALSE, &view[0][0]);
+			glUniform3f(glGetUniformLocation(raymarch_program, "camera_loc"),
+				camera.transform_getr().location.x,
+				camera.transform_getr().location.y,
+				camera.transform_getr().location.z
+			);
+
 			glActiveTexture(GL_TEXTURE0);
 			glBindTexture(GL_TEXTURE_2D, blueNoiseTex);
-			blueNoiseTex = blueNoiseTex == blueNoiseTex01 ? blueNoiseTex02 : blueNoiseTex01;
+			blueNoiseTex = (blueNoiseTex == blueNoiseTex01) ? blueNoiseTex02 : blueNoiseTex01;
 
 			glDispatchCompute(window.width_get() / 16, window.height_get() / 16, 1);
 			glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);

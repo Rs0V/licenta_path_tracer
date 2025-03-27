@@ -270,5 +270,8 @@
     <None Include="lights.comp">
       <Filter>Shader Files\Headers</Filter>
     </None>
+    <None Include="shader_debug.comp">
+      <Filter>Shader Files\Headers</Filter>
+    </None>
   </ItemGroup>
 </Project>
