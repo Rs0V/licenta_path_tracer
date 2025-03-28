@@ -2,6 +2,8 @@
 #include "Actor.hpp"
 #include "Material.hpp"
 
+class Camera;
+
 
 interface Object : public Actor {
 protected:

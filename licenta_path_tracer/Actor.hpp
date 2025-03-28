@@ -20,9 +20,9 @@ public:
 	/// <param name="type">- 0 = world|absolute;	1 = world|delta;	2 = local|delta</param>
 	void translate(glm::vec3 value, int type = 1);
 	/// <param name="type">- 0 = world|absolute;	1 = world|delta;	2 = local|delta</param>
-	void rotate(glm::vec3 value, int type = 1);
+	void rotate(glm::vec3 value, int type = 1, std::optional<glm::vec3> pivot = none);
 	/// <param name="type">- 0 = world|absolute;	1 = world|delta;	2 = local|delta</param>
-	void scale(glm::vec3 value, int type = 1);
+	void scale(glm::vec3 value, int type = 1, std::optional<glm::vec3> pivot = none);
 
 	getterr(transform)
 

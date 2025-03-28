@@ -1,4 +1,5 @@
 #include "Sphere.hpp"
+#include "Camera.hpp"
 
 int Sphere::sphere_index = 0;
 

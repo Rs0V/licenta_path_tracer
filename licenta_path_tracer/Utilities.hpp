@@ -18,6 +18,7 @@
 #include "map"
 #include "unordered_map"
 #include "tuple"
+#include "optional"
 
 typedef unsigned char ubyte;
 typedef unsigned short ushort;
@@ -28,6 +29,11 @@ typedef char ibyte;
 typedef long long ilong;
 
 #define id_to_string(name) #name
+
+#define defaults(option, value) \
+if (!option.has_value()) { \
+	option = value; \
+}
 
 #define getter(member) \
 auto member##_get() const { \

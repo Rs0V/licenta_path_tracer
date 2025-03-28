@@ -1,6 +1,8 @@
 #pragma once
 #include "Object.hpp"
 
+class Camera;
+
 
 class Sphere : public Object {
 	static int sphere_index;

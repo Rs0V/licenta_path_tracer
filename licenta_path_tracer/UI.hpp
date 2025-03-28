@@ -9,8 +9,6 @@ public:
 
 	static std::vector<std::function<void()>> uiGenFuncs;
 
-	static std::string buffer;
-	static float value;
 	static void CreateUI() {
 		for (auto &uiGenFunc : uiGenFuncs) {
 			uiGenFunc();

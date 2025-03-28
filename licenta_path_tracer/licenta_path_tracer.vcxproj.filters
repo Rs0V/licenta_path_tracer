@@ -273,5 +273,8 @@
     <None Include="shader_debug.comp">
       <Filter>Shader Files\Headers</Filter>
     </None>
+    <None Include="obj_select.comp">
+      <Filter>Shader Files</Filter>
+    </None>
   </ItemGroup>
 </Project>

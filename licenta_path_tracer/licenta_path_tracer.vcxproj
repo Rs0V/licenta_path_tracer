@@ -214,6 +214,7 @@
     <None Include="denoiser.comp" />
     <None Include="lights.comp" />
     <None Include="materials.comp" />
+    <None Include="obj_select.comp" />
     <None Include="raymarch.comp" />
     <None Include="rtarget.frag" />
     <None Include="rtarget.vert" />

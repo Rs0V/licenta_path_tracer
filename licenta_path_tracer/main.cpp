@@ -87,17 +87,34 @@ GLuint createComputeShaderProgram(std::string computeSource) {
 
 
 static std::unordered_map<std::string, GLuint> buffers;
-void createSSBO(std::string buffer_name, int buffer_index, size_t buffer_size) {
+void createSSBO(std::string buffer_name, int buffer_index, size_t buffer_size, GLenum usage = GL_DYNAMIC_DRAW) {
 	GLuint structs_ssbo;
 	glGenBuffers(1, &structs_ssbo);
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, structs_ssbo);
 	buffers[buffer_name] = structs_ssbo;
 
 	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, buffer_index, structs_ssbo);
-	glBufferData(GL_SHADER_STORAGE_BUFFER, buffer_size, nullptr, GL_DYNAMIC_DRAW);
+	glBufferData(GL_SHADER_STORAGE_BUFFER, buffer_size, nullptr, usage);
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 }
-template<class STRUCTS_PTR, class CAST, class RMO> void setSSBOData(std::string buffer_name, const std::vector<STRUCTS_PTR*> &structs, int offset) {
+template<typename T> void setSSBOData(std::string buffer_name, const std::vector<T> &data, int size, int offset = 0) {
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, buffers[buffer_name]);
+	void* ptr = glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_WRITE_ONLY);
+	memcpy((char*)ptr + offset, data.data(), size);
+
+	glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+}
+template<typename T> void getSSBOData(std::string buffer_name, std::vector<T> &data, int size, int offset = 0) {
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, buffers[buffer_name]);
+	void* ptr = glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY);
+	memcpy(data.data(), (char*)ptr + offset, size);
+
+	glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+}
+
+template<typename OBJ, typename CAST, typename RMO> void setSSBOStructData(std::string buffer_name, const std::vector<OBJ*> &structs, int offset = 0) {
 	auto casts = get_of_type<CAST*>(structs);
 	std::vector<RMO> rmo_structs(casts.size());
 	for (uint i = 0; i < rmo_structs.size(); i++) {
@@ -223,6 +240,9 @@ int main(int argc, char* argv[]) {
 	std::string denoiser_compute;
 	readFile("denoiser.comp", denoiser_compute);
 
+	std::string obj_select_compute;
+	readFile("obj_select.comp", obj_select_compute);
+
 	std::string vertex;
 	readFile("rtarget.vert", vertex);
 
@@ -277,9 +297,10 @@ int main(int argc, char* argv[]) {
 	
 
 	// Compile Shaders
-	GLuint raymarch_program = createComputeShaderProgram(raymarch_compute);
-	GLuint denoiser_program = createComputeShaderProgram(denoiser_compute);
-	GLuint rtarget_program  = createShaderProgram(vertex, fragment);
+	GLuint raymarch_program   = -1;
+	GLuint denoiser_program   = createComputeShaderProgram(denoiser_compute);
+	GLuint obj_select_program = -1;
+	GLuint rtarget_program    = createShaderProgram(vertex, fragment);
 
 	#pragma region Create Render Target
 
@@ -316,8 +337,8 @@ int main(int argc, char* argv[]) {
 
 	// Setup Camera Rays
 	Camera camera = Camera(Transform(
-		{ 20.0f,  25.0f, -50.0f },
-		{ -20.0f, 25.0f,   0.0f }
+		{ 20.0f, 35.0f, -50.0f },
+		{ 20.0f, 25.0f,   0.0f }
 	));
 	std::vector<Object*> objects;
 	std::vector<Light*> lights;
@@ -330,27 +351,27 @@ int main(int argc, char* argv[]) {
 	#pragma region Create Materials
 
 	materials.emplace_back(new MPrincipledBSDF(
-		Color({ 1.0f, 1.0f, 1.0f }),
-		1.0f,
-		0.18f
-	));
-	materials.emplace_back(new MPrincipledBSDF(
-		Color({ 0.5f, 0.9f, 0.3f }),
+		Color::white * 0.8f,
 		0.0f,
 		0.48f
 	));
 	materials.emplace_back(new MPrincipledBSDF(
-		Color({ 0.1f, 0.3f, 0.2f }),
+		Color({ 0.8f, 0.9f, 0.7f }),
 		0.0f,
 		0.28f
 	));
 	materials.emplace_back(new MPrincipledBSDF(
-		Color({ 1.0f, 0.8f, 0.6f }),
-		1.0f,
-		0.28f
+		Color({ 0.15f, 0.3f, 0.25f }),
+		0.0f,
+		0.38f
 	));
 	materials.emplace_back(new MPrincipledBSDF(
-		Color({ 0.5f, 0.7f, 1.0f }),
+		Color({ 1.0f, 0.55f, 0.3f }),
+		1.0f,
+		0.18f
+	));
+	materials.emplace_back(new MPrincipledBSDF(
+		Color({ 0.6f, 0.7f, 1.0f }),
 		0.0f,
 		0.01f
 	));
@@ -366,18 +387,18 @@ int main(int argc, char* argv[]) {
 
 	objects.emplace_back(new Sphere(
 		{
-			{ 0.0f, 5.0f, 0.0f },
+			{ 0.0f, 0.0f, 0.0f },
 			{ 0.0f, 0.0f, 0.0f },
 			{ 1.0f, 1.0f, 1.0f }
 		},
-		materials[0],
+		materials[2],
 		5.0f
 	));
 	objects.emplace_back(new Sphere(
 		{
-			{  0.0f,  20.0f, 0.0f },
-			{ 60.0f, 180.0f, 0.0f },
-			{  1.0f,   1.0f, 1.0f }
+			{ -10.0f, 10.0f, 0.0f },
+			{   0.0f,  0.0f, 0.0f },
+			{   1.0f,  1.0f, 1.0f }
 		},
 		materials[1],
 		10.0f
@@ -386,8 +407,29 @@ int main(int argc, char* argv[]) {
 		{
 			{ 0.0f, -0.05f, 0.0f }
 		},
-		materials[2],
+		materials[0],
 		{ 100.0f, 0.1f, 100.0f }
+	));
+	objects.emplace_back(new Cube(
+		{
+			{ -50.0f, 0.0f, 0.0f }
+		},
+		materials[0],
+		{ 0.1f, 100.0f, 100.0f }
+	));
+	objects.emplace_back(new Cube(
+		{
+			{ 50.0f, 0.0f, 0.0f }
+		},
+		materials[0],
+		{ 0.1f, 100.0f, 100.0f }
+	));
+	objects.emplace_back(new Cube(
+		{
+			{ 0.0f, 0.0f, 50.0f }
+		},
+		materials[0],
+		{ 100.0f, 100.0f, 0.0f }
 	));
 	objects.emplace_back(new Cylinder(
 		{
@@ -420,7 +462,7 @@ int main(int argc, char* argv[]) {
 			{ -20.0, 20.0, -20.0 }
 		},
 		Color::white,
-		100.0f
+		20.0f
 	));
 
 	#pragma endregion
@@ -464,7 +506,7 @@ int main(int argc, char* argv[]) {
 
 
 	// Setup Ray-Sampling
-	static constexpr uint max_samples = 1;
+	static constexpr uint max_samples = 32;
 	static int samples = max_samples;
 	auto reset_pathtracer = [&](bool actuator = true) {
 		static bool active = false;
@@ -508,6 +550,12 @@ int main(int argc, char* argv[]) {
 		*/
 	};
 
+	int selected_object = 0;
+	bool hoveringUI = false;
+	glm::vec3 location = objects[selected_object]->transform_getrc().location;
+	glm::vec3 rotation = objects[selected_object]->transform_getrc().rotation;
+	glm::vec3 scale    = objects[selected_object]->transform_getrc().scale;
+
 
 	// Application Start function
 	window.Start([&]() {
@@ -518,8 +566,12 @@ int main(int argc, char* argv[]) {
 
 		// Add Components to Objects
 		components.emplace_back(new boolean::Boolean(objects[1], objects[0], boolean::Type::Difference));
-		objects[0]->visible_set(false);
-		objects[0]->components_getr().emplace_back(new Parent(objects[0], objects[1]));
+		//objects[0]->visible_set(false);
+		//objects[1]->visible_set(false);
+		//objects[0]->components_getr().emplace_back(new Parent(objects[0], objects[1]));
+
+		//objects[1]->rotate({ -60.0f, -20.0f, 0.0f });
+		//dynamic_cast<Parent*>(objects[0]->components_getrc()[0])->applyTransform();
 
 
 		// Send Object Data to Ray-Marching Shader
@@ -537,75 +589,157 @@ int main(int argc, char* argv[]) {
 			int volume_scatters = get_of_type<MVolumeScatter*>(materials).size() * sizeof(rmo::MVolumeScatter);
 
 
+			createSSBO("Screen", 0, sizeof(int) * window.width_get() * window.height_get(), GL_DYNAMIC_READ);
 			createSSBO("BasicShapes", 1, spheres + cubes + cylinders + cones + booleans);
 			createSSBO("Props", 2, point_lights + principled_bsdfs + volume_scatters);
 
-			setSSBOData<Object, Sphere, rmo::Sphere>("BasicShapes", objects, 0);
-			setSSBOData<Object, Cube, rmo::Cube>("BasicShapes", objects, spheres);
-			setSSBOData<Object, Cylinder, rmo::Cylinder>("BasicShapes", objects, spheres + cubes);
-			setSSBOData<Object, Cone, rmo::Cone>("BasicShapes", objects, spheres + cubes + cylinders);
+			std::vector<int> screen_data(window.width_get()* window.height_get(), -1);
+			setSSBOData("Screen", screen_data, sizeof(int) * screen_data.size());
 
-			setSSBOData<Component, boolean::Boolean, rmo::CBoolean>("BasicShapes", components, spheres + cubes + cylinders + cones);
+			setSSBOStructData<Object, Sphere, rmo::Sphere>("BasicShapes", objects, 0);
+			setSSBOStructData<Object, Cube, rmo::Cube>("BasicShapes", objects, spheres);
+			setSSBOStructData<Object, Cylinder, rmo::Cylinder>("BasicShapes", objects, spheres + cubes);
+			setSSBOStructData<Object, Cone, rmo::Cone>("BasicShapes", objects, spheres + cubes + cylinders);
 
-			setSSBOData<Light, PointLight, rmo::PointLight>("Props", lights, 0);
+			setSSBOStructData<Component, boolean::Boolean, rmo::CBoolean>("BasicShapes", components, spheres + cubes + cylinders + cones);
 
-			setSSBOData<Material, MPrincipledBSDF, rmo::MPrincipledBSDF>("Props", materials, point_lights);
-			setSSBOData<Material, MVolumeScatter, rmo::MVolumeScatter>("Props", materials, point_lights + principled_bsdfs);
+			setSSBOStructData<Light, PointLight, rmo::PointLight>("Props", lights, 0);
+
+			setSSBOStructData<Material, MPrincipledBSDF, rmo::MPrincipledBSDF>("Props", materials, point_lights);
+			setSSBOStructData<Material, MVolumeScatter, rmo::MVolumeScatter>("Props", materials, point_lights + principled_bsdfs);
 
 
 			// Set buffer sizes from SSBO
-			auto set_buffer_size = [&](int size) {
-				size_t define_index = raymarch_compute.find("#define");
-				size_t space1 = raymarch_compute.find(' ', define_index);
-				size_t space2 = raymarch_compute.find(' ', space1 + 1);
+			auto set_buffer_size = [&](std::string &shader, int size) {
+				size_t define_index = shader.find("#define");
+				size_t space1 = shader.find(' ', define_index);
+				size_t space2 = shader.find(' ', space1 + 1);
 
-				raymarch_compute.replace(
-					raymarch_compute.begin() + define_index,
-					raymarch_compute.begin() + raymarch_compute.find('\n', define_index),
-					"const int " + raymarch_compute.substr(space1 + 1, space2 - space1 - 1) + " = " + std::to_string(size) + ";\n"
+				shader.replace(
+					shader.begin() + define_index,
+					shader.begin() + shader.find('\n', define_index),
+					"const int " + shader.substr(space1 + 1, space2 - space1 - 1) + " = " + std::to_string(size) + ";\n"
 				);
 			};
 
-			set_buffer_size(spheres / sizeof(rmo::Sphere));
-			set_buffer_size(cubes / sizeof(rmo::Cube));
-			set_buffer_size(cylinders / sizeof(rmo::Cylinder));
-			set_buffer_size(cones / sizeof(rmo::Cone));
+			set_buffer_size(raymarch_compute, spheres / sizeof(rmo::Sphere));
+			set_buffer_size(raymarch_compute, cubes / sizeof(rmo::Cube));
+			set_buffer_size(raymarch_compute, cylinders / sizeof(rmo::Cylinder));
+			set_buffer_size(raymarch_compute, cones / sizeof(rmo::Cone));
 
-			set_buffer_size(booleans / sizeof(rmo::CBoolean));
+			set_buffer_size(raymarch_compute, booleans / sizeof(rmo::CBoolean));
 
-			set_buffer_size(point_lights / sizeof(rmo::PointLight));
+			set_buffer_size(raymarch_compute, point_lights / sizeof(rmo::PointLight));
 
-			set_buffer_size(principled_bsdfs / sizeof(rmo::MPrincipledBSDF));
-			set_buffer_size(volume_scatters / sizeof(rmo::MVolumeScatter));
+			set_buffer_size(raymarch_compute, principled_bsdfs / sizeof(rmo::MPrincipledBSDF));
+			set_buffer_size(raymarch_compute, volume_scatters / sizeof(rmo::MVolumeScatter));
 				
+			raymarch_program   = createComputeShaderProgram(raymarch_compute);
 
-			raymarch_program = createComputeShaderProgram(raymarch_compute);
+
+			set_buffer_size(obj_select_compute, spheres / sizeof(rmo::Sphere));
+			set_buffer_size(obj_select_compute, cubes / sizeof(rmo::Cube));
+			set_buffer_size(obj_select_compute, cylinders / sizeof(rmo::Cylinder));
+			set_buffer_size(obj_select_compute, cones / sizeof(rmo::Cone));
+
+			set_buffer_size(obj_select_compute, booleans / sizeof(rmo::CBoolean));
+
+			obj_select_program = createComputeShaderProgram(obj_select_compute);
 		}
 		
 
 		// UI
-		UI::uiGenFuncs.emplace_back([]() {
+		UI::uiGenFuncs.emplace_back([&]() {
 			ImGuiIO& imguiIO = ImGui::GetIO(); (void)imguiIO;
 			ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
-			ImGui::Begin("Context Menu");
+			ImGui::Begin("Status Menu");
 			
 			ImGui::Text("Rendering... %d/%d samples", std::min((int)max_samples, std::max(1, (int)max_samples - samples)), max_samples);
 
 			ImGui::End();
 
-			//ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
-			//ImGui::SliderFloat("float", &f, 0.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
-			//ImGui::ColorEdit3("clear color", (float*)&clear_color); // Edit 3 floats representing a color
 
-			//if (ImGui::Button("Button"))                            // Buttons return true when clicked (most widgets return true when edited/activated)
-				//counter++;
-			//ImGui::SameLine();
-			//ImGui::Text("counter = %d", counter);
+			ImGui::Begin("Inspector Menu");
+			
+			if (dynamic_cast<Sphere*>(objects[selected_object]) != nullptr) {
+				ImGui::Text("Active Object:	Shere %d", selected_object);
+			}
+			else if (dynamic_cast<Cube*>(objects[selected_object]) != nullptr) {
+				ImGui::Text("Active Object:	Cube %d", selected_object);
+			}
+			else if (dynamic_cast<Cylinder*>(objects[selected_object]) != nullptr) {
+				ImGui::Text("Active Object:	Cylinder %d", selected_object);
+			}
+			else if (dynamic_cast<Cone*>(objects[selected_object]) != nullptr) {
+				ImGui::Text("Active Object:	Cone %d", selected_object);
+			}
+			
+			ImGui::Text("Index: ", selected_object);
+			ImGui::SameLine();
+			ImGui::SetNextItemWidth(40.0f);
+			if (ImGui::DragInt("##", &selected_object, 0.2f, 0, objects.size() - 1)) {
+				location = objects[selected_object]->transform_getrc().location;
+				rotation = objects[selected_object]->transform_getrc().rotation;
+				scale    = objects[selected_object]->transform_getrc().scale;
+			}
 
-			//ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / imguiIO.Framerate, imguiIO.Framerate);
-			//ImGui::End();
+			ImGui::BeginChild("Transform");
+
+			ImGui::DragFloat3("Location", glm::value_ptr(location), 0.15f);
+			ImGui::DragFloat3("Rotation", glm::value_ptr(rotation), 0.15f);
+			ImGui::DragFloat3("Scale",    glm::value_ptr(scale),    0.15f);
+
+			if (ImGui::Button("Apply")) {
+				objects[selected_object]->translate(location, 0);
+				objects[selected_object]->rotate(rotation, 0);
+				objects[selected_object]->scale(scale, 0);
+
+				std::vector<Object*> data = { objects[selected_object] };
+				if (dynamic_cast<Sphere*>(objects[selected_object]) != nullptr) {
+					setSSBOStructData<Object, Sphere, rmo::Sphere>("BasicShapes", data, sizeof(rmo::Sphere) * selected_object);
+				}
+				else if (dynamic_cast<Cube*>(objects[selected_object]) != nullptr) {
+					int spheres = get_of_type<Sphere*>(objects).size();
+					setSSBOStructData<Object, Cube, rmo::Cube>("BasicShapes", data, sizeof(rmo::Sphere) * spheres + sizeof(rmo::Cube) * (selected_object - spheres));
+				}
+				else if (dynamic_cast<Cylinder*>(objects[selected_object]) != nullptr) {
+					int spheres = get_of_type<Sphere*>(objects).size();
+					int cubes   = get_of_type<Cube*>(objects).size();
+					setSSBOStructData<Object, Cylinder, rmo::Cylinder>("BasicShapes", data, sizeof(rmo::Sphere) * spheres + sizeof(rmo::Cube) * cubes + sizeof(rmo::Cylinder) * (selected_object - spheres - cubes));
+				}
+				else if (dynamic_cast<Cone*>(objects[selected_object]) != nullptr) {
+					int spheres   = get_of_type<Sphere*>(objects).size();
+					int cubes     = get_of_type<Cube*>(objects).size();
+					int cylinders = get_of_type<Cylinder*>(objects).size();
+					setSSBOStructData<Object, Cone, rmo::Cone>("BasicShapes", data, sizeof(rmo::Sphere) * spheres + sizeof(rmo::Cube) * cubes + sizeof(rmo::Cylinder) * cylinders + sizeof(rmo::Cone) * (selected_object - spheres - cubes - cylinders));
+				}
+
+				reset_pathtracer();
+			}
+
+			ImGui::EndChild();
+
+			ImGui::End();
+
+
+			hoveringUI = ImGui::IsAnyItemHovered();
+
+			/*
+			ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
+			ImGui::SliderFloat("float", &f, 0.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
+			ImGui::ColorEdit3("clear color", (float*)&clear_color); // Edit 3 floats representing a color
+
+			if (ImGui::Button("Button"))                            // Buttons return true when clicked (most widgets return true when edited/activated)
+				counter++;
+			ImGui::SameLine();
+			ImGui::Text("counter = %d", counter);
+
+			ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / imguiIO.Framerate, imguiIO.Framerate);
+			ImGui::End();
+			*/
 		});
+
 	});
 	// Application Update function
 	window.Update([&](float deltaTime) {
@@ -664,13 +798,13 @@ int main(int argc, char* argv[]) {
 			reset_pathtracer();
 		}
 
-		static float sensitivity = 15.0f;
+		static float sensitivity = 30.0f;
 		if (SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_UP]) {
-			camera.rotate({ sensitivity * deltaTime, 0.0f, 0.0f }, 2);
+			camera.rotate({ -sensitivity * deltaTime * 2.0, 0.0f, 0.0f }, 2);
 			reset_pathtracer();
 		}
 		if (SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_DOWN]) {
-			camera.rotate({ -sensitivity * deltaTime, 0.0f, 0.0f }, 2);
+			camera.rotate({ sensitivity * deltaTime * 2.0, 0.0f, 0.0f }, 2);
 			reset_pathtracer();
 		}
 		if (SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_LEFT]) {
@@ -696,6 +830,19 @@ int main(int argc, char* argv[]) {
 
 		#pragma endregion
 
+		glm::ivec2 mouse = { -1, -1 };
+		if (!hoveringUI and SDL_GetMouseState(&mouse.x, &mouse.y) == SDL_BUTTON(1)) {
+			std::vector<int> select_mask(window.width_get()* window.height_get());
+			getSSBOData("Screen", select_mask, sizeof(int) * window.width_get() * window.height_get());
+
+			const int &mouse_pixel = select_mask[mouse.y * window.width_get() + mouse.x];
+			if (mouse_pixel > -1 and mouse_pixel < objects.size()) {
+				selected_object = mouse_pixel;
+				location = objects[selected_object]->transform_getrc().location;
+				rotation = objects[selected_object]->transform_getrc().rotation;
+				scale    = objects[selected_object]->transform_getrc().scale;
+			}
+		}
 
 
 		// ****** UPDATE RENDERING ****** //
@@ -704,11 +851,17 @@ int main(int argc, char* argv[]) {
 		if (samples > 0) {
 			glUseProgram(raymarch_program);
 			reset_pathtracer(false);
+
 			glUniform1f(glGetUniformLocation(raymarch_program, "random_f01"), random(0.0f, 1.0f));
 			glUniform1i(glGetUniformLocation(raymarch_program, "samples"), max_samples);
 
-			glUniformMatrix4fv(glGetUniformLocation(raymarch_program, "camera_proj"), 1, GL_FALSE, &proj[0][0]);
-			glUniformMatrix4fv(glGetUniformLocation(raymarch_program, "camera_view"), 1, GL_FALSE, &view[0][0]);
+			view = glm::lookAtLH(
+				camera.transform_getr().location,
+				camera.transform_getr().location + camera.forward_getr(),
+				camera.up_getr()
+			);
+			glUniformMatrix4fv(glGetUniformLocation(raymarch_program, "camera_proj"), 1, GL_FALSE, glm::value_ptr(proj));
+			glUniformMatrix4fv(glGetUniformLocation(raymarch_program, "camera_view"), 1, GL_FALSE, glm::value_ptr(view));
 			glUniform3f(glGetUniformLocation(raymarch_program, "camera_loc"),
 				camera.transform_getr().location.x,
 				camera.transform_getr().location.y,
@@ -769,6 +922,25 @@ int main(int argc, char* argv[]) {
 			glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 
 			glUniform1i(glGetUniformLocation(raymarch_program, "scene_change"), 0);
+
+
+
+			glUseProgram(obj_select_program);
+
+			glUniformMatrix4fv(glGetUniformLocation(obj_select_program, "camera_proj"), 1, GL_FALSE, glm::value_ptr(proj));
+			glUniformMatrix4fv(glGetUniformLocation(obj_select_program, "camera_view"), 1, GL_FALSE, glm::value_ptr(view));
+			glUniform3f(glGetUniformLocation(obj_select_program, "camera_loc"),
+				camera.transform_getr().location.x,
+				camera.transform_getr().location.y,
+				camera.transform_getr().location.z
+			);
+			glUniform2i(glGetUniformLocation(obj_select_program, "screen_size"),
+				window.width_get(),
+				window.height_get()
+			);
+
+			glDispatchCompute(window.width_get() / 16, window.height_get() / 16, 1);
+			glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 		}
 
 	});
