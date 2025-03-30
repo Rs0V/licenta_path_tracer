@@ -532,8 +532,8 @@ void main() {
 
 
 
-	const int max_diffuse_bounces = 3;
-	const int max_glossy_bounces  = 3;
+	const int max_diffuse_bounces = 1;
+	const int max_glossy_bounces  = 1;
 
 	RaycastHit hit = raycast(ray_loc, ray_dir);
 	if (hit.hit == true) {
