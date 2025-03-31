@@ -105,15 +105,11 @@ template<typename T> void setSSBOData(std::string buffer_name, const std::vector
 	glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 }
-template<typename T> void getSSBOData(std::string buffer_name, std::vector<T> &data, int size, int offset = 0) {
+template<typename T> void getSSBOData(std::string buffer_name, std::vector<T>& data, int size, int offset = 0) {
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, buffers[buffer_name]);
-	void* ptr = glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY);
-	memcpy(data.data(), (char*)ptr + offset, size);
-
-	glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
+	glGetBufferSubData(GL_SHADER_STORAGE_BUFFER, offset, size, (void*)data.data());
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 }
-
 template<typename OBJ, typename CAST, typename RMO> void setSSBOStructData(std::string buffer_name, const std::vector<OBJ*> &structs, int offset = 0) {
 	auto casts = get_of_type<CAST*>(structs);
 	std::vector<RMO> rmo_structs(casts.size());
@@ -506,22 +502,17 @@ int main(int argc, char* argv[]) {
 
 
 	// Setup Ray-Sampling
-	static constexpr uint max_samples = 32;
-	static int samples = max_samples;
-	auto reset_pathtracer = [&](bool actuator = true) {
-		static bool active = false;
-		if (actuator) {
-			active = true;
-		}
-		if (!active) {
-			return;
-		}
+	constexpr uint max_samples = 16;
+	int samples = max_samples;
 
-		glUniform1i(glGetUniformLocation(raymarch_program, "scene_change"), 1);
-		samples = max_samples + 1;
-		
-		active = false;
-		
+	constexpr uint tile_size = 128;
+	const glm::uvec2 total_tiles = { glm::ceil(window.width_get() / tile_size), glm::ceil(window.height_get() / tile_size) };
+	int tiles_remaining = total_tiles.x * total_tiles.y;
+
+	auto reset_pathtracer = [&]() {
+		tiles_remaining = total_tiles.x * total_tiles.y;
+		samples = max_samples;
+
 		/*
 		int spheres = get_of_type<Sphere*>(objects).size() * sizeof(rmo::Sphere);
 		int cubes = get_of_type<Cube*>(objects).size() * sizeof(rmo::Cube);
@@ -554,7 +545,7 @@ int main(int argc, char* argv[]) {
 	bool hoveringUI = false;
 	glm::vec3 location = objects[selected_object]->transform_getrc().location;
 	glm::vec3 rotation = objects[selected_object]->transform_getrc().rotation;
-	glm::vec3 scale    = objects[selected_object]->transform_getrc().scale;
+	glm::vec3 scale = objects[selected_object]->transform_getrc().scale;
 
 
 	// Application Start function
@@ -566,7 +557,7 @@ int main(int argc, char* argv[]) {
 
 		// Add Components to Objects
 		components.emplace_back(new boolean::Boolean(objects[1], objects[0], boolean::Type::Difference));
-		//objects[0]->visible_set(false);
+		objects[0]->visible_set(false);
 		//objects[1]->visible_set(false);
 		//objects[0]->components_getr().emplace_back(new Parent(objects[0], objects[1]));
 
@@ -574,79 +565,80 @@ int main(int argc, char* argv[]) {
 		//dynamic_cast<Parent*>(objects[0]->components_getrc()[0])->applyTransform();
 
 
-		// Send Object Data to Ray-Marching Shader
-		{
-			int spheres = get_of_type<Sphere*>(objects).size() * sizeof(rmo::Sphere);
-			int cubes = get_of_type<Cube*>(objects).size() * sizeof(rmo::Cube);
-			int cylinders = get_of_type<Cylinder*>(objects).size() * sizeof(rmo::Cylinder);
-			int cones = get_of_type<Cone*>(objects).size() * sizeof(rmo::Cone);
+		#pragma region Send Object Data to Ray-Marching Shader
 
-			int booleans = get_of_type<boolean::Boolean*>(components).size() * sizeof(rmo::CBoolean);
+		int spheres = get_of_type<Sphere*>(objects).size() * sizeof(rmo::Sphere);
+		int cubes = get_of_type<Cube*>(objects).size() * sizeof(rmo::Cube);
+		int cylinders = get_of_type<Cylinder*>(objects).size() * sizeof(rmo::Cylinder);
+		int cones = get_of_type<Cone*>(objects).size() * sizeof(rmo::Cone);
 
-			int point_lights = get_of_type<PointLight*>(lights).size() * sizeof(rmo::PointLight);
+		int booleans = get_of_type<boolean::Boolean*>(components).size() * sizeof(rmo::CBoolean);
 
-			int principled_bsdfs = get_of_type<MPrincipledBSDF*>(materials).size() * sizeof(rmo::MPrincipledBSDF);
-			int volume_scatters = get_of_type<MVolumeScatter*>(materials).size() * sizeof(rmo::MVolumeScatter);
+		int point_lights = get_of_type<PointLight*>(lights).size() * sizeof(rmo::PointLight);
 
-
-			createSSBO("Screen", 0, sizeof(int) * window.width_get() * window.height_get(), GL_DYNAMIC_READ);
-			createSSBO("BasicShapes", 1, spheres + cubes + cylinders + cones + booleans);
-			createSSBO("Props", 2, point_lights + principled_bsdfs + volume_scatters);
-
-			std::vector<int> screen_data(window.width_get()* window.height_get(), -1);
-			setSSBOData("Screen", screen_data, sizeof(int) * screen_data.size());
-
-			setSSBOStructData<Object, Sphere, rmo::Sphere>("BasicShapes", objects, 0);
-			setSSBOStructData<Object, Cube, rmo::Cube>("BasicShapes", objects, spheres);
-			setSSBOStructData<Object, Cylinder, rmo::Cylinder>("BasicShapes", objects, spheres + cubes);
-			setSSBOStructData<Object, Cone, rmo::Cone>("BasicShapes", objects, spheres + cubes + cylinders);
-
-			setSSBOStructData<Component, boolean::Boolean, rmo::CBoolean>("BasicShapes", components, spheres + cubes + cylinders + cones);
-
-			setSSBOStructData<Light, PointLight, rmo::PointLight>("Props", lights, 0);
-
-			setSSBOStructData<Material, MPrincipledBSDF, rmo::MPrincipledBSDF>("Props", materials, point_lights);
-			setSSBOStructData<Material, MVolumeScatter, rmo::MVolumeScatter>("Props", materials, point_lights + principled_bsdfs);
+		int principled_bsdfs = get_of_type<MPrincipledBSDF*>(materials).size() * sizeof(rmo::MPrincipledBSDF);
+		int volume_scatters = get_of_type<MVolumeScatter*>(materials).size() * sizeof(rmo::MVolumeScatter);
 
 
-			// Set buffer sizes from SSBO
-			auto set_buffer_size = [&](std::string &shader, int size) {
-				size_t define_index = shader.find("#define");
-				size_t space1 = shader.find(' ', define_index);
-				size_t space2 = shader.find(' ', space1 + 1);
+		createSSBO("Screen", 0, sizeof(int) * window.width_get() * window.height_get(), GL_DYNAMIC_READ);
+		createSSBO("BasicShapes", 1, spheres + cubes + cylinders + cones + booleans);
+		createSSBO("Props", 2, point_lights + principled_bsdfs + volume_scatters);
 
-				shader.replace(
-					shader.begin() + define_index,
-					shader.begin() + shader.find('\n', define_index),
-					"const int " + shader.substr(space1 + 1, space2 - space1 - 1) + " = " + std::to_string(size) + ";\n"
-				);
-			};
+		std::vector<int> screen_data(window.width_get() * window.height_get(), -1);
+		setSSBOData("Screen", screen_data, sizeof(int) * screen_data.size());
 
-			set_buffer_size(raymarch_compute, spheres / sizeof(rmo::Sphere));
-			set_buffer_size(raymarch_compute, cubes / sizeof(rmo::Cube));
-			set_buffer_size(raymarch_compute, cylinders / sizeof(rmo::Cylinder));
-			set_buffer_size(raymarch_compute, cones / sizeof(rmo::Cone));
+		setSSBOStructData<Object, Sphere, rmo::Sphere>("BasicShapes", objects, 0);
+		setSSBOStructData<Object, Cube, rmo::Cube>("BasicShapes", objects, spheres);
+		setSSBOStructData<Object, Cylinder, rmo::Cylinder>("BasicShapes", objects, spheres + cubes);
+		setSSBOStructData<Object, Cone, rmo::Cone>("BasicShapes", objects, spheres + cubes + cylinders);
 
-			set_buffer_size(raymarch_compute, booleans / sizeof(rmo::CBoolean));
+		setSSBOStructData<Component, boolean::Boolean, rmo::CBoolean>("BasicShapes", components, spheres + cubes + cylinders + cones);
 
-			set_buffer_size(raymarch_compute, point_lights / sizeof(rmo::PointLight));
+		setSSBOStructData<Light, PointLight, rmo::PointLight>("Props", lights, 0);
 
-			set_buffer_size(raymarch_compute, principled_bsdfs / sizeof(rmo::MPrincipledBSDF));
-			set_buffer_size(raymarch_compute, volume_scatters / sizeof(rmo::MVolumeScatter));
-				
-			raymarch_program   = createComputeShaderProgram(raymarch_compute);
+		setSSBOStructData<Material, MPrincipledBSDF, rmo::MPrincipledBSDF>("Props", materials, point_lights);
+		setSSBOStructData<Material, MVolumeScatter, rmo::MVolumeScatter>("Props", materials, point_lights + principled_bsdfs);
 
 
-			set_buffer_size(obj_select_compute, spheres / sizeof(rmo::Sphere));
-			set_buffer_size(obj_select_compute, cubes / sizeof(rmo::Cube));
-			set_buffer_size(obj_select_compute, cylinders / sizeof(rmo::Cylinder));
-			set_buffer_size(obj_select_compute, cones / sizeof(rmo::Cone));
+		// Set buffer sizes from SSBO
+		auto set_buffer_size = [&](std::string& shader, int size) {
+			size_t define_index = shader.find("#define");
+			size_t space1 = shader.find(' ', define_index);
+			size_t space2 = shader.find(' ', space1 + 1);
 
-			set_buffer_size(obj_select_compute, booleans / sizeof(rmo::CBoolean));
+			shader.replace(
+				shader.begin() + define_index,
+				shader.begin() + shader.find('\n', define_index),
+				"const int " + shader.substr(space1 + 1, space2 - space1 - 1) + " = " + std::to_string(size) + ";\n"
+			);
+		};
 
-			obj_select_program = createComputeShaderProgram(obj_select_compute);
-		}
-		
+		set_buffer_size(raymarch_compute, spheres / sizeof(rmo::Sphere));
+		set_buffer_size(raymarch_compute, cubes / sizeof(rmo::Cube));
+		set_buffer_size(raymarch_compute, cylinders / sizeof(rmo::Cylinder));
+		set_buffer_size(raymarch_compute, cones / sizeof(rmo::Cone));
+
+		set_buffer_size(raymarch_compute, booleans / sizeof(rmo::CBoolean));
+
+		set_buffer_size(raymarch_compute, point_lights / sizeof(rmo::PointLight));
+
+		set_buffer_size(raymarch_compute, principled_bsdfs / sizeof(rmo::MPrincipledBSDF));
+		set_buffer_size(raymarch_compute, volume_scatters / sizeof(rmo::MVolumeScatter));
+
+		raymarch_program = createComputeShaderProgram(raymarch_compute);
+
+
+		set_buffer_size(obj_select_compute, spheres / sizeof(rmo::Sphere));
+		set_buffer_size(obj_select_compute, cubes / sizeof(rmo::Cube));
+		set_buffer_size(obj_select_compute, cylinders / sizeof(rmo::Cylinder));
+		set_buffer_size(obj_select_compute, cones / sizeof(rmo::Cone));
+
+		set_buffer_size(obj_select_compute, booleans / sizeof(rmo::CBoolean));
+
+		obj_select_program = createComputeShaderProgram(obj_select_compute);
+
+		#pragma endregion
+
 
 		// UI
 		UI::uiGenFuncs.emplace_back([&]() {
@@ -654,14 +646,19 @@ int main(int argc, char* argv[]) {
 			ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
 			ImGui::Begin("Status Menu");
-			
-			ImGui::Text("Rendering... %d/%d samples", std::min((int)max_samples, std::max(1, (int)max_samples - samples)), max_samples);
+
+			if (tiles_remaining > 0) {
+				ImGui::Text("Rendering... %d/%d samples", std::min((int)max_samples, std::max(1, (int)max_samples - samples)), max_samples);
+			}
+			else {
+				ImGui::Text("Rendering done!");
+			}
 
 			ImGui::End();
 
 
 			ImGui::Begin("Inspector Menu");
-			
+
 			if (dynamic_cast<Sphere*>(objects[selected_object]) != nullptr) {
 				ImGui::Text("Active Object:	Shere %d", selected_object);
 			}
@@ -674,21 +671,21 @@ int main(int argc, char* argv[]) {
 			else if (dynamic_cast<Cone*>(objects[selected_object]) != nullptr) {
 				ImGui::Text("Active Object:	Cone %d", selected_object);
 			}
-			
+
 			ImGui::Text("Index: ", selected_object);
 			ImGui::SameLine();
 			ImGui::SetNextItemWidth(40.0f);
-			if (ImGui::DragInt("##", &selected_object, 0.2f, 0, objects.size() - 1)) {
+			if (ImGui::DragInt("##", &selected_object, 0.05f, 0, objects.size() - 1)) {
 				location = objects[selected_object]->transform_getrc().location;
 				rotation = objects[selected_object]->transform_getrc().rotation;
-				scale    = objects[selected_object]->transform_getrc().scale;
+				scale = objects[selected_object]->transform_getrc().scale;
 			}
 
 			ImGui::BeginChild("Transform");
 
 			ImGui::DragFloat3("Location", glm::value_ptr(location), 0.15f);
 			ImGui::DragFloat3("Rotation", glm::value_ptr(rotation), 0.15f);
-			ImGui::DragFloat3("Scale",    glm::value_ptr(scale),    0.15f);
+			ImGui::DragFloat3("Scale", glm::value_ptr(scale), 0.15f);
 
 			if (ImGui::Button("Apply")) {
 				objects[selected_object]->translate(location, 0);
@@ -705,12 +702,12 @@ int main(int argc, char* argv[]) {
 				}
 				else if (dynamic_cast<Cylinder*>(objects[selected_object]) != nullptr) {
 					int spheres = get_of_type<Sphere*>(objects).size();
-					int cubes   = get_of_type<Cube*>(objects).size();
+					int cubes = get_of_type<Cube*>(objects).size();
 					setSSBOStructData<Object, Cylinder, rmo::Cylinder>("BasicShapes", data, sizeof(rmo::Sphere) * spheres + sizeof(rmo::Cube) * cubes + sizeof(rmo::Cylinder) * (selected_object - spheres - cubes));
 				}
 				else if (dynamic_cast<Cone*>(objects[selected_object]) != nullptr) {
-					int spheres   = get_of_type<Sphere*>(objects).size();
-					int cubes     = get_of_type<Cube*>(objects).size();
+					int spheres = get_of_type<Sphere*>(objects).size();
+					int cubes = get_of_type<Cube*>(objects).size();
 					int cylinders = get_of_type<Cylinder*>(objects).size();
 					setSSBOStructData<Object, Cone, rmo::Cone>("BasicShapes", data, sizeof(rmo::Sphere) * spheres + sizeof(rmo::Cube) * cubes + sizeof(rmo::Cylinder) * cylinders + sizeof(rmo::Cone) * (selected_object - spheres - cubes - cylinders));
 				}
@@ -718,12 +715,25 @@ int main(int argc, char* argv[]) {
 				reset_pathtracer();
 			}
 
+			ImGui::SameLine();
+			if (tiles_remaining > 0) {
+				if (ImGui::Button("Cancel")) {
+					tiles_remaining = 0;
+					samples = 0;
+				}
+			}
+			else {
+				if (ImGui::Button("Render")) {
+					reset_pathtracer();
+				}
+			}
+
 			ImGui::EndChild();
 
 			ImGui::End();
 
 
-			hoveringUI = ImGui::IsAnyItemHovered();
+			hoveringUI = ImGui::IsAnyItemFocused() or ImGui::IsAnyItemHovered() or ImGui::IsAnyItemActive();
 
 			/*
 			ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
@@ -750,18 +760,10 @@ int main(int argc, char* argv[]) {
 
 		// ****** UPDATE LOGIC ****** //
 
-		// Compute and Send Camera View Matrix to Ray-Marching Shader
-		glm::mat4 view = glm::lookAtLH(
-			camera.transform_getr().location,
-			camera.transform_getr().location + camera.forward_getr(),
-			camera.up_getr()
-		);
-
-
 		#pragma region Input
 
 		// Setup Camera Input
-		static float speed = 25.0f;
+		float speed = 25.0f;
 		if (SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_I]) {
 			objects[0]->transform_getr().location += glm::vec3(0.0f, 0.0f, 1.0f) * -speed * deltaTime;
 			//std::cout << objects[0]->transform_getr().location << std::endl;
@@ -798,7 +800,7 @@ int main(int argc, char* argv[]) {
 			reset_pathtracer();
 		}
 
-		static float sensitivity = 30.0f;
+		float sensitivity = 30.0f;
 		if (SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_UP]) {
 			camera.rotate({ -sensitivity * deltaTime * 2.0, 0.0f, 0.0f }, 2);
 			reset_pathtracer();
@@ -847,85 +849,17 @@ int main(int argc, char* argv[]) {
 
 		// ****** UPDATE RENDERING ****** //
 
-		// Compute Path-Tracing Samples
-		if (samples > 0) {
-			glUseProgram(raymarch_program);
-			reset_pathtracer(false);
+		// Object Select Buffer & Clear Raymarch Buffer
+		if (tiles_remaining == total_tiles.x * total_tiles.y and samples == max_samples) {
 
-			glUniform1f(glGetUniformLocation(raymarch_program, "random_f01"), random(0.0f, 1.0f));
-			glUniform1i(glGetUniformLocation(raymarch_program, "samples"), max_samples);
+			// Render Object Selection Buffer
+			glUseProgram(obj_select_program);
 
-			view = glm::lookAtLH(
+			glm::mat4 view = glm::lookAtLH(
 				camera.transform_getr().location,
 				camera.transform_getr().location + camera.forward_getr(),
 				camera.up_getr()
 			);
-			glUniformMatrix4fv(glGetUniformLocation(raymarch_program, "camera_proj"), 1, GL_FALSE, glm::value_ptr(proj));
-			glUniformMatrix4fv(glGetUniformLocation(raymarch_program, "camera_view"), 1, GL_FALSE, glm::value_ptr(view));
-			glUniform3f(glGetUniformLocation(raymarch_program, "camera_loc"),
-				camera.transform_getr().location.x,
-				camera.transform_getr().location.y,
-				camera.transform_getr().location.z
-			);
-
-			glActiveTexture(GL_TEXTURE0);
-			glBindTexture(GL_TEXTURE_2D, blueNoiseTex);
-			blueNoiseTex = (blueNoiseTex == blueNoiseTex01) ? blueNoiseTex02 : blueNoiseTex01;
-
-			glDispatchCompute(window.width_get() / 16, window.height_get() / 16, 1);
-			glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
-
-			samples--;
-		}
-		else if (samples == 0) {
-			//std::cout << "Render finished..." << std::endl;
-			samples--;
-		}
-
-
-		// Denoiser
-		static constexpr uint denoisingPasses = 1;
-		glUseProgram(denoiser_program);
-		glUniform1i(glGetUniformLocation(denoiser_program, "samples"), std::max((int)max_samples - samples, 1));
-		for (uint i = 0; i < denoisingPasses; i++) {
-			glDispatchCompute(window.width_get() / 16, window.height_get() / 16, 1);
-			glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
-		}
-		/*
-		// Denoiser Blur-Pass
-		glUniform1i(glGetUniformLocation(denoiser_program, "blur"), 0);
-		glDispatchCompute(window.width_get() / 16, window.height_get() / 16, 1);
-		glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
-		glUniform1i(glGetUniformLocation(denoiser_program, "blur"), 1);
-		*/
-
-
-		// Render final Output to Screen
-		glUseProgram(rtarget_program);
-		glBindVertexArray(rtargetVAO);
-
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, output_tex);
-
-		glUniform1i(glGetUniformLocation(rtarget_program, "tex_output"), 0);
-
-		glDrawArrays(GL_TRIANGLES, 0, 6);
-		glBindVertexArray(0);
-
-
-		// Initiate Path-Tracing Sampling process
-		if (samples == max_samples) {
-			glUseProgram(raymarch_program);
-
-			glUniform1i(glGetUniformLocation(raymarch_program, "scene_change"), -1);
-			glDispatchCompute(window.width_get() / 16, window.height_get() / 16, 1);
-			glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
-
-			glUniform1i(glGetUniformLocation(raymarch_program, "scene_change"), 0);
-
-
-
-			glUseProgram(obj_select_program);
 
 			glUniformMatrix4fv(glGetUniformLocation(obj_select_program, "camera_proj"), 1, GL_FALSE, glm::value_ptr(proj));
 			glUniformMatrix4fv(glGetUniformLocation(obj_select_program, "camera_view"), 1, GL_FALSE, glm::value_ptr(view));
@@ -941,8 +875,112 @@ int main(int argc, char* argv[]) {
 
 			glDispatchCompute(window.width_get() / 16, window.height_get() / 16, 1);
 			glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+
+
+			// Clear Raymarch Buffer
+			glUseProgram(raymarch_program);
+
+			glUniform1i(glGetUniformLocation(raymarch_program, "scene_change"), 1);
+			glm::uvec2 tile_offset = { 0, 0 };
+			glUniform2uiv(glGetUniformLocation(raymarch_program, "tile_offset"), 1, glm::value_ptr(tile_offset));
+
+			glDispatchCompute(window.width_get() / 16, window.height_get() / 16, 1);
+			glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+
+			glUniform1i(glGetUniformLocation(raymarch_program, "scene_change"), 0);
 		}
 
+		// Actual Rendering
+		if (tiles_remaining > 0) {
+
+			// Render Tile Calculations
+			uint tile_index = total_tiles.x * total_tiles.y - tiles_remaining;
+
+			uint last_tile_size_x = window.width_get()  - (total_tiles.x - 1) * tile_size;
+			uint last_tile_size_y = window.height_get() - (total_tiles.y - 1) * tile_size;
+
+			uint tile_size_x = tile_index % total_tiles.x < total_tiles.x - 1 ? tile_size : last_tile_size_x;
+			uint tile_size_y = tile_index / total_tiles.x < total_tiles.y - 1 ? tile_size : last_tile_size_y;
+
+			uint tile_offset_x = tile_size * (tile_index % total_tiles.x);
+			uint tile_offset_y = tile_size * (tile_index / total_tiles.x);
+
+			glm::uvec2 tile_offset = { tile_offset_x, tile_offset_y };
+
+
+
+			// Render Raymarch Sample
+			if (samples > 0) {
+				glUseProgram(raymarch_program);
+
+				glUniform1f(glGetUniformLocation(raymarch_program, "random_f01"), random(0.0f, 1.0f));
+				glUniform1i(glGetUniformLocation(raymarch_program, "samples"), max_samples);
+
+				glm::mat4 view = glm::lookAtLH(
+					camera.transform_getr().location,
+					camera.transform_getr().location + camera.forward_getr(),
+					camera.up_getr()
+				);
+				glUniformMatrix4fv(glGetUniformLocation(raymarch_program, "camera_proj"), 1, GL_FALSE, glm::value_ptr(proj));
+				glUniformMatrix4fv(glGetUniformLocation(raymarch_program, "camera_view"), 1, GL_FALSE, glm::value_ptr(view));
+				glUniform3f(glGetUniformLocation(raymarch_program, "camera_loc"),
+					camera.transform_getr().location.x,
+					camera.transform_getr().location.y,
+					camera.transform_getr().location.z
+				);
+
+				glActiveTexture(GL_TEXTURE0);
+				glBindTexture(GL_TEXTURE_2D, blueNoiseTex);
+				blueNoiseTex = (blueNoiseTex == blueNoiseTex01) ? blueNoiseTex02 : blueNoiseTex01;
+
+				glUniform2uiv(glGetUniformLocation(raymarch_program, "tile_offset"), 1, glm::value_ptr(tile_offset));
+
+				glDispatchCompute(tile_size_x / 16, tile_size_y / 16, 1);
+				glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+
+
+
+				// Denoise
+				constexpr uint denoisingPasses = 1;
+
+				glUseProgram(denoiser_program);
+
+				glUniform1i(glGetUniformLocation(denoiser_program, "samples"), (int)max_samples - samples + 1);
+				glUniform2uiv(glGetUniformLocation(denoiser_program, "tile_offset"), 1, glm::value_ptr(tile_offset));
+
+				for (uint i = 0; i < denoisingPasses; i++) {
+					glDispatchCompute(tile_size_x / 16, tile_size_y / 16, 1);
+					glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+				}
+				/*
+				// Denoiser Blur-Pass
+				glUniform1i(glGetUniformLocation(denoiser_program, "blur"), 0);
+				glDispatchCompute(window.width_get() / 16, window.height_get() / 16, 1);
+				glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+				glUniform1i(glGetUniformLocation(denoiser_program, "blur"), 1);
+				*/
+
+
+
+				samples--;
+			}
+			if (samples == 0) {
+				tiles_remaining--;
+				samples = max_samples;
+			}
+		}
+
+		// Render final Output to Screen
+		glUseProgram(rtarget_program);
+		glBindVertexArray(rtargetVAO);
+
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, output_tex);
+
+		glUniform1i(glGetUniformLocation(rtarget_program, "tex_output"), 0);
+
+		glDrawArrays(GL_TRIANGLES, 0, 6);
+		glBindVertexArray(0);
 	});
 
 	return 0;

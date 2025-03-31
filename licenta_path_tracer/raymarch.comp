@@ -7,6 +7,7 @@
 
 layout (local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
 layout (rgba32f, binding = 0) uniform image2D img_output;
+uniform uvec2 tile_offset;
 
 
 
@@ -499,10 +500,10 @@ vec3 pbr_shading(inout RaycastHit hit, inout PointLight point_light) {
 
 
 void main() {
-	ivec2 pixel_coords = ivec2(gl_GlobalInvocationID.xy);
+	ivec2 pixel_coords = ivec2(gl_GlobalInvocationID.xy) + ivec2(tile_offset);
 	vec2 uv = vec2(pixel_coords) / vec2(imageSize(img_output));
 
-	if (scene_change == -1) {
+	if (scene_change == 1) {
 		imageStore(img_output, pixel_coords, vec4(vec3(0.0), 1.0));
 		return;
 	}
@@ -596,7 +597,7 @@ void main() {
 
 
 
-	vec3 currect_pixel = scene_change == 0 ? max(imageLoad(img_output, pixel_coords).xyz, 0.0) : vec3(0.0);
+	vec3 currect_pixel = max(imageLoad(img_output, pixel_coords).xyz, 0.0);
 	vec4 final_color = vec4((currect_pixel + ray_color), 1.0);
 	imageStore(img_output, pixel_coords, final_color);
 
