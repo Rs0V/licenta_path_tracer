@@ -333,8 +333,8 @@ int main(int argc, char* argv[]) {
 
 	// Setup Camera Rays
 	Camera camera = Camera(Transform(
-		{ 20.0f, 35.0f, -50.0f },
-		{ 20.0f, 25.0f,   0.0f }
+		{ 0.0f, 30.0f, -70.0f },
+		{ 0.0f,  0.0f,   0.0f }
 	));
 	std::vector<Object*> objects;
 	std::vector<Light*> lights;
@@ -352,25 +352,17 @@ int main(int argc, char* argv[]) {
 		0.48f
 	));
 	materials.emplace_back(new MPrincipledBSDF(
-		Color({ 0.8f, 0.9f, 0.7f }),
+		Color({ 0.9f, 0.2f, 0.1f }),
 		0.0f,
-		0.28f
+		0.48f
 	));
 	materials.emplace_back(new MPrincipledBSDF(
-		Color({ 0.15f, 0.3f, 0.25f }),
+		Color({ 0.3f, 0.9f, 0.1f }),
 		0.0f,
-		0.38f
+		0.48f
 	));
-	materials.emplace_back(new MPrincipledBSDF(
-		Color({ 1.0f, 0.55f, 0.3f }),
-		1.0f,
-		0.18f
-	));
-	materials.emplace_back(new MPrincipledBSDF(
-		Color({ 0.6f, 0.7f, 1.0f }),
-		0.0f,
-		0.01f
-	));
+	
+
 	materials.emplace_back(new MVolumeScatter(
 		Color::white,
 		0.2f
@@ -383,82 +375,140 @@ int main(int argc, char* argv[]) {
 
 	objects.emplace_back(new Sphere(
 		{
-			{ 0.0f, 0.0f, 0.0f },
-			{ 0.0f, 0.0f, 0.0f },
-			{ 1.0f, 1.0f, 1.0f }
+			{ 0.0f, 10.0f, 0.0f },
+			{ 0.0f,  0.0f, 0.0f },
+			{ 1.0f,  1.0f, 1.0f }
 		},
-		materials[2],
-		5.0f
-	));
-	objects.emplace_back(new Sphere(
-		{
-			{ -10.0f, 10.0f, 0.0f },
-			{   0.0f,  0.0f, 0.0f },
-			{   1.0f,  1.0f, 1.0f }
-		},
-		materials[1],
+		materials[0],
 		10.0f
+	));
+	objects.emplace_back(new Cube(
+		{
+			{ 0.0f, 0.0f, 0.0f }
+		},
+		materials[0],
+		{ 20.0f, 20.0f, 20.0f }
 	));
 	objects.emplace_back(new Cube(
 		{
 			{ 0.0f, -0.05f, 0.0f }
 		},
 		materials[0],
-		{ 100.0f, 0.1f, 100.0f }
+		{ 60.0f, 0.1f, 60.0f }
 	));
 	objects.emplace_back(new Cube(
 		{
-			{ -50.0f, 0.0f, 0.0f }
+			{ 0.0f, 60.05f, 0.0f }
 		},
 		materials[0],
-		{ 0.1f, 100.0f, 100.0f }
+		{ 60.0f, 0.1f, 60.0f }
 	));
 	objects.emplace_back(new Cube(
 		{
-			{ 50.0f, 0.0f, 0.0f }
+			{ -30.05f, 30.0f, 0.0f }
 		},
-		materials[0],
-		{ 0.1f, 100.0f, 100.0f }
+		materials[1],
+		{ 0.1f, 60.0f, 60.0f }
 	));
 	objects.emplace_back(new Cube(
 		{
-			{ 0.0f, 0.0f, 50.0f }
+			{ 30.05f, 30.0f, 0.0f }
+		},
+		materials[2],
+		{ 0.1f, 60.0f, 60.0f }
+	));
+	objects.emplace_back(new Cube(
+		{
+			{ 0.0f, 30.0f, 30.05f }
 		},
 		materials[0],
-		{ 100.0f, 100.0f, 0.0f }
+		{ 60.0f, 60.0f, 0.1f }
 	));
 	objects.emplace_back(new Cylinder(
 		{
-			{ -30.0f, 12.0f, 10.0f },
-			{   0.0f,  0.0f,  0.0f },
-			{   1.0f,  2.0f,  1.0f }
+			{ 0.0f, 10.0f, 0.0f },
+			{ 0.0f,  0.0f, 0.0f },
+			{ 1.0f,  1.0f, 1.0f }
 		},
-		materials[3],
+		materials[0],
+		8.0f,
+		20.0f
+	));
+	objects.emplace_back(new Cylinder(
+		{
+			{ -30.0f, -1000.0f, 10.0f },
+			{   0.0f,     0.0f,  0.0f },
+			{   1.0f,     2.0f,  1.0f }
+		},
+		materials[0],
 		4.0f,
 		12.0f
 	));
 	objects.emplace_back(new Cone(
 		{
-			{  25.0f, 6.0f, -5.0f },
-			{ 180.0f, 0.0f,  0.0f },
-			{   1.0f, 2.0f,  3.0f }
+			{  25.0f, -1000.0f, -5.0f },
+			{ 180.0f,     0.0f,  0.0f },
+			{   1.0f,     2.0f,  3.0f }
 		},
-		materials[4],
+		materials[0],
 		4.0f,
 		6.0f
 	));
 
 	#pragma endregion
 
+	// Sort Objects in order: Spheres, Cubes, Cylinders, Cones
+	// Can't sort interface pointers (crazy...)
+	/*
+	std::sort(objects.begin(), objects.end(), [](const auto &a, const auto &b) {
+		uint akey = -1;
+		uint bkey = -1;
+
+		r_is(a, Sphere, *) {
+			akey = 0;
+		} r_end
+		r_is(a, Cube, *) {
+			akey = 1;
+		} r_end
+		r_is(a, Cylinder, *) {
+			akey = 2;
+		} r_end
+		r_is(a, Cone, *) {
+			akey = 3;
+		} r_end
+
+		r_is(b, Sphere, *) {
+			bkey = 0;
+		} r_end
+		r_is(b, Cube, *) {
+			bkey = 1;
+		} r_end
+		r_is(b, Cylinder, *) {
+			bkey = 2;
+		} r_end
+		r_is(b, Cone, *) {
+			bkey = 3;
+		} r_end
+
+		return akey < bkey;
+	});
+	*/
 
 	#pragma region Create Lights
 
 	lights.emplace_back(new PointLight(
 		{
-			{ -20.0, 20.0, -20.0 }
+			{ -20.0f, 55.0f, 0.0f }
 		},
 		Color::white,
-		20.0f
+		40.0f
+	));
+	lights.emplace_back(new PointLight(
+		{
+			{ 20.0f, 55.0f, 0.0f }
+		},
+		Color::white,
+		40.0f
 	));
 
 	#pragma endregion
@@ -502,11 +552,11 @@ int main(int argc, char* argv[]) {
 
 
 	// Setup Ray-Sampling
-	constexpr uint max_samples = 16;
+	constexpr uint max_samples = 32;
 	int samples = max_samples;
 
 	constexpr uint tile_size = 128;
-	const glm::uvec2 total_tiles = { glm::ceil(window.width_get() / tile_size), glm::ceil(window.height_get() / tile_size) };
+	const glm::uvec2 total_tiles = { glm::ceil((float)window.width_get() / tile_size), glm::ceil((float)window.height_get() / tile_size) };
 	int tiles_remaining = total_tiles.x * total_tiles.y;
 
 	auto reset_pathtracer = [&]() {
@@ -556,9 +606,11 @@ int main(int argc, char* argv[]) {
 
 
 		// Add Components to Objects
-		components.emplace_back(new boolean::Boolean(objects[1], objects[0], boolean::Type::Difference));
-		objects[0]->visible_set(false);
-		//objects[1]->visible_set(false);
+		components.emplace_back(new boolean::Boolean(objects[0], objects[1], boolean::Type::Difference));
+		components.emplace_back(new boolean::Boolean(objects[0], objects[7], boolean::Type::Intersect));
+		objects[1]->visible_set(false);
+		objects[7]->visible_set(false);
+
 		//objects[0]->components_getr().emplace_back(new Parent(objects[0], objects[1]));
 
 		//objects[1]->rotate({ -60.0f, -20.0f, 0.0f });
@@ -660,7 +712,7 @@ int main(int argc, char* argv[]) {
 			ImGui::Begin("Inspector Menu");
 
 			if (dynamic_cast<Sphere*>(objects[selected_object]) != nullptr) {
-				ImGui::Text("Active Object:	Shere %d", selected_object);
+				ImGui::Text("Active Object:	Sphere %d", selected_object);
 			}
 			else if (dynamic_cast<Cube*>(objects[selected_object]) != nullptr) {
 				ImGui::Text("Active Object:	Cube %d", selected_object);
@@ -834,7 +886,7 @@ int main(int argc, char* argv[]) {
 
 		glm::ivec2 mouse = { -1, -1 };
 		if (!hoveringUI and SDL_GetMouseState(&mouse.x, &mouse.y) == SDL_BUTTON(1)) {
-			std::vector<int> select_mask(window.width_get()* window.height_get());
+			std::vector<int> select_mask(window.width_get() * window.height_get());
 			getSSBOData("Screen", select_mask, sizeof(int) * window.width_get() * window.height_get());
 
 			const int &mouse_pixel = select_mask[mouse.y * window.width_get() + mouse.x];

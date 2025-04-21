@@ -64,103 +64,6 @@ float signDistObj(vec3 ray_loc, int obj_type, int obj_index) {
 	}
 	return -999999999;
 }
-float signDistScene(vec3 ray_loc) {
-	float minDist = 999999999;
-
-	// Check for closest Sphere
-	for (int i = 0; i < spheres_no; i++) {
-		if (spheres[i].visible == 0) {
-			continue;
-		}
-		float closest = 999999999;
-
-		float distToSphere = signDistSphere(ray_loc, spheres[i]);
-		for (int j = 0; j < booleans_no; j++) {
-			if (booleans[j].selfObjType == 0 && booleans[j].selfObjIndex == i) {
-				float distToOther = signDistObj(ray_loc, booleans[j].otherObjType, booleans[j].otherObjIndex);
-				float booleanDist = signDistBlendedObj(distToSphere, distToOther, booleans[j].type, booleans[j].blend);
-				closest = signDistBlendedObj(minDist, booleanDist);
-			}
-		}
-
-		if (closest < minDist) {
-			minDist = closest;
-		} else if (distToSphere < minDist) {
-			minDist = distToSphere;
-		}
-	}
-
-	// Check for closest Cube
-	for (int i = 0; i < cubes_no; i++) {
-		if (cubes[i].visible == 0) {
-			continue;
-		}
-		float closest = 999999999;
-
-		float distToCube = signDistCube(ray_loc, cubes[i]);
-		for (int j = 0; j < booleans_no; j++) {
-			if (booleans[j].selfObjType == 1 && booleans[j].selfObjIndex == i) {
-				float distToOther = signDistObj(ray_loc, booleans[j].otherObjType, booleans[j].otherObjIndex);
-				float booleanDist = signDistBlendedObj(distToCube, distToOther, booleans[j].type, booleans[j].blend);
-				closest = signDistBlendedObj(minDist, booleanDist);
-			}
-		}
-
-		if (closest < minDist) {
-			minDist = closest;
-		} else if (distToCube < minDist) {
-			minDist = distToCube;
-		}
-	}
-
-	// Check for closest Cylinder
-	for (int i = 0; i < cylinders_no; i++) {
-		if (cylinders[i].visible == 0) {
-			continue;
-		}
-		float closest = 999999999;
-
-		float distToCylinder = signDistCylinder(ray_loc, cylinders[i]);
-		for (int j = 0; j < booleans_no; j++) {
-			if (booleans[j].selfObjType == 2 && booleans[j].selfObjIndex == i) {
-				float distToOther = signDistObj(ray_loc, booleans[j].otherObjType, booleans[j].otherObjIndex);
-				float booleanDist = signDistBlendedObj(distToCylinder, distToOther, booleans[j].type, booleans[j].blend);
-				closest = signDistBlendedObj(minDist, booleanDist);
-			}
-		}
-
-		if (closest < minDist) {
-			minDist = closest;
-		} else if (distToCylinder < minDist) {
-			minDist = distToCylinder;
-		}
-	}
-
-	// Check for closest Cone
-	for (int i = 0; i < cones_no; i++) {
-		if (cones[i].visible == 0) {
-			continue;
-		}
-		float closest = 999999999;
-
-		float distToCone = signDistCone(ray_loc, cones[i]);
-		for (int j = 0; j < booleans_no; j++) {
-			if (booleans[j].selfObjType == 3 && booleans[j].selfObjIndex == i) {
-				float distToOther = signDistObj(ray_loc, booleans[j].otherObjType, booleans[j].otherObjIndex);
-				float booleanDist = signDistBlendedObj(distToCone, distToOther, booleans[j].type, booleans[j].blend);
-				closest = signDistBlendedObj(minDist, booleanDist);
-			}
-		}
-
-		if (closest < minDist) {
-			minDist = closest;
-		} else if (distToCone < minDist) {
-			minDist = distToCone;
-		}
-	}
-
-	return minDist;
-}
 
 RaycastHit raycast(vec3 ray_loc, vec3 ray_dir) {
 	vec3 init_loc = ray_loc;
@@ -180,24 +83,18 @@ RaycastHit raycast(vec3 ray_loc, vec3 ray_dir) {
 			if (spheres[i].visible == 0) {
 				continue;
 			}
-			float closest = 999999999;
 
-			float distToSphere = signDistSphere(ray_loc, spheres[i]);
+			float closest = signDistSphere(ray_loc, spheres[i]);
 			for (int j = 0; j < booleans_no; j++) {
 				if (booleans[j].selfObjType == 0 && booleans[j].selfObjIndex == i) {
 					float distToOther = signDistObj(ray_loc, booleans[j].otherObjType, booleans[j].otherObjIndex);
-					float booleanDist = signDistBlendedObj(distToSphere, distToOther, booleans[j].type, booleans[j].blend);
-					closest = signDistBlendedObj(minDist, booleanDist);
+					closest = signDistBlendedObj(closest, distToOther, booleans[j].type, booleans[j].blend);
 				}
 			}
 
 			if (closest < minDist) {
 				minDist = closest;
-				obj_type = 0;
-				obj_index = i;
-			} else if (distToSphere < minDist) {
-				minDist = distToSphere;
-				obj_type = 0;
+				obj_type  = 0;
 				obj_index = i;
 			}
 		}
@@ -207,23 +104,17 @@ RaycastHit raycast(vec3 ray_loc, vec3 ray_dir) {
 			if (cubes[i].visible == 0) {
 				continue;
 			}
-			float closest = 999999999;
 
-			float distToCube = signDistCube(ray_loc, cubes[i]);
+			float closest = signDistCube(ray_loc, cubes[i]);
 			for (int j = 0; j < booleans_no; j++) {
 				if (booleans[j].selfObjType == 1 && booleans[j].selfObjIndex == i) {
 					float distToOther = signDistObj(ray_loc, booleans[j].otherObjType, booleans[j].otherObjIndex);
-					float booleanDist = signDistBlendedObj(distToCube, distToOther, booleans[j].type, booleans[j].blend);
-					closest = signDistBlendedObj(minDist, booleanDist);
+					closest = signDistBlendedObj(closest, distToOther, booleans[j].type, booleans[j].blend);
 				}
 			}
 
 			if (closest < minDist) {
 				minDist = closest;
-				obj_type = 1;
-				obj_index = i;
-			} else if (distToCube < minDist) {
-				minDist = distToCube;
 				obj_type = 1;
 				obj_index = i;
 			}
@@ -234,23 +125,17 @@ RaycastHit raycast(vec3 ray_loc, vec3 ray_dir) {
 			if (cylinders[i].visible == 0) {
 				continue;
 			}
-			float closest = 999999999;
 
-			float distToCylinder = signDistCylinder(ray_loc, cylinders[i]);
+			float closest = signDistCylinder(ray_loc, cylinders[i]);
 			for (int j = 0; j < booleans_no; j++) {
 				if (booleans[j].selfObjType == 2 && booleans[j].selfObjIndex == i) {
 					float distToOther = signDistObj(ray_loc, booleans[j].otherObjType, booleans[j].otherObjIndex);
-					float booleanDist = signDistBlendedObj(distToCylinder, distToOther, booleans[j].type, booleans[j].blend);
-					closest = signDistBlendedObj(minDist, booleanDist);
+					closest = signDistBlendedObj(closest, distToOther, booleans[j].type, booleans[j].blend);
 				}
 			}
 
 			if (closest < minDist) {
 				minDist = closest;
-				obj_type = 2;
-				obj_index = i;
-			} else if (distToCylinder < minDist) {
-				minDist = distToCylinder;
 				obj_type = 2;
 				obj_index = i;
 			}
@@ -261,14 +146,12 @@ RaycastHit raycast(vec3 ray_loc, vec3 ray_dir) {
 			if (cones[i].visible == 0) {
 				continue;
 			}
-			float closest = 999999999;
 
-			float distToCone = signDistCone(ray_loc, cones[i]);
+			float closest = signDistCone(ray_loc, cones[i]);
 			for (int j = 0; j < booleans_no; j++) {
 				if (booleans[j].selfObjType == 3 && booleans[j].selfObjIndex == i) {
 					float distToOther = signDistObj(ray_loc, booleans[j].otherObjType, booleans[j].otherObjIndex);
-					float booleanDist = signDistBlendedObj(distToCone, distToOther, booleans[j].type, booleans[j].blend);
-					closest = signDistBlendedObj(minDist, booleanDist);
+					closest = signDistBlendedObj(closest, distToOther, booleans[j].type, booleans[j].blend);
 				}
 			}
 
@@ -276,14 +159,21 @@ RaycastHit raycast(vec3 ray_loc, vec3 ray_dir) {
 				minDist = closest;
 				obj_type = 3;
 				obj_index = i;
-			} else if (distToCone < minDist) {
-				minDist = distToCone;
-				obj_type = 3;
-				obj_index = i;
 			}
 		}
 		
+
+		// Minimum distance aproximation for better performance
+		// when tracing against parallel surfaces
+		if (distance(minimumDistance, minDist) < mDepsDistDiff && minDist < mDepsDistMin) {
+			minDist *= pow(2, mDeqCount + 1);
+			mDeqCount++;
+		} else {
+			minimumDistance = minDist;
+			mDeqCount = 0;
+		}
 		ray_loc += ray_dir * minDist;
+
 
 		if (minDist < hitThreshold) {
 			return RaycastHit(true, ray_loc, ray_dir, obj_type, obj_index);
