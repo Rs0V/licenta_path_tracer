@@ -349,17 +349,25 @@ int main(int argc, char* argv[]) {
 	materials.emplace_back(new MPrincipledBSDF(
 		Color::white * 0.8f,
 		0.0f,
-		0.48f
+		0.28f
 	));
 	materials.emplace_back(new MPrincipledBSDF(
 		Color({ 0.9f, 0.2f, 0.1f }),
 		0.0f,
-		0.48f
+		0.68f
 	));
 	materials.emplace_back(new MPrincipledBSDF(
 		Color({ 0.3f, 0.9f, 0.1f }),
 		0.0f,
-		0.48f
+		0.68f
+	));
+	materials.emplace_back(new MPrincipledBSDF(
+		Color::white * 0.8f,
+		0.0f,
+		0.18f,
+		1.45f,
+		0.5f,
+		1.0f
 	));
 	
 
@@ -379,7 +387,7 @@ int main(int argc, char* argv[]) {
 			{ 0.0f,  0.0f, 0.0f },
 			{ 1.0f,  1.0f, 1.0f }
 		},
-		materials[0],
+		materials[3],
 		10.0f
 	));
 	objects.emplace_back(new Cube(
@@ -606,10 +614,12 @@ int main(int argc, char* argv[]) {
 
 
 		// Add Components to Objects
-		components.emplace_back(new boolean::Boolean(objects[0], objects[1], boolean::Type::Difference));
-		components.emplace_back(new boolean::Boolean(objects[0], objects[7], boolean::Type::Intersect));
+		//components.emplace_back(new boolean::Boolean(objects[0], objects[1], boolean::Type::Difference));
+		//components.emplace_back(new boolean::Boolean(objects[0], objects[7], boolean::Type::Intersect));
 		objects[1]->visible_set(false);
 		objects[7]->visible_set(false);
+
+		components.emplace_back(new boolean::Boolean(objects[9], objects[8], boolean::Type::Union));
 
 		//objects[0]->components_getr().emplace_back(new Parent(objects[0], objects[1]));
 

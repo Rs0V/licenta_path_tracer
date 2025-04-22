@@ -24,7 +24,7 @@ uniform float random_f01;
 uniform int samples;
 
 const float hitThreshold = 0.001;
-const float farPlane = 1000.0;
+const float farPlane = 10000.0;
 
 uniform sampler2D blueNoise;
 
@@ -78,6 +78,7 @@ float signDistBlendedObj(float obj_dist_1, float obj_dist_2, int booleanType = -
 		return smoothDifference(obj_dist_1, obj_dist_2, blend);
 	}
 }
+
 float signDistObj(vec3 ray_loc, int obj_type, int obj_index) {
 	switch(obj_type) {
 	case 0:
@@ -91,6 +92,49 @@ float signDistObj(vec3 ray_loc, int obj_type, int obj_index) {
 	}
 	return -999999999;
 }
+vec3 normalObj(vec3 ray_loc, int obj_type, int obj_index) {
+	const float epsilon = 0.001;
+	const mat3x3 d = mat3x3(
+		vec3(epsilon, 0, 0),
+		vec3(0, epsilon, 0),
+		vec3(0, 0, epsilon)
+	);
+
+
+	float cd = signDistObj(ray_loc, obj_type, obj_index);
+	for (int j = 0; j < booleans_no; j++) {
+		if (booleans[j].selfObjType == obj_type && booleans[j].selfObjIndex == obj_index) {
+			float distToOther = signDistObj(ray_loc, booleans[j].otherObjType, booleans[j].otherObjIndex);
+			cd = signDistBlendedObj(cd, distToOther, booleans[j].type, booleans[j].blend);
+		}
+	}
+
+	float d0 = signDistObj(ray_loc + d[0], obj_type, obj_index);
+	for (int j = 0; j < booleans_no; j++) {
+		if (booleans[j].selfObjType == obj_type && booleans[j].selfObjIndex == obj_index) {
+			float distToOther = signDistObj(ray_loc + d[0], booleans[j].otherObjType, booleans[j].otherObjIndex);
+			d0 = signDistBlendedObj(d0, distToOther, booleans[j].type, booleans[j].blend);
+		}
+	}
+	float d1 = signDistObj(ray_loc + d[1], obj_type, obj_index);
+	for (int j = 0; j < booleans_no; j++) {
+		if (booleans[j].selfObjType == obj_type && booleans[j].selfObjIndex == obj_index) {
+			float distToOther = signDistObj(ray_loc + d[1], booleans[j].otherObjType, booleans[j].otherObjIndex);
+			d1 = signDistBlendedObj(d1, distToOther, booleans[j].type, booleans[j].blend);
+		}
+	}
+	float d2 = signDistObj(ray_loc + d[2], obj_type, obj_index);
+	for (int j = 0; j < booleans_no; j++) {
+		if (booleans[j].selfObjType == obj_type && booleans[j].selfObjIndex == obj_index) {
+			float distToOther = signDistObj(ray_loc + d[2], booleans[j].otherObjType, booleans[j].otherObjIndex);
+			d2 = signDistBlendedObj(d2, distToOther, booleans[j].type, booleans[j].blend);
+		}
+	}
+
+
+	return normalize((vec3(d0, d1, d2) - cd) / epsilon);
+}
+
 float signDistScene(vec3 ray_loc) {
 	float minDist = 999999999;
 
@@ -172,7 +216,6 @@ float signDistScene(vec3 ray_loc) {
 
 	return minDist;
 }
-
 vec3 normalScene(vec3 ray_loc) {
 	const float epsilon = 0.001;
 	const mat3x3 d = mat3x3(
@@ -312,12 +355,52 @@ RaycastHit raycast(vec3 ray_loc, vec3 ray_dir) {
 				: -1
 			;
 
-			return RaycastHit(true, ray_loc, ray_dir, normalScene(ray_loc), obj_type, obj_index, mat_type, mat_index);
+			return RaycastHit(true, ray_loc, ray_dir, normalObj(ray_loc, obj_type, obj_index), obj_type, obj_index, mat_type, mat_index);
 		}
 	}
 
 	return RaycastHit(false, vec3(0.0), vec3(0.0), vec3(0.0), -1, -1, -1, -1);
 }
+RaycastHit raycast_transmission(vec3 ray_loc, vec3 ray_dir, int obj_type, int obj_index) {
+	vec3 init_loc = ray_loc;
+	ray_loc += ray_dir * hitThreshold * 100.0;
+
+	while (distance(init_loc, ray_loc) < farPlane) {
+		float closest = signDistObj(ray_loc, obj_type, obj_index);
+		for (int j = 0; j < booleans_no; j++) {
+			if (booleans[j].selfObjType == obj_type && booleans[j].selfObjIndex == obj_index) {
+				float distToOther = signDistObj(ray_loc, booleans[j].otherObjType, booleans[j].otherObjIndex);
+				closest = signDistBlendedObj(closest, distToOther, booleans[j].type, booleans[j].blend);
+			}
+		}
+
+		ray_loc += ray_dir * abs(closest);
+
+		if (abs(closest) < hitThreshold) {
+			ray_loc += ray_dir * hitThreshold * 2.0;
+
+			int mat_type =
+				  obj_type == 0 ? spheres[obj_index].material_type
+				: obj_type == 1 ? cubes[obj_index].material_type
+				: obj_type == 2 ? cylinders[obj_index].material_type
+				: obj_type == 3 ? cones[obj_index].material_type
+				: -1
+			;
+			int mat_index =
+				  obj_type == 0 ? spheres[obj_index].material_index
+				: obj_type == 1 ? cubes[obj_index].material_index
+				: obj_type == 2 ? cylinders[obj_index].material_index
+				: obj_type == 3 ? cones[obj_index].material_index
+				: -1
+			;
+
+			return RaycastHit(true, ray_loc, ray_dir, normalObj(ray_loc, obj_type, obj_index), obj_type, obj_index, mat_type, mat_index);
+		}
+	}
+
+	return RaycastHit(false, vec3(0.0), vec3(0.0), vec3(0.0), -1, -1, -1, -1);
+}
+
 RaycastHit raycast_light(vec3 ray_loc, vec3 ray_dir, inout PointLight point_light) {
 	vec3 init_loc = ray_loc;
 	ray_loc += ray_dir * hitThreshold * 100.0;
@@ -344,6 +427,18 @@ RaycastHit reflectRay(inout RaycastHit ray) {
 		ray.hit,
 		ray.location,
 		normalize(reflect(normalize(ray.direction), normalize(ray.normal))),
+		ray.normal,
+		ray.obj_type,
+		ray.obj_index,
+		ray.material_type,
+		ray.material_index
+	);
+}
+RaycastHit refractRay(inout RaycastHit ray, float ior_exit, float ior_enter) {
+	return RaycastHit(
+		ray.hit,
+		ray.location,
+		normalize(refract(normalize(ray.direction), normalize(ray.normal), ior_exit / ior_enter)),
 		ray.normal,
 		ray.obj_type,
 		ray.obj_index,
@@ -409,7 +504,15 @@ vec3 generate_diffuse_ray(vec2 uv, inout RaycastHit hit) {
 }
 vec3 generate_glossy_ray(vec2 uv, inout RaycastHit hit, float roughness) {
 	float rdisp = fract((hit.location.x + hit.location.y + hit.location.z) * 19.62173);
-	return normalize(mix(reflectRay(hit).direction, randomVectorInHemisphere(uv + vec2(rdisp, fract(rdisp * 1.722459)), hit.normal), roughness));
+	vec3 randomRay = randomVectorInHemisphere(uv + vec2(rdisp, fract(rdisp * 1.722459)), hit.normal);
+	vec3 idealRay  = reflectRay(hit).direction;
+	return normalize(mix(idealRay, randomRay, roughness));
+}
+vec3 generate_transmission_ray(vec2 uv, inout RaycastHit hit, float roughness, float ior_exit, float ior_enter) {
+	float rdisp = fract((hit.location.x + hit.location.y + hit.location.z) * 37.43111);
+	vec3 randomRay = randomVectorInHemisphere(uv + vec2(rdisp, fract(rdisp * 5.652919)), hit.normal);
+	vec3 idealRay  = refractRay(hit, ior_exit, ior_enter).direction;
+	return normalize(mix(idealRay, randomRay, roughness));
 }
 
 vec3 lambertian_shading(inout RaycastHit hit, inout PointLight point_light) {
@@ -478,11 +581,7 @@ void main() {
 	vec4 viewSpace = inverse(camera_proj) * clipSpace;
 	viewSpace.xyz /= viewSpace.w;
 	vec4 worldSpace = inverse(camera_view) * viewSpace;
-	//vec4 worldSpace = inverse(camera_view * camera_proj) * vec4(ndcX, ndcY, -1.0, 1.0);
 	worldSpace.xyz /= worldSpace.w;
-
-	//print_mat4(camera_proj);
-	//print_mat4(camera_view);
 
 	vec3 ray_loc = camera_loc;
 	vec3 ray_dir = normalize(worldSpace.xyz - camera_loc);
@@ -494,6 +593,7 @@ void main() {
 
 	const int max_diffuse_bounces = 3;
 	const int max_glossy_bounces  = 3;
+	const int max_transmission_bounces = 1;
 
 	RaycastHit hit = raycast(ray_loc, ray_dir);
 	if (hit.hit == true) {
@@ -501,15 +601,14 @@ void main() {
 		RaycastHit copy_hit = hit;
 		RaycastHit last_hit;
 
+
+
 		// Diffuse rays
 		vec3 diffuse_color = vec3(0.0);
 		int bounces = max_diffuse_bounces;
 		while (bounces > 0) {
 			last_hit = hit;
 
-
-			// Need to make a special raycast_light function that tests hits taking into account light's radius
-			//RaycastHit shadow_hit = raycast_light(ray_loc, ray_dir);
 
 			//vec3 light_contrib = light_color * mix(0.0, light_power, 1.0 - min(1.0, distance(light_loc, hit.ray_loc) / light_radius));
 			for (int i = 0; i < point_lights_no; i++) {
@@ -523,6 +622,7 @@ void main() {
 			bounces--;
 		}
 		diffuse_color /= float(max_diffuse_bounces);
+
 
 
 		// Go back to initial hit
@@ -550,7 +650,66 @@ void main() {
 		glossy_color /= float(max_glossy_bounces);
 
 
-		ray_color = (diffuse_color + glossy_color) / 2.0;
+
+		// Go back to initial hit
+		dist = 0.0;
+		hit = copy_hit;
+
+		// Transmission rays
+		vec3 transmission_color = vec3(0.0);
+		bounces = max_transmission_bounces;
+		while (bounces >= 0) {
+			last_hit = hit;
+
+
+			//vec3 light_contrib = light_color * mix(0.0, light_power, 1.0 - min(1.0, distance(light_loc, hit.ray_loc) / light_radius));
+			for (int i = 0; i < point_lights_no; i++) {
+				transmission_color += pbr_shading(hit, point_lights[i]);
+			}
+			if (bounces == 0) {
+				break;
+			}
+
+			hit = raycast_transmission(
+				hit.location,
+				generate_transmission_ray(
+					uv,
+					hit,
+					principled_bsdfs[hit.material_index].roughness,
+					1.0,
+					principled_bsdfs[hit.material_index].ior
+				),
+				hit.obj_type,
+				hit.obj_index
+			);
+			hit = raycast(
+				hit.location,
+				generate_transmission_ray(
+					uv,
+					hit,
+					principled_bsdfs[hit.material_index].roughness,
+					principled_bsdfs[hit.material_index].ior,
+					1.0
+				)
+			);
+
+
+			dist += distance(hit.location, last_hit.location);
+			bounces--;
+		}
+		transmission_color /= float(max_transmission_bounces);
+
+
+
+		ray_color = mix(
+			mix(
+				glossy_color,
+				diffuse_color,
+				principled_bsdfs[copy_hit.material_index].roughness
+			),
+			transmission_color,
+			principled_bsdfs[copy_hit.material_index].transmission
+		);
 	}
 	ray_color = max(ray_color, 0.0);
 
