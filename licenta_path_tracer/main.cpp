@@ -349,7 +349,7 @@ int main(int argc, char* argv[]) {
 	materials.emplace_back(new MPrincipledBSDF(
 		Color::white * 0.8f,
 		0.0f,
-		0.78f
+		0.18f
 	));
 	materials.emplace_back(new MPrincipledBSDF(
 		Color({ 0.9f, 0.2f, 0.1f }),
@@ -362,12 +362,9 @@ int main(int argc, char* argv[]) {
 		0.78f
 	));
 	materials.emplace_back(new MPrincipledBSDF(
-		Color::white * 0.8f,
-		0.0f,
-		0.08f,
-		3.0f,
-		0.5f,
-		1.0f
+		Color::white * 0.4f,
+		1.0f,
+		0.18f
 	));
 	
 
