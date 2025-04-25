@@ -215,6 +215,8 @@ namespace rmo {
 		float reflectance;
 		float transmission;
 
+		glm::vec4 emissive;
+
 
 		MPrincipledBSDF& operator=(const ::MPrincipledBSDF &mprincipled_bsdf) {
 			this->albedo = mprincipled_bsdf.albedo_get();
@@ -225,6 +227,8 @@ namespace rmo {
 			this->reflectance = mprincipled_bsdf.reflectance_get();
 
 			this->transmission = mprincipled_bsdf.transmission_get();
+
+			this->emissive = mprincipled_bsdf.emissive_get();
 
 			return *this;
 		}

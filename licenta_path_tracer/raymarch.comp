@@ -749,6 +749,111 @@ vec3 path_trace_glossy(in vec2 uv, in RaycastHit hit, in int max_bounces) {
 	return radiance;
 }
 
+vec3 path_trace(in vec2 uv, in RaycastHit first_hit, in int max_bounces) {
+    vec3 throughput = vec3(1.0);
+    vec3 radiance = vec3(0.0);
+    
+	RaycastHit hit = first_hit;
+    for (int bounce = 0; bounce < max_bounces; bounce++) {
+        if (hit.hit) {
+			PrincipledBSDF material = principled_bsdfs[hit.material_index];
+
+			vec3 V = -hit.direction;
+			vec3 N = hit.normal;
+            if (dot(V, N) < 0.0) {
+                N = -N;
+			}
+
+			vec3 F0 = mix(vec3(0.04), material.albedo, material.metallic);
+			float NdotV = max(dot(N, V), 0.0);
+            vec3 F = fresnelSchlick(NdotV, F0);
+
+
+
+            if ((material.emissive.x + material.emissive.y + material.emissive.z) * material.emissive.w > 0.001) {
+                radiance += throughput * vec3(material.emissive) * material.emissive.w;
+            }
+
+			for (uint i = 0; i < point_lights_no; i++) {
+				vec3 L = point_lights[i].location - hit.location;
+				float lightDist = length(L);
+				L = normalize(L);
+				
+				RaycastHit shadow_hit = raycast(hit.location, L);
+				if (shadow_hit.hit == false || shadow_hit.hit && distance(hit.location, shadow_hit.location) > lightDist) {
+				    float cosNL = max(dot(hit.normal, L), 0.0);
+
+				    float lightAtt = 1.0 / (lightDist * lightDist);
+				    
+				    vec3 kS = F;
+				    vec3 kD = vec3(1.0) - kS;
+				    kD *= (1.0 - material.metallic);
+				    
+				    vec3 diffuse = lambertianBRDF(material.albedo);
+				    vec3 specular = cookTorranceBRDF(hit.normal, V, L, material.roughness, F0);
+				    vec3 fullBRDF = kD * diffuse + specular;
+				    
+				    vec3 lightRad = point_lights[i].color * point_lights[i].intensity;
+				    
+				    radiance += throughput * fullBRDF * lightRad * cosNL * lightAtt;
+				}
+			}
+
+
+
+            float specProb = clamp((F.x + F.y + F.z) / 3.0, 0.0, 1.0);
+            
+            vec3 newDir;
+            float pdf;
+            vec3 brdfValue;
+            
+            float rChoice = random(uv + fract(hit.location.zx) + vec2(0.541233, 0.991198));
+            if (rChoice < specProb) {
+                float u1 = random(uv + fract(hit.location.xy) + vec2(0.431441, 0.69992111));
+				float u2 = random(uv + fract(hit.location.yz) + vec2(0.765221, 0.86754333));
+
+                newDir = sampleGGXDirection(N, V, material.roughness, u1, u2);
+                vec3 H = normalize(V + newDir);
+
+                pdf = pdfGGX(N, H, V, material.roughness);
+                brdfValue = cookTorranceBRDF(N, V, newDir, material.roughness, F0);
+            } else {
+                float u1 = random(uv + fract(hit.location.zx) + vec2(0.6524222, 0.685732));
+				float u2 = random(uv + fract(hit.location.yx) + vec2(0.5411499, 0.317767));
+
+                newDir = sampleCosineWeightedDirection(N, u1, u2);
+
+                pdf = pdfDiffuse(N, newDir);
+                brdfValue = lambertianBRDF(material.albedo);
+            }
+            
+            float cosine = max(dot(N, newDir), 0.0);
+            throughput *= (brdfValue * cosine) / max(pdf, 0.0001);
+            
+            // Russian roulette
+            if (bounce > 2) {
+                float survivalProb = max(throughput.r, max(throughput.g, throughput.b));
+				float rProb = random(uv + fract(hit.location.xz) + vec2(0.431551, 0.1234889));
+                if (rProb > survivalProb) {
+                    break;
+				}
+                throughput /= survivalProb;
+            }
+            
+			hit = raycast(hit.location, newDir);
+        }
+		else {
+            vec3 unitDir = normalize(hit.direction);
+            float t = 0.5 * (unitDir.y + 1.0);
+            vec3 envColor = mix(vec3(1.0), vec3(0.5, 0.7, 1.0), t);
+            radiance += throughput * envColor;
+            break;
+        }
+    }
+
+    return radiance;
+}
+
 
 
 void main() {
@@ -781,10 +886,13 @@ void main() {
 
 
 
+	const int max_bounces = 8;
 	const int max_diffuse_bounces = 4;
 	const int max_glossy_bounces  = 4;
 
 	RaycastHit hit = raycast(ray_loc, ray_dir);
+	ray_color = path_trace(uv, hit, max_bounces);
+	/*
 	if (hit.hit == true) {
 		ray_color  = path_trace_diffuse(uv, hit, max_diffuse_bounces);
 		ray_color *= path_trace_glossy(uv, hit, max_glossy_bounces);
@@ -797,6 +905,7 @@ void main() {
 
 		//ray_color /= global_light_intensity / 8.0;
 	}
+	*/
 	ray_color = max(ray_color, 0.0);
 
 

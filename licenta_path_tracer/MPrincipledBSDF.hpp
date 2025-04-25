@@ -16,6 +16,8 @@ protected:
 	float reflectance;
 	float transmission;
 
+	Color emissive;
+
 public:
 	MPrincipledBSDF(
 		Color albedo = Color::white,
@@ -23,7 +25,8 @@ public:
 		float roughness = 0.48f,
 		float ior = 1.45f,
 		float reflectance = 0.5f,
-		float transmission = 0.0f
+		float transmission = 0.0f,
+		Color emissive = Color::zero
 	);
 	~MPrincipledBSDF() override;
 
@@ -35,4 +38,6 @@ public:
 
 	getset(reflectance)
 	getset(transmission)
+
+	getset(emissive)
 };

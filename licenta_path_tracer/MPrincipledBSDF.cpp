@@ -9,7 +9,8 @@ MPrincipledBSDF::MPrincipledBSDF(
 	float roughness,
 	float ior,
 	float reflectance,
-	float transmission
+	float transmission,
+	Color emissive
 ) :
 	Material(0, MPrincipledBSDF::mp_bsdf_index++),
 	albedo(albedo),
@@ -17,7 +18,8 @@ MPrincipledBSDF::MPrincipledBSDF(
 	roughness(roughness),
 	ior(ior),
 	reflectance(reflectance),
-	transmission(transmission)
+	transmission(transmission),
+	emissive(emissive)
 {
 }
 

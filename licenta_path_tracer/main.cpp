@@ -506,14 +506,14 @@ int main(int argc, char* argv[]) {
 			{ -20.0f, 55.0f, 0.0f }
 		},
 		Color::white,
-		40.0f
+		120.0f
 	));
 	lights.emplace_back(new PointLight(
 		{
 			{ 20.0f, 55.0f, 0.0f }
 		},
-		Color::white,
-		40.0f
+		Color({ 0.5, 0.9, 0.7 }),
+		150.0f
 	));
 
 	#pragma endregion
@@ -1000,7 +1000,7 @@ int main(int argc, char* argv[]) {
 
 
 				// Denoise
-				constexpr uint denoisingPasses = 4;
+				constexpr uint denoisingPasses = 1;
 
 				glUseProgram(denoiser_program);
 

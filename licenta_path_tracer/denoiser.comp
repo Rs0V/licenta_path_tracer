@@ -36,7 +36,7 @@ void main() {
     vec3 pixel = imageLoad(img_input, pixel_coords).xyz / samples;
     vec3 gcorrected_pixel = gammaCorrect(pixel, 2.2);
 
-	imageStore(img_output, pixel_coords, vec4(pixel, 1.0));
+	imageStore(img_output, pixel_coords, vec4(gcorrected_pixel, 1.0));
 
 
 
