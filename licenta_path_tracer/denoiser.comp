@@ -25,11 +25,21 @@ uniform bool blur = true;
 uniform int samples;
 
 
+
+vec3 gammaCorrect(vec3 color, float gamma) {
+    return pow(color, vec3(1.0 / gamma));
+}
+
 void main() {
 	ivec2 pixel_coords = ivec2(gl_GlobalInvocationID.xy) + ivec2(tile_offset);
 
-	imageStore(img_output, pixel_coords, vec4(imageLoad(img_input, pixel_coords).xyz / samples, 1.0));
-	
+    vec3 pixel = imageLoad(img_input, pixel_coords).xyz / samples;
+    vec3 gcorrected_pixel = gammaCorrect(pixel, 2.2);
+
+	imageStore(img_output, pixel_coords, vec4(gcorrected_pixel, 1.0));
+
+
+
 	/*
 	uint sampleRadius = 1;
 	vec3 median = vec3(0.0);

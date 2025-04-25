@@ -560,6 +560,14 @@ vec3 pbr_shading(inout RaycastHit hit, inout PointLight point_light) {
 }
 
 
+vec3 reflect_lambert(vec2 uv, inout RaycastHit ray) {
+	float theta = pi * 2 * random(uv + vec2(0.81321, 0.543199));
+	float u     = 2.0 * random(uv + vec2(0.3214666, 0.987522)) - 1.0;
+	float r     = sqrt(1.0 - u * u);
+	return normalize(ray.normal + vec3(r * cos(theta), r * sin(theta), u));
+}
+
+
 
 void main() {
 	ivec2 pixel_coords = ivec2(gl_GlobalInvocationID.xy) + ivec2(tile_offset);
@@ -590,128 +598,62 @@ void main() {
 	//imageStore(img_output, pixel_coords, vec4(abs(ray_dir.x) * (ray_dir.x > 0.0 ? red : neg(red)), 1.0));
 
 
-
 	const int max_diffuse_bounces = 3;
-	const int max_glossy_bounces  = 3;
-	const int max_transmission_bounces = 1;
+	const int max_glossy_bounces = 3;
 
 	RaycastHit hit = raycast(ray_loc, ray_dir);
 	if (hit.hit == true) {
-		float dist = 0.0;
 		RaycastHit copy_hit = hit;
-		RaycastHit last_hit;
+		vec3 radiance;
+		int bounces;
 
-
-
-		// Diffuse rays
-		vec3 diffuse_color = vec3(0.0);
-		int bounces = max_diffuse_bounces;
-		while (bounces > 0) {
-			last_hit = hit;
-
-
-			//vec3 light_contrib = light_color * mix(0.0, light_power, 1.0 - min(1.0, distance(light_loc, hit.ray_loc) / light_radius));
-			for (int i = 0; i < point_lights_no; i++) {
-				diffuse_color += pbr_shading(hit, point_lights[i]);
-			}
-
-			hit = raycast(hit.location, generate_diffuse_ray(uv, hit));
-
-
-			dist += distance(hit.location, last_hit.location);
-			bounces--;
-		}
-		diffuse_color /= float(max_diffuse_bounces);
-
-
-
-		// Go back to initial hit
-		dist = 0.0;
+		// Diffuse Rays
+		bounces = max_diffuse_bounces;
+		radiance = vec3(0.0);
 		hit = copy_hit;
-
-		// Glossy rays
-		vec3 glossy_color = vec3(0.0);
-		bounces = max_glossy_bounces;
-		while (bounces > 0) {
-			last_hit = hit;
-
-
-			//vec3 light_contrib = light_color * mix(0.0, light_power, 1.0 - min(1.0, distance(light_loc, hit.ray_loc) / light_radius));
-			for (int i = 0; i < point_lights_no; i++) {
-				glossy_color += pbr_shading(hit, point_lights[i]);
-			}
-
-			hit = raycast(hit.location, generate_glossy_ray(uv, hit, principled_bsdfs[hit.material_index].roughness));
-
-
-			dist += distance(hit.location, last_hit.location);
-			bounces--;
-		}
-		glossy_color /= float(max_glossy_bounces);
-
-
-
-		// Go back to initial hit
-		dist = 0.0;
-		hit = copy_hit;
-
-		// Transmission rays
-		vec3 transmission_color = vec3(0.0);
-		bounces = max_transmission_bounces;
-		while (bounces >= 0) {
-			last_hit = hit;
-
-
-			//vec3 light_contrib = light_color * mix(0.0, light_power, 1.0 - min(1.0, distance(light_loc, hit.ray_loc) / light_radius));
-			for (int i = 0; i < point_lights_no; i++) {
-				transmission_color += pbr_shading(hit, point_lights[i]);
-			}
-			if (bounces == 0) {
+		while(bounces > 0) {
+			if (hit.hit == false) {
 				break;
 			}
 
-			hit = raycast_transmission(
-				hit.location,
-				generate_transmission_ray(
-					uv,
-					hit,
-					principled_bsdfs[hit.material_index].roughness,
-					1.0,
-					principled_bsdfs[hit.material_index].ior
-				),
-				hit.obj_type,
-				hit.obj_index
-			);
-			hit = raycast(
-				hit.location,
-				generate_transmission_ray(
-					uv,
-					hit,
-					principled_bsdfs[hit.material_index].roughness,
-					principled_bsdfs[hit.material_index].ior,
-					1.0
-				)
-			);
+			for(uint i = 0; i < point_lights_no; i++) {
+				//RaycastHit shadow_ray = raycast(hit.location, normalize(point_lights[i].location - hit.location));
+				//float shadow_factor = shadow_ray.hit ? 0.0 : 1.0;
+				//radiance += principled_bsdfs[hit.material_index].albedo * pow(vec3(point_lights[i].intensity), point_lights[i].color) * shadow_factor;
+				radiance += cook_torrance_brdf(hit, point_lights[i]);
+			}
+			hit = raycast(hit.location, reflect_lambert(uv, hit));
 
-
-			dist += distance(hit.location, last_hit.location);
 			bounces--;
 		}
-		transmission_color /= float(max_transmission_bounces);
+		ray_color = radiance;
 
+		// Glossy Rays
+		bounces = max_glossy_bounces;
+		radiance = vec3(0.0);
+		hit = copy_hit;
+		while(bounces > 0) {
+			if (hit.hit == false) {
+				break;
+			}
 
+			for(uint i = 0; i < point_lights_no; i++) {
+				//RaycastHit shadow_ray = raycast(hit.location, normalize(point_lights[i].location - hit.location));
+				//float shadow_factor = shadow_ray.hit ? 0.0 : 1.0;
+				//radiance += principled_bsdfs[hit.material_index].albedo * pow(vec3(point_lights[i].intensity), point_lights[i].color) * shadow_factor;
+				radiance += cook_torrance_brdf(hit, point_lights[i]);
+			}
+			vec3 random_dir  = reflect_lambert(uv, hit);
+			vec3 perfect_dir = reflectRay(hit).direction;
+			hit = raycast(hit.location, normalize(mix(perfect_dir, random_dir, principled_bsdfs[hit.material_index].roughness)));
 
-		ray_color = mix(
-			mix(
-				glossy_color,
-				diffuse_color,
-				principled_bsdfs[copy_hit.material_index].roughness
-			),
-			transmission_color,
-			principled_bsdfs[copy_hit.material_index].transmission
-		);
+			bounces--;
+		}
+
+		ray_color = mix(radiance, ray_color, principled_bsdfs[hit.material_index].roughness);
 	}
 	ray_color = max(ray_color, 0.0);
+	ray_color /= 50.0;
 
 
 

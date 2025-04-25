@@ -349,23 +349,23 @@ int main(int argc, char* argv[]) {
 	materials.emplace_back(new MPrincipledBSDF(
 		Color::white * 0.8f,
 		0.0f,
-		0.28f
+		0.78f
 	));
 	materials.emplace_back(new MPrincipledBSDF(
 		Color({ 0.9f, 0.2f, 0.1f }),
 		0.0f,
-		0.68f
+		0.78f
 	));
 	materials.emplace_back(new MPrincipledBSDF(
 		Color({ 0.3f, 0.9f, 0.1f }),
 		0.0f,
-		0.68f
+		0.78f
 	));
 	materials.emplace_back(new MPrincipledBSDF(
 		Color::white * 0.8f,
 		0.0f,
-		0.18f,
-		1.45f,
+		0.08f,
+		3.0f,
 		0.5f,
 		1.0f
 	));
@@ -560,7 +560,7 @@ int main(int argc, char* argv[]) {
 
 
 	// Setup Ray-Sampling
-	constexpr uint max_samples = 32;
+	constexpr uint max_samples = 64;
 	int samples = max_samples;
 
 	constexpr uint tile_size = 128;
@@ -1003,7 +1003,7 @@ int main(int argc, char* argv[]) {
 
 
 				// Denoise
-				constexpr uint denoisingPasses = 1;
+				constexpr uint denoisingPasses = 4;
 
 				glUseProgram(denoiser_program);
 
