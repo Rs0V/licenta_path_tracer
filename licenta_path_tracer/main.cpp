@@ -347,9 +347,9 @@ int main(int argc, char* argv[]) {
 	#pragma region Create Materials
 
 	materials.emplace_back(new MPrincipledBSDF(
-		Color::white * 0.8f,
+		Color::white,
 		0.0f,
-		0.18f
+		0.04f
 	));
 	materials.emplace_back(new MPrincipledBSDF(
 		Color({ 0.9f, 0.2f, 0.1f }),
@@ -362,9 +362,12 @@ int main(int argc, char* argv[]) {
 		0.78f
 	));
 	materials.emplace_back(new MPrincipledBSDF(
-		Color::white * 0.4f,
-		1.0f,
-		0.18f
+		Color::white,
+		0.0f,
+		0.04f,
+		1.5f,
+		0.5f,
+		1.0f
 	));
 	
 
@@ -512,8 +515,8 @@ int main(int argc, char* argv[]) {
 		{
 			{ 20.0f, 55.0f, 0.0f }
 		},
-		Color({ 0.5, 0.9, 0.7 }),
-		150.0f
+		Color::white,
+		120.0f
 	));
 
 	#pragma endregion

@@ -276,5 +276,7 @@
     <None Include="obj_select.comp">
       <Filter>Shader Files</Filter>
     </None>
+    <None Include="test.comp" />
+    <None Include="test1.comp" />
   </ItemGroup>
 </Project>

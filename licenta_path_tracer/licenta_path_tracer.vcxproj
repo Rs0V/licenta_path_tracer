@@ -219,6 +219,8 @@
     <None Include="rtarget.frag" />
     <None Include="rtarget.vert" />
     <None Include="shader_debug.comp" />
+    <None Include="test.comp" />
+    <None Include="test1.comp" />
     <None Include="utils.comp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

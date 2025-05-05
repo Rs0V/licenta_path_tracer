@@ -1,9 +1,455 @@
 #version 450 core
 #extension GL_ARB_shading_language_include : require
 #include "/basic_shapes.comp" //! #include "./basic_shapes.comp"
-#include "/materials.comp" //! #include "./materials.comp"
-#include "/lights.comp" //! #include "./lights.comp"
-#include "/shader_debug.comp" //! #include "./shader_debug.comp"
+vec3 rgb2hsv(vec3 color) {
+    vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
+    vec4 p = mix(vec4(color.bg, K.wz), vec4(color.gb, K.xy), step(color.b, color.g));
+    vec4 q = mix(vec4(p.xyw, color.r), vec4(color.r, p.yzx), step(p.x, color.r));
+
+    float d = q.x - min(q.w, q.y);
+    float e = 1.0e-10;
+    return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
+}
+vec3 hsv2rgb(vec3 color) {
+    vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
+    vec3 p = abs(fract(color.xxx + K.xyz) * 6.0 - K.www);
+    return color.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), color.y);
+}
+
+vec3 hueShift(vec3 color, float hue) {
+    vec3 hsv = rgb2hsv(color);
+    hsv.x = mod(hsv.x + hue / 360.0, 1.0);
+    return hsv2rgb(hsv);
+}
+vec3 saturationMul(vec3 color, float factor) {
+    vec3 hsv = rgb2hsv(color);
+    hsv.y *= factor;
+    return hsv2rgb(hsv);
+}
+vec3 valueMul(vec3 color, float factor) {
+    vec3 hsv = rgb2hsv(color);
+    hsv.z *= factor;
+    return hsv2rgb(hsv);
+}
+
+
+vec3 tangent(vec3 v) {
+	vec3 arbx = vec3(1.0, 0.0, 0.0);
+	vec3 arby = vec3(0.0, 1.0, 0.0);
+	vec3 arbz = vec3(0.0, 0.0, 1.0);
+
+	vec3 arbitrary = v.x < v.y ? (v.x < v.z ? arbx : arbz) : v.y < v.z ? arby : arbz;
+	return normalize(cross(v, arbitrary));
+}
+
+float angle(vec3 a, vec3 b) {
+	return acos(dot(a, b) / (length(a) * length(b)));
+}
+
+
+float random(float value) {
+	return fract(sqrt(value * 129.898) + 100.001 / 7.69 * 43758.5453);
+}
+vec3 rotateVector(vec3 v, vec3 axis, float angle) {
+	// Rodrigues' rotation formula
+	return mix(dot(axis, v) * axis, v, cos(angle)) + cross(axis, v) * sin(angle);
+}
+vec3 diffuseVector(vec3 v, vec3 normal, float maxAngle) {
+	float randomAngleX = random(dot(v, normal) * maxAngle + 12.68) * maxAngle - maxAngle / 2.0;
+	float randomAngleY = random(dot(v, normal) * maxAngle + 41.01) * maxAngle - maxAngle / 2.0;
+	float randomAngleZ = random(dot(v, normal) * maxAngle + 65.32) * maxAngle - maxAngle / 2.0;
+
+	vec3 tg = tangent(normal);
+
+	vec3 rotZ = rotateVector(v, normal, randomAngleZ);
+	vec3 rotY = rotateVector(rotZ, tg, randomAngleY);
+	vec3 rotX = rotateVector(rotY, normalize(cross(normal, tg)), randomAngleX);
+
+	return normalize(mix(normal, rotX, 0.66));
+}
+
+mat2 rot2D(float angle) {
+	float s = sin(angle);
+	float c = cos(angle);
+	return mat2(c, -s, s, c);
+}
+
+
+uint packColor(vec4 color) {
+	return uint(color.r * 255.0) << 24 |
+		   uint(color.g * 255.0) << 16 |
+		   uint(color.b * 255.0) <<  8 |
+		   uint(color.a * 255.0);
+}
+vec4 unpackColor(uint packedColor) {
+	return vec4(
+		float((packedColor >> 24) & 0xFF) / 255.0,
+		float((packedColor >> 16) & 0xFF) / 255.0,
+		float((packedColor >>  8) & 0xFF) / 255.0,
+		float( packedColor        & 0xFF) / 255.0
+	);
+}
+
+
+#define m_mulAdd(type) type mulAdd(type a, type base) { \
+	return fma(a, base, a); \
+}
+m_mulAdd(float)
+m_mulAdd(double)
+m_mulAdd(vec2)
+m_mulAdd(vec3)
+m_mulAdd(vec4)
+
+
+#define m_swap(type) void swap(inout type a, inout type b) { \
+    type temp = a; \
+    a = b; \
+    b = temp; \
+}
+m_swap(int)
+m_swap(uint)
+m_swap(float)
+m_swap(double)
+m_swap(vec2)
+m_swap(vec3)
+m_swap(vec4)
+
+
+
+const float pi = 3.14159;
+const float rpi = 0.31831;
+
+
+float signDistRingCylinder(vec3 ray_loc, vec3 cylinder_loc, float cylinder_radius, float cylinder_height) {
+	vec3 p = ray_loc - cylinder_loc;
+	vec2 d = abs(vec2(length(p.xy) - cylinder_radius, p.z)) - vec2(cylinder_height / 2.0);
+	return min(max(d.x, d.y), 0.0) + length(max(d, 0.0));
+}
+vec3 normalRingCylinder(vec3 ray_loc, vec3 cylinder_loc, float cylinder_radius, float cylinder_height) {
+	if (abs(ray_loc.z - cylinder_loc.z) - cylinder_height / 2.0 < 0.001) {
+		return vec3(0.0, 0.0, (ray_loc.z > cylinder_loc.z) ? 1.0 : -1.0);
+	}
+	return normalize(vec3((ray_loc - cylinder_loc).xy, 0.0));
+}
+
+float smoothMin(float a, float b, float k) {
+	float h = max(k - abs(a - b), 0) / k;
+	return min(a, b) - pow(h, 3) * k / 6.0;
+}
+float smoothUnion(float a, float b, float k) {
+	float h = clamp(0.5 + (b - a) / 2 / k, 0.0, 1.0);
+	return mix(b, a, h) - k * h * (1.0 - h);
+}
+float smoothIntersect(float a, float b, float k) {
+	float h = clamp(0.5 - (b - a) / 2 / k, 0.0, 1.0);
+	return mix(b, a, h) + k * h * (1.0 - h);
+}
+float smoothDifference(float a, float b, float k) {
+	swap(a, b);
+	float h = clamp(0.5 - (b + a) / 2 / k, 0.0, 1.0);
+	return mix(b, -a, h) + k * h * (1.0 - h);
+}
+
+
+
+struct Sphere {
+	vec3 location;
+	int visible;
+
+	vec3 rotation;
+	int affectWorld;
+
+	vec3 scale;
+	float radius;
+
+	int type;
+	int index;
+	int material_type;
+	int material_index;
+};
+float signDistSphere(vec3 ray_loc, vec3 sphere_loc, float sphere_radius) {
+	return distance(sphere_loc, ray_loc) - sphere_radius;
+}
+float signDistSphere(vec3 ray_loc, inout Sphere sphere) {
+	vec3 trp = ray_loc; // transformed ray_loc
+	trp    -= sphere.location;
+	trp.yz *= rot2D(radians(sphere.rotation.x));
+	trp.xz *= rot2D(radians(sphere.rotation.y));
+	trp.xy *= rot2D(radians(sphere.rotation.z));
+	trp    /= sphere.scale;
+
+	return length(trp) - sphere.radius;
+}
+vec3 normalSphere(vec3 ray_loc, vec3 sphere_loc, float sphere_radius) {
+    float epsilon = 0.0001;
+    vec3 dx = vec3(epsilon, 0.0, 0.0);
+    vec3 dy = vec3(0.0, epsilon, 0.0);
+    vec3 dz = vec3(0.0, 0.0, epsilon);
+
+    float d  = signDistSphere(ray_loc     , sphere_loc, sphere_radius);
+    float nx = signDistSphere(ray_loc + dx, sphere_loc, sphere_radius) - d;
+    float ny = signDistSphere(ray_loc + dy, sphere_loc, sphere_radius) - d;
+    float nz = signDistSphere(ray_loc + dz, sphere_loc, sphere_radius) - d;
+
+    return normalize(vec3(nx, ny, nz));
+}
+vec3 normalSphere(vec3 ray_loc, inout Sphere sphere) {
+    float epsilon = 0.0001;
+    vec3 dx = vec3(epsilon, 0.0, 0.0);
+    vec3 dy = vec3(0.0, epsilon, 0.0);
+    vec3 dz = vec3(0.0, 0.0, epsilon);
+
+    float d  = signDistSphere(ray_loc     , sphere.location, sphere.radius);
+    float nx = signDistSphere(ray_loc + dx, sphere.location, sphere.radius) - d;
+    float ny = signDistSphere(ray_loc + dy, sphere.location, sphere.radius) - d;
+    float nz = signDistSphere(ray_loc + dz, sphere.location, sphere.radius) - d;
+
+    return normalize(vec3(nx, ny, nz));
+}
+
+
+struct Cube {
+	vec3 location;
+	int visible;
+
+	vec3 rotation;
+	int affectWorld;
+
+	vec3 scale;
+	int material_type;
+
+	vec3 dimensions;
+	int material_index;
+
+	int type;
+	int index;
+};
+float signDistCube(vec3 ray_loc, vec3 cube_loc, vec3 dims) {
+	vec3 q = abs(ray_loc - cube_loc) - dims / 2.0;
+	return length(max(q, 0.0)) + min(max(q.x, max(q.y, q.z)), 0.0);
+}
+float signDistCube(vec3 ray_loc, inout Cube cube) {
+	vec3 trp = ray_loc; // transformed ray_loc
+	trp    -= cube.location;
+	trp.yz *= rot2D(radians(cube.rotation.x));
+	trp.xz *= rot2D(radians(cube.rotation.y));
+	trp.xy *= rot2D(radians(cube.rotation.z));
+	trp    /= cube.scale;
+
+	vec3 q = abs(trp) - cube.dimensions / 2.0;
+	return length(max(q, 0.0)) + min(max(q.x, max(q.y, q.z)), 0.0);
+}
+vec3 normalCube(vec3 ray_loc, vec3 cube_loc, vec3 dims) {
+    float epsilon = 0.0001;
+    vec3 dx = vec3(epsilon, 0.0, 0.0);
+    vec3 dy = vec3(0.0, epsilon, 0.0);
+    vec3 dz = vec3(0.0, 0.0, epsilon);
+
+    float d  = signDistCube(ray_loc     , cube_loc, dims);
+    float nx = signDistCube(ray_loc + dx, cube_loc, dims) - d;
+    float ny = signDistCube(ray_loc + dy, cube_loc, dims) - d;
+    float nz = signDistCube(ray_loc + dz, cube_loc, dims) - d;
+
+    return normalize(vec3(nx, ny, nz));
+}
+vec3 normalCube(vec3 ray_loc, inout Cube cube) {
+    float epsilon = 0.0001;
+    vec3 dx = vec3(epsilon, 0.0, 0.0);
+    vec3 dy = vec3(0.0, epsilon, 0.0);
+    vec3 dz = vec3(0.0, 0.0, epsilon);
+
+    float d  = signDistCube(ray_loc     , cube.location, cube.dimensions);
+    float nx = signDistCube(ray_loc + dx, cube.location, cube.dimensions) - d;
+    float ny = signDistCube(ray_loc + dy, cube.location, cube.dimensions) - d;
+    float nz = signDistCube(ray_loc + dz, cube.location, cube.dimensions) - d;
+
+    return normalize(vec3(nx, ny, nz));
+}
+
+
+struct Cylinder {
+	vec3 location;
+	float radius;
+
+	vec3 rotation;
+	float height;
+
+	vec3 scale;
+	int visible;
+
+	int affectWorld;
+	int type;
+	int index;
+	int material_type;
+
+	int material_index;
+};
+float signDistCylinder(vec3 ray_loc, vec3 cylinder_loc, float cylinder_radius, float cylinder_height) {
+	vec2 d = abs(vec2(length(ray_loc.xz - cylinder_loc.xz), ray_loc.y - cylinder_loc.y)) - vec2(cylinder_radius, cylinder_height / 2.0);
+	return min(max(d.x, d.y), 0.0) + length(max(d, 0.0));
+}
+float signDistCylinder(vec3 ray_loc, inout Cylinder cylinder) {
+	vec3 trp = ray_loc; // transformed ray_loc
+	trp    -= cylinder.location;
+	trp.yz *= rot2D(radians(cylinder.rotation.x));
+	trp.xz *= rot2D(radians(cylinder.rotation.y));
+	trp.xy *= rot2D(radians(cylinder.rotation.z));
+	trp    /= cylinder.scale;
+
+	vec2 d = abs(vec2(length(trp.xz), trp.y)) - vec2(cylinder.radius, cylinder.height / 2.0);
+	return min(max(d.x, d.y), 0.0) + length(max(d, 0.0));
+}
+vec3 normalCylinder(vec3 ray_loc, vec3 cylinder_loc, float cylinder_radius, float cylinder_height) {
+    float epsilon = 0.0001;
+    vec3 dx = vec3(epsilon, 0.0, 0.0);
+    vec3 dy = vec3(0.0, epsilon, 0.0);
+    vec3 dz = vec3(0.0, 0.0, epsilon);
+
+    float d  = signDistCylinder(ray_loc     , cylinder_loc, cylinder_radius, cylinder_height);
+    float nx = signDistCylinder(ray_loc + dx, cylinder_loc, cylinder_radius, cylinder_height) - d;
+    float ny = signDistCylinder(ray_loc + dy, cylinder_loc, cylinder_radius, cylinder_height) - d;
+    float nz = signDistCylinder(ray_loc + dz, cylinder_loc, cylinder_radius, cylinder_height) - d;
+
+    return normalize(vec3(nx, ny, nz));
+}
+vec3 normalCylinder(vec3 ray_loc, inout Cylinder cylinder) {
+    float epsilon = 0.0001;
+    vec3 dx = vec3(epsilon, 0.0, 0.0);
+    vec3 dy = vec3(0.0, epsilon, 0.0);
+    vec3 dz = vec3(0.0, 0.0, epsilon);
+
+    float d  = signDistCylinder(ray_loc     , cylinder.location, cylinder.radius, cylinder.height);
+    float nx = signDistCylinder(ray_loc + dx, cylinder.location, cylinder.radius, cylinder.height) - d;
+    float ny = signDistCylinder(ray_loc + dy, cylinder.location, cylinder.radius, cylinder.height) - d;
+    float nz = signDistCylinder(ray_loc + dz, cylinder.location, cylinder.radius, cylinder.height) - d;
+
+    return normalize(vec3(nx, ny, nz));
+}
+
+
+struct Cone {
+	vec3 location;
+	float radius;
+
+	vec3 rotation;
+	float height;
+
+	vec3 scale;
+	int visible;
+
+	int affectWorld;
+	int type;
+	int index;
+	int material_type;
+
+	int material_index;
+};
+float signDistCone(vec3 ray_loc, vec3 cone_loc, float cone_radius, float cone_height) {
+	// c is the sin/cos of the angle, h is height
+	// Alternatively pass q instead of (c,h),
+	// which is the point at the base inout 2D
+	float angle = atan(cone_radius / 2.0 / cone_height) * 2.0;
+	vec2 c = vec2(sin(angle), cos(angle));
+
+	vec2 q = cone_height * vec2(c.x / c.y, -1.0);
+	vec2 w = vec2(length(ray_loc.xz - cone_loc.xz), ray_loc.y - cone_loc.y);
+	vec2 a = w - q * clamp(dot(w, q) / dot(q, q), 0.0, 1.0);
+	vec2 b = w - q * vec2(clamp(w.x / q.x, 0.0, 1.0), 1.0);
+	float k = sign(q.y);
+	float d = min(dot(a, a), dot(b, b));
+	float s = max(k * (w.x * q.y - w.y * q.x), k * (w.y - q.y));
+	return sqrt(d) * sign(s);
+}
+float signDistCone(vec3 ray_loc, inout Cone cone) {
+	// c is the sin/cos of the angle, h is height
+	// Alternatively pass q instead of (c,h),
+	// which is the point at the base inout 2D
+
+	vec3 trp = ray_loc; // transformed ray_loc
+	trp    -= cone.location;
+	trp.yz *= rot2D(radians(cone.rotation.x));
+	trp.xz *= rot2D(radians(cone.rotation.y));
+	trp.xy *= rot2D(radians(cone.rotation.z));
+	trp    /= cone.scale;
+
+	float angle = atan(cone.radius / 2.0 / cone.height) * 2.0;
+	vec2 c = vec2(sin(angle), cos(angle));
+
+	vec2 q = cone.height * vec2(c.x / c.y, -1.0);
+	vec2 w = vec2(length(trp.xz), trp.y);
+	vec2 a = w - q * clamp(dot(w, q) / dot(q, q), 0.0, 1.0);
+	vec2 b = w - q * vec2(clamp(w.x / q.x, 0.0, 1.0), 1.0);
+	float k = sign(q.y);
+	float d = min(dot(a, a), dot(b, b));
+	float s = max(k * (w.x * q.y - w.y * q.x), k * (w.y - q.y));
+	return sqrt(d) * sign(s);
+}
+vec3 normalCone(vec3 ray_loc, vec3 cone_loc, float cone_radius, float cone_height) {
+    float epsilon = 0.0001;
+    vec3 dx = vec3(epsilon, 0.0, 0.0);
+    vec3 dy = vec3(0.0, epsilon, 0.0);
+    vec3 dz = vec3(0.0, 0.0, epsilon);
+
+    float d  = signDistCone(ray_loc     , cone_loc, cone_radius, cone_height);
+    float nx = signDistCone(ray_loc + dx, cone_loc, cone_radius, cone_height) - d;
+    float ny = signDistCone(ray_loc + dy, cone_loc, cone_radius, cone_height) - d;
+    float nz = signDistCone(ray_loc + dz, cone_loc, cone_radius, cone_height) - d;
+
+    return normalize(vec3(nx, ny, nz));
+}
+vec3 normalCone(vec3 ray_loc, inout Cone cone) {
+    float epsilon = 0.0001;
+    vec3 dx = vec3(epsilon, 0.0, 0.0);
+    vec3 dy = vec3(0.0, epsilon, 0.0);
+    vec3 dz = vec3(0.0, 0.0, epsilon);
+
+    float d  = signDistCone(ray_loc     , cone.location, cone.radius, cone.height);
+    float nx = signDistCone(ray_loc + dx, cone.location, cone.radius, cone.height) - d;
+    float ny = signDistCone(ray_loc + dy, cone.location, cone.radius, cone.height) - d;
+    float nz = signDistCone(ray_loc + dz, cone.location, cone.radius, cone.height) - d;
+
+    return normalize(vec3(nx, ny, nz));
+}
+
+
+
+struct Boolean {
+	int selfObjType;
+	int selfObjIndex;
+	int otherObjType;
+	int otherObjIndex;
+		
+	int type;
+	float blend;
+};
+
+struct PrincipledBSDF {
+	vec3 albedo;
+	float metallic;
+
+	float roughness;
+	float ior;
+	float reflectance;
+	float transmission;
+
+	vec4 emissive;
+};
+
+struct VolumeScatter {
+	vec3 color;
+	float density;
+
+	float diameter;
+};
+
+struct PointLight {
+	vec3 location;
+	float intensity;
+
+	vec3 color;
+	float radius;
+};
+
 
 layout (local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
 layout (rgba32f, binding = 0) uniform image2D img_output;
@@ -448,8 +894,8 @@ RaycastHit refractRay1(inout RaycastHit ray, float ior_exit, float ior_enter) {
 	);
 }
 RaycastHit refractRay(inout RaycastHit ray, float ior_obj, vec3 normal = vec3(0.0), float ior_env = 1.0) {
+	bool enter = dot(ray.direction, ray.normal) < 0.0;
 	vec3 N = (normal.x + normal.y + normal.z > 0.001) ? normal : ray.normal;
-	bool enter = dot(ray.direction, N) < 0.0;
 	return RaycastHit(
 		ray.hit,
 		ray.location,
@@ -526,7 +972,7 @@ vec3 generate_glossy_ray(vec2 uv, inout RaycastHit hit, float roughness) {
 vec3 generate_transmission_ray(vec2 uv, inout RaycastHit hit, float roughness, float ior_exit, float ior_enter) {
 	float rdisp = fract((hit.location.x + hit.location.y + hit.location.z) * 37.43111);
 	vec3 randomRay = randomVectorInHemisphere(uv + vec2(rdisp, fract(rdisp * 5.652919)), hit.normal);
-	vec3 idealRay  = refractRay(hit, ior_enter, hit.normal).direction;
+	vec3 idealRay  = refractRay(hit, ior_exit, ior_enter).direction;
 	return normalize(mix(idealRay, randomRay, roughness));
 }
 
@@ -849,12 +1295,10 @@ vec3 path_trace(in vec2 uv, in RaycastHit first_hit, in int max_bounces) {
 					float rand = random(uv + fract(hit.location.zy) + vec2(0.123599, 0.541311));
 					if (rand < reflectance) {
 						newDir = reflDir;
-						throughput *= F / reflectance;
 						hit = raycast(hit.location, newDir);
 					}
 					else {
 						newDir = refrDir;
-						throughput *= (vec3(1.0) - F) / (1.0 - reflectance);
 						hit = raycast_transmissive(hit.location, newDir, hit.obj_type, hit.obj_index);
 					}
 				}
@@ -866,9 +1310,7 @@ vec3 path_trace(in vec2 uv, in RaycastHit first_hit, in int max_bounces) {
                     float NdotH = max(dot(N, H), 0.0);
 
                     float VdotH = max(dot(V, H), 0.0);
-                    float R0 = pow((1.0 - material.ior) / (1.0 + material.ior), 2.0);
-					float Fi = R0 + (1.0 - R0) * pow(1.0 - VdotH, 5.0);
-
+                    float Fi = 0.04 + (1.0 - 0.04) * pow(1.0 - VdotH, 5.0);
                     
 					float rand = random(uv + fract(hit.location.yz) + vec2(0.213111, 0.5416666));
                     if (rand < Fi) {
@@ -989,7 +1431,7 @@ void main() {
 
 
 
-	const int max_bounces = 24;
+	const int max_bounces = 5;
 	//const int max_diffuse_bounces = 4;
 	//const int max_glossy_bounces  = 4;
 
