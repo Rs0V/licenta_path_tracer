@@ -364,7 +364,7 @@ int main(int argc, char* argv[]) {
 	materials.emplace_back(new MPrincipledBSDF(
 		Color::white,
 		0.0f,
-		0.04f,
+		0.08f,
 		1.5f,
 		0.5f,
 		1.0f

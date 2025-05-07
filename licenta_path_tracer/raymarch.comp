@@ -607,12 +607,13 @@ float GeometrySmith(in vec3 N, in vec3 V, in vec3 L, float roughness) {
 	return ggxV * ggxL;
 }
 
-vec3 fresnelSchlick(float cosTheta, vec3 F0) {
-	return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);
+vec3 fresnelSchlick(float VdotH, vec3 F0) {
+	return F0 + (1.0 - F0) * pow(1.0 - VdotH, 5.0);
 }
 
 vec3 cookTorranceBRDF(in vec3 N, in vec3 V, in vec3 L, float roughness, in vec3 F0) {
 	vec3 H = normalize(V + L);
+
 	float NdotL = max(dot(N, L), 0.0);
 	float NdotV = max(dot(N, V), 0.0);
 	float NdotH = max(dot(N, H), 0.0);
@@ -620,10 +621,10 @@ vec3 cookTorranceBRDF(in vec3 N, in vec3 V, in vec3 L, float roughness, in vec3 
 	
 	float D = DistributionGGX(NdotH, roughness);
 	float G = GeometrySmith(N, V, L, roughness);
-	vec3 F = fresnelSchlick(VdotH, F0);
+	vec3  F = fresnelSchlick(VdotH, F0);
 	
-	vec3 specular = (D * G * F) / (4.0 * NdotV * NdotL + 0.0001);
-	return specular;
+	vec3 glossy = (D * G * F) / (4.0 * NdotV * NdotL + 0.0001);
+	return glossy;
 }
 
 
@@ -661,6 +662,33 @@ vec3 sampleGGXDirection(in vec3 N, in vec3 V, float roughness, float rand1, floa
 	vec3 L = reflect(-V, H);
 	return L;
 }
+vec3 sampleGGXRefractionDirection(in vec3 N, in vec3 V, float roughness, float rand1, float rand2, float eta) {
+    float a = roughness * roughness;
+    float phi = 2.0 * pi * rand1;
+    float cosThetaH = sqrt((1.0 - rand2) / (1.0 + (a * a - 1.0) * rand2));
+    float sinThetaH = sqrt(1.0 - cosThetaH * cosThetaH);
+    
+    vec3 H_tangent = vec3(sinThetaH * cos(phi), sinThetaH * sin(phi), cosThetaH);
+    
+    vec3 tangent, bitangent;
+    createOrthonormalBasis(N, tangent, bitangent);
+    vec3 H = normalize(tangent * H_tangent.x + bitangent * H_tangent.y + N * H_tangent.z);
+    
+    vec3 I = -V;
+    float cosThetaI = dot(I, H);
+    float sin2ThetaI = max(0.0, 1.0 - cosThetaI * cosThetaI);
+    float sin2ThetaT = eta * eta * sin2ThetaI;
+    
+    if (sin2ThetaT >= 1.0) {
+        return reflect(-V, H);
+    }
+    
+    float cosThetaT = sqrt(1.0 - sin2ThetaT);
+    vec3 T = eta * I - (eta * cosThetaI - cosThetaT) * H;
+    
+    return normalize(T);
+}
+
 
 vec3 sampleGGX_HalfVector(vec3 N, float roughness, float rand1, float rand2) {
 	float a = roughness * roughness;
@@ -785,10 +813,8 @@ vec3 path_trace(in vec2 uv, in RaycastHit first_hit, int max_diffuse_bounces, in
 
 			vec3 V = -hit.direction;
 			vec3 N = hit.normal;
-			float NdotV = max(dot(N, V), 0.0);
 
 			vec3 F0 = mix(vec3(0.04), material.albedo, material.metallic);
-			vec3 F = fresnelSchlick(NdotV, F0);
 
 
 
@@ -798,30 +824,35 @@ vec3 path_trace(in vec2 uv, in RaycastHit first_hit, int max_diffuse_bounces, in
 				break;
 			}
 
-			bool isDelta = material.metallic > 0.0 || material.transmission > 0.0 && material.roughness < 0.01;
-			if (!isDelta) {
+			// Next Event Estimation (dielectric only)
+			if (material.metallic < 0.01) {
 				for (uint i = 0; i < point_lights_no; i++) {
+					float u1 = random(uv + fract(hit.location.zy) + fract(point_lights[i].location.yx) + vec2(0.1234454, 0.64532332));
+					float u2 = random(uv + fract(hit.location.xz) + fract(point_lights[i].location.xz) + vec2(0.312111, 0.564543));
+
 					vec3 L = point_lights[i].location - hit.location;
 					float light_dist = length(L);
 					L = normalize(L);
+					//vec3 H = normalize(V + L);
+					vec3 H = sampleGGX_HalfVector(N, material.roughness, u1, u2);
 					
 					RaycastHit shadow_hit = raycast(hit.location, L);
 					if (!shadow_hit.hit || distance(hit.location, shadow_hit.location) > light_dist) {
-						float cosNL = max(dot(N, L), 0.0);
+						vec3 F = fresnelSchlick(max(dot(V, H), 0.0), F0);
+						float roughness_factor = material.roughness * material.roughness;
 
-						float light_attenuation = 1.0 / (light_dist * light_dist);
-						
-						vec3 kS = F;
+						vec3 kS = F * (1.0 - roughness_factor);
 						vec3 kD = vec3(1.0) - kS;
 						kD *= (1.0 - material.metallic);
 						
 						vec3 diffuse  = lambertianBRDF(material.albedo);
 						vec3 specular = cookTorranceBRDF(N, V, L, material.roughness, F0);
-						vec3 fullBRDF = kD * diffuse + specular;
+						vec3 fullBRDF = kD * diffuse + kS * specular;
 						
-						vec3 light_radiance = point_lights[i].color * point_lights[i].intensity;
+						float light_attenuation = 1.0 / (light_dist * light_dist);
+						vec3 light_radiance = point_lights[i].color * point_lights[i].intensity * light_attenuation;
 						
-						radiance += throughput * fullBRDF * light_radiance * cosNL * light_attenuation;
+						radiance += throughput * fullBRDF * light_radiance * max(dot(N, L), 0.0);
 					}
 				}
 			}
@@ -838,34 +869,38 @@ vec3 path_trace(in vec2 uv, in RaycastHit first_hit, int max_diffuse_bounces, in
 				float u2 = random(uv + fract(hit.location.yz) + vec2(0.765221, 0.86754333));
 
 				vec3 H = sampleGGX_HalfVector(N, material.roughness, u1, u2);
-				float NdotH = max(dot(N, H), 0.0);
+				vec3 F = fresnelSchlick(max(dot(V, H), 0.0), F0);
+				float roughness_factor = material.roughness * material.roughness;
 
-				float VdotH = max(dot(V, H), 0.0);
-				float R0 = pow((1.0 - material.ior) / (1.0 + material.ior), 2.0);
-				float Fi = R0 + (1.0 - R0) * pow(1.0 - VdotH, 5.0);
-
-				
-
+				float glossy_probability = clamp((F.x + F.y + F.z) / 3.0, 0.0, 1.0) * (1.0 - roughness_factor);
 				float rand = random(uv + fract(hit.location.yz) + vec2(0.213111, 0.5416666));
 				bool chose_glossy = false;
 				// Glossy rays
-				if (rand < Fi) {
-					newDir = reflectRay(hit, H).direction;
+				if (rand < glossy_probability && max_glossy_bounces > 0) {
+					float u3 = random(uv + fract(hit.location.yx) + vec2(0.123123, 0.5454444));
+					float u4 = random(uv + fract(hit.location.zx) + vec2(0.6543211, 0.1745222));
 
-					float D = DistributionGGX(NdotH, material.roughness);
-					pdf = (D * NdotH) / (4.0 * max(dot(newDir, H), 0.0001));
+					newDir = sampleGGXDirection(N, V, material.roughness, fract(u1 + u3), fract(u2 + u4));
+					H = normalize(V + newDir);
 
-					float G = GeometrySmith(N, V, newDir, material.roughness);
-					brdfValue = (D * G * vec3(F)) / (4.0 * NdotV * max(dot(N, newDir), 0.0) + 0.0001);
+					pdf = pdfGGX(N, H, V, material.roughness);
+					brdfValue = cookTorranceBRDF(N, V, newDir, material.roughness, F0);
+
+					throughput *= (brdfValue * max(dot(N, newDir), 0.0)) / max(pdf, 0.0001);
 
 					max_glossy_bounces--;
 					chose_glossy = true;
 				}
 				// Transmission rays
 				else if (max_transmissive_bounces > 0) {
+					float u3 = random(uv + fract(hit.location.yz) + vec2(0.1165666, 0.652222));
+					float u4 = random(uv + fract(hit.location.xz) + vec2(0.5467777, 0.143511));
+
+					newDir = sampleGGXRefractionDirection(N, V, material.roughness, fract(u1 + u3), fract(u2 + u4), 1.0 / material.ior);
+
+					/*
 					float eta = dot(V, N) > 0.0 ? (1.0 / material.ior) : material.ior;
-					newDir = refractRay(hit, material.ior).direction;
-					
+
 					float D = DistributionGGX(NdotH, material.roughness);
 					pdf = (D * NdotH) / (4.0 * abs(dot(newDir, H)) + 0.0001);
 
@@ -874,27 +909,31 @@ vec3 path_trace(in vec2 uv, in RaycastHit first_hit, int max_diffuse_bounces, in
 					denom = denom * denom + 0.0001;
 
 					brdfValue = (vec3(1.0) - vec3(F)) * (eta * eta) * abs(dot(newDir, H)) * D * G / denom;
+					*/
 
 					max_transmissive_bounces--;
 					chose_glossy = false;
 				}
-
-				float cosine = max(dot(N, newDir), 0.0);
-				//throughput *= (brdfValue * cosine) / max(pdf, 0.0001);
 
 				RaycastHit hit_copy = hit;
 				if (chose_glossy) {
 					hit = raycast(hit.location, newDir);
 				} else {
 					hit = raycast_transmissive(hit.location, newDir, hit.obj_type, hit.obj_index);
-					newDir = refractRay(hit, material.ior).direction;
+					
+					//H = sampleGGX_HalfVector(hit.normal, material.roughness, fract(u2 + 0.12399), fract(u1 + 0.72223));
+					//newDir = refractRay(hit, material.ior, H).direction;
+					newDir = sampleGGXRefractionDirection(hit.normal, -hit.direction, material.roughness, u1, u2, material.ior);
+
 					hit = raycast(hit.location, newDir);
 				}
 
 				// Trace Ray for Lights
 				if (chose_glossy && max_glossy_bounces == 0 || !chose_glossy && max_transmissive_bounces == 0) {
+					/*
 					RaycastHit shadow_hit = hit;
 					hit = hit_copy;
+
 					if (!chose_glossy) {
 						hit = shadow_hit;
 						shadow_hit = raycast(shadow_hit.location, refractRay(shadow_hit, material.ior).direction);
@@ -918,23 +957,30 @@ vec3 path_trace(in vec2 uv, in RaycastHit first_hit, int max_diffuse_bounces, in
 					if (!shadow_hit.hit) {
 						radiance += throughput * env_light(shadow_hit);
 					}
+					*/
 
 					break;
 				}
 			}
 			// Non-transmissive
 			else {
-				float specProb = clamp((F.x + F.y + F.z) / 3.0, 0.0, 1.0);
-			
+				float u1 = random(uv + fract(hit.location.xz) + vec2(0.431111, 0.1544443));
+				float u2 = random(uv + fract(hit.location.zy) + vec2(0.435666, 0.7856233));
+
+				vec3 H = sampleGGX_HalfVector(N, material.roughness, u1, u2);
+				vec3 F = fresnelSchlick(max(dot(V, H), 0.0), F0);
+				float roughness_factor = material.roughness * material.roughness;
+
+				float glossy_probability = clamp((F.x + F.y + F.z) / 3.0, 0.0, 1.0) * (1.0 - roughness_factor);
 				float rand = random(uv + fract(hit.location.zx) + vec2(0.541233, 0.991198));
 				bool chose_glossy = false;
 				// Glossy rays
-				if (rand < specProb && max_glossy_bounces > 0) {
-					float u1 = random(uv + fract(hit.location.xy) + vec2(0.431441, 0.69992111));
-					float u2 = random(uv + fract(hit.location.yz) + vec2(0.765221, 0.86754333));
+				if (rand < glossy_probability && max_glossy_bounces > 0) {
+					float u3 = random(uv + fract(hit.location.xy) + vec2(0.431441, 0.69992111));
+					float u4 = random(uv + fract(hit.location.yz) + vec2(0.765221, 0.86754333));
 
-					newDir = sampleGGXDirection(N, V, material.roughness, u1, u2);
-					vec3 H = normalize(V + newDir);
+					newDir = sampleGGXDirection(N, V, material.roughness, fract(u1 + u3), fract(u2 + u4));
+					H = normalize(V + newDir);
 
 					pdf = pdfGGX(N, H, V, material.roughness);
 					brdfValue = cookTorranceBRDF(N, V, newDir, material.roughness, F0);
@@ -944,10 +990,10 @@ vec3 path_trace(in vec2 uv, in RaycastHit first_hit, int max_diffuse_bounces, in
 				}
 				// Diffuse rays
 				else if (max_diffuse_bounces > 0) {
-					float u1 = random(uv + fract(hit.location.zx) + vec2(0.6524222, 0.685732));
-					float u2 = random(uv + fract(hit.location.yx) + vec2(0.5411499, 0.317767));
+					float u3 = random(uv + fract(hit.location.zx) + vec2(0.6524222, 0.685732));
+					float u4 = random(uv + fract(hit.location.yx) + vec2(0.5411499, 0.317767));
 
-					newDir = sampleCosineWeightedDirection(N, u1, u2);
+					newDir = sampleCosineWeightedDirection(N, fract(u1 + u3), fract(u2 + u4));
 
 					pdf = pdfDiffuse(N, newDir);
 					brdfValue = lambertianBRDF(material.albedo);
@@ -956,14 +1002,14 @@ vec3 path_trace(in vec2 uv, in RaycastHit first_hit, int max_diffuse_bounces, in
 					chose_glossy = false;
 				}
 				
-				float cosine = max(dot(N, newDir), 0.0);
-				throughput *= (brdfValue * cosine) / max(pdf, 0.0001);
+				throughput *= (brdfValue * max(dot(N, newDir), 0.0)) / max(pdf, 0.0001);
 
 				RaycastHit hit_copy = hit;
 				hit = raycast(hit.location, newDir);
 
 				// Trace Ray for Lights
 				if (chose_glossy && max_glossy_bounces == 0 || !chose_glossy && max_diffuse_bounces == 0) {
+					/*
 					RaycastHit shadow_hit = hit;
 					hit = hit_copy;
 					float shadow_dist = shadow_hit.hit ? distance(hit.location, shadow_hit.location) : 999999999;
@@ -985,6 +1031,7 @@ vec3 path_trace(in vec2 uv, in RaycastHit first_hit, int max_diffuse_bounces, in
 					if (!shadow_hit.hit) {
 						radiance += throughput * env_light(shadow_hit);
 					}
+					*/
 
 					break;
 				}
@@ -1051,7 +1098,7 @@ void main() {
 	RaycastHit hit = raycast(ray_loc, ray_dir);
 	ray_color = path_trace(uv, hit, max_diffuse_bounces, max_glossy_bounces, max_transmissive_bounces);
 
-	/*
+	{ /*
 	if (hit.hit) {
 		PrincipledBSDF material = principled_bsdfs[hit.material_index];
 
@@ -1088,7 +1135,7 @@ void main() {
 		ray_color *= path_trace_diffuse(uv, hit, max_diffuse_bounces);
 		ray_color *= path_trace_glossy(uv, hit, max_glossy_bounces);
 	}
-	*/
+	*/ }
 
 	ray_color = max(ray_color, 0.0);
 
