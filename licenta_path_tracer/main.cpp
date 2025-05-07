@@ -509,14 +509,16 @@ int main(int argc, char* argv[]) {
 			{ -20.0f, 55.0f, 0.0f }
 		},
 		Color::white,
-		120.0f
+		80.0f,
+		8.0f
 	));
 	lights.emplace_back(new PointLight(
 		{
 			{ 20.0f, 55.0f, 0.0f }
 		},
 		Color::white,
-		120.0f
+		80.0f,
+		8.0f
 	));
 
 	#pragma endregion

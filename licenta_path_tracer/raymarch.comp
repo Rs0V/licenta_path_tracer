@@ -359,7 +359,7 @@ RaycastHit raycast(vec3 ray_loc, vec3 ray_dir) {
 		}
 	}
 
-	return RaycastHit(false, vec3(0.0), vec3(0.0), vec3(0.0), -1, -1, -1, -1);
+	return RaycastHit(false, init_loc, ray_dir, vec3(0.0), -1, -1, -1, -1);
 }
 RaycastHit raycast_transmissive(vec3 ray_loc, vec3 ray_dir, int obj_type, int obj_index) {
 	vec3 init_loc = ray_loc;
@@ -398,7 +398,7 @@ RaycastHit raycast_transmissive(vec3 ray_loc, vec3 ray_dir, int obj_type, int ob
 		ray_loc += ray_dir * abs(closest);
 	}
 
-	return RaycastHit(false, vec3(0.0), vec3(0.0), vec3(0.0), -1, -1, -1, -1);
+	return RaycastHit(false, init_loc, ray_dir, vec3(0.0), -1, -1, -1, -1);
 }
 
 RaycastHit raycast_light(vec3 ray_loc, vec3 ray_dir, inout PointLight point_light) {
@@ -413,13 +413,13 @@ RaycastHit raycast_light(vec3 ray_loc, vec3 ray_dir, inout PointLight point_ligh
 		}
 		ray_loc += ray_dir * minDist;
 		
-		if (minDist < hitThreshold) {
+		if (abs(minDist) < hitThreshold) {
 			vec3 normal = normalSphere(ray_loc, point_light.location, point_light.radius);
 			return RaycastHit(true, ray_loc, ray_dir, normal, -1, -1, -1, -1);
 		}
 	}
 
-	return RaycastHit(false, vec3(0.0), vec3(0.0), vec3(0.0), -1, -1, -1, -1);
+	return RaycastHit(false, init_loc, ray_dir, vec3(0.0), -1, -1, -1, -1);
 }
 
 RaycastHit reflectRay(inout RaycastHit ray, vec3 normal = vec3(0.0)) {
@@ -435,20 +435,8 @@ RaycastHit reflectRay(inout RaycastHit ray, vec3 normal = vec3(0.0)) {
 		ray.material_index
 	);
 }
-RaycastHit refractRay1(inout RaycastHit ray, float ior_exit, float ior_enter) {
-	return RaycastHit(
-		ray.hit,
-		ray.location,
-		normalize(refract(normalize(ray.direction), normalize(ray.normal), ior_exit / ior_enter)),
-		ray.normal,
-		ray.obj_type,
-		ray.obj_index,
-		ray.material_type,
-		ray.material_index
-	);
-}
 RaycastHit refractRay(inout RaycastHit ray, float ior_obj, vec3 normal = vec3(0.0), float ior_env = 1.0) {
-	vec3 N = (normal.x + normal.y + normal.z > 0.001) ? normal : ray.normal;
+	vec3 N = (abs(normal.x) + abs(normal.y) + abs(normal.z) > 0.001) ? normal : ray.normal;
 	bool enter = dot(ray.direction, N) < 0.0;
 	return RaycastHit(
 		ray.hit,
@@ -675,17 +663,17 @@ vec3 sampleGGXDirection(in vec3 N, in vec3 V, float roughness, float rand1, floa
 }
 
 vec3 sampleGGX_HalfVector(vec3 N, float roughness, float rand1, float rand2) {
-    float a = roughness * roughness;
-    float phi = 2.0 * pi * rand1;
+	float a = roughness * roughness;
+	float phi = 2.0 * pi * rand1;
 
-    float cosTheta = sqrt((1.0 - rand2) / (1.0 + (a * a - 1.0) * rand2));
-    float sinTheta = sqrt(1.0 - cosTheta * cosTheta);
-    
-    vec3 H_tangent = vec3(sinTheta * cos(phi), sinTheta * sin(phi), cosTheta);
-    vec3 tangent, bitangent;
-    createOrthonormalBasis(N, tangent, bitangent);
+	float cosTheta = sqrt((1.0 - rand2) / (1.0 + (a * a - 1.0) * rand2));
+	float sinTheta = sqrt(1.0 - cosTheta * cosTheta);
+	
+	vec3 H_tangent = vec3(sinTheta * cos(phi), sinTheta * sin(phi), cosTheta);
+	vec3 tangent, bitangent;
+	createOrthonormalBasis(N, tangent, bitangent);
 
-    return normalize(tangent * H_tangent.x + bitangent * H_tangent.y + N * H_tangent.z);
+	return normalize(tangent * H_tangent.x + bitangent * H_tangent.y + N * H_tangent.z);
 }
 
 float pdfGGX(in vec3 N, in vec3 H, in vec3 V, float roughness) {
@@ -698,6 +686,14 @@ float pdfGGX(in vec3 N, in vec3 H, in vec3 V, float roughness) {
 
 
 
+
+vec3 env_light(in RaycastHit ray) {
+	float t = 0.5 * (ray.direction.y + 1.0);
+	vec3 env_color  = mix(vec3(1.0), vec3(0.5, 0.7, 1.0), t);
+	float env_power = 0.0;
+
+	return env_color * env_power;
+}
 
 vec3 path_trace_diffuse(in vec2 uv, in RaycastHit hit, in int max_bounces) {
 	vec3 radiance = vec3(0.0);
@@ -778,30 +774,31 @@ vec3 path_trace_glossy(in vec2 uv, in RaycastHit hit, in int max_bounces) {
 	return radiance;
 }
 
-vec3 path_trace(in vec2 uv, in RaycastHit first_hit, in int max_bounces) {
+vec3 path_trace(in vec2 uv, in RaycastHit first_hit, int max_diffuse_bounces, int max_glossy_bounces, int max_transmissive_bounces) {
 	vec3 throughput = vec3(1.0);
 	vec3 radiance = vec3(0.0);
 	
 	RaycastHit hit = first_hit;
-	for (int bounce = max_bounces; bounce > 0; bounce--) {
+	while (true) {
 		if (hit.hit) {
 			PrincipledBSDF material = principled_bsdfs[hit.material_index];
 
 			vec3 V = -hit.direction;
 			vec3 N = hit.normal;
+			float NdotV = max(dot(N, V), 0.0);
 
 			vec3 F0 = mix(vec3(0.04), material.albedo, material.metallic);
-			float NdotV = max(dot(N, V), 0.0);
 			vec3 F = fresnelSchlick(NdotV, F0);
 
 
 
+			// Emissive
 			if ((material.emissive.x + material.emissive.y + material.emissive.z) * material.emissive.w > 0.001) {
 				radiance += throughput * vec3(material.emissive) * material.emissive.w;
 				break;
 			}
 
-            bool isDelta = material.metallic > 0.0 || material.transmission > 0.0 && material.roughness < 0.01;
+			bool isDelta = material.metallic > 0.0 || material.transmission > 0.0 && material.roughness < 0.01;
 			if (!isDelta) {
 				for (uint i = 0; i < point_lights_no; i++) {
 					vec3 L = point_lights[i].location - hit.location;
@@ -832,84 +829,107 @@ vec3 path_trace(in vec2 uv, in RaycastHit first_hit, in int max_bounces) {
 
 
 			vec3 newDir;
-            float pdf;
-            vec3 brdfValue;
+			float pdf;
+			vec3 brdfValue;
 
+			// Transmissive
 			if (material.transmission > 0.0) {
-				if (material.roughness < 0.01) {
-					float cosTheta = dot(V, N);
-					float eta = cosTheta > 0.0 ? (1.0 / material.ior) : material.ior;
-					vec3 reflDir = reflectRay(hit).direction;
-					vec3 refrDir = refractRay(hit, material.ior).direction;
-					
-					// Schlick's approximation for reflectance
-					float R0 = pow((1.0 - material.ior) / (1.0 + material.ior), 2.0);
-					float reflectance = R0 + (1.0 - R0) * pow(1.0 - abs(cosTheta), 5.0);
-					
-					float rand = random(uv + fract(hit.location.zy) + vec2(0.123599, 0.541311));
-					if (rand < reflectance) {
-						newDir = reflDir;
-						throughput *= F / reflectance;
-						hit = raycast(hit.location, newDir);
-					}
-					else {
-						newDir = refrDir;
-						throughput *= (vec3(1.0) - F) / (1.0 - reflectance);
-						hit = raycast_transmissive(hit.location, newDir, hit.obj_type, hit.obj_index);
-					}
+				float u1 = random(uv + fract(hit.location.xy) + vec2(0.431441, 0.69992111));
+				float u2 = random(uv + fract(hit.location.yz) + vec2(0.765221, 0.86754333));
+
+				vec3 H = sampleGGX_HalfVector(N, material.roughness, u1, u2);
+				float NdotH = max(dot(N, H), 0.0);
+
+				float VdotH = max(dot(V, H), 0.0);
+				float R0 = pow((1.0 - material.ior) / (1.0 + material.ior), 2.0);
+				float Fi = R0 + (1.0 - R0) * pow(1.0 - VdotH, 5.0);
+
+				
+
+				float rand = random(uv + fract(hit.location.yz) + vec2(0.213111, 0.5416666));
+				bool chose_glossy = false;
+				// Glossy rays
+				if (rand < Fi) {
+					newDir = reflectRay(hit, H).direction;
+
+					float D = DistributionGGX(NdotH, material.roughness);
+					pdf = (D * NdotH) / (4.0 * max(dot(newDir, H), 0.0001));
+
+					float G = GeometrySmith(N, V, newDir, material.roughness);
+					brdfValue = (D * G * vec3(F)) / (4.0 * NdotV * max(dot(N, newDir), 0.0) + 0.0001);
+
+					max_glossy_bounces--;
+					chose_glossy = true;
 				}
-				else {
-                    float u1 = random(uv + fract(hit.location.xy) + vec2(0.431441, 0.69992111));
-					float u2 = random(uv + fract(hit.location.yz) + vec2(0.765221, 0.86754333));
+				// Transmission rays
+				else if (max_transmissive_bounces > 0) {
+					float eta = dot(V, N) > 0.0 ? (1.0 / material.ior) : material.ior;
+					newDir = refractRay(hit, material.ior).direction;
+					
+					float D = DistributionGGX(NdotH, material.roughness);
+					pdf = (D * NdotH) / (4.0 * abs(dot(newDir, H)) + 0.0001);
 
-                    vec3 H = sampleGGX_HalfVector(N, material.roughness, u1, u2);
-                    float NdotH = max(dot(N, H), 0.0);
+					float G = GeometrySmith(N, V, newDir, material.roughness);
+					float denom = (NdotV + eta * max(dot(N, newDir), 0.0));
+					denom = denom * denom + 0.0001;
 
-                    float VdotH = max(dot(V, H), 0.0);
-                    float R0 = pow((1.0 - material.ior) / (1.0 + material.ior), 2.0);
-					float Fi = R0 + (1.0 - R0) * pow(1.0 - VdotH, 5.0);
+					brdfValue = (vec3(1.0) - vec3(F)) * (eta * eta) * abs(dot(newDir, H)) * D * G / denom;
 
-                    
-					float rand = random(uv + fract(hit.location.yz) + vec2(0.213111, 0.5416666));
-                    if (rand < Fi) {
-                        newDir = reflectRay(hit, H).direction;
-                        float D = DistributionGGX(NdotH, material.roughness);
-                        pdf = (D * NdotH) / (4.0 * max(dot(newDir, H), 0.0001));
-                        float G = GeometrySmith(N, V, newDir, material.roughness);
-                        brdfValue = (D * G * vec3(F)) / (4.0 * NdotV * max(dot(N, newDir), 0.0) + 0.0001);
+					max_transmissive_bounces--;
+					chose_glossy = false;
+				}
 
-						hit = raycast(hit.location, newDir);
-                    }
-					else {
-                        float eta = dot(V, N) > 0.0 ? (1.0 / material.ior) : material.ior;
-                        newDir = refractRay(hit, material.ior).direction;
+				float cosine = max(dot(N, newDir), 0.0);
+				//throughput *= (brdfValue * cosine) / max(pdf, 0.0001);
 
-                        if(length(newDir) < 0.001) {
-							newDir = reflectRay(hit, H).direction;
-							hit = raycast(hit.location, newDir);
+				RaycastHit hit_copy = hit;
+				if (chose_glossy) {
+					hit = raycast(hit.location, newDir);
+				} else {
+					hit = raycast_transmissive(hit.location, newDir, hit.obj_type, hit.obj_index);
+					newDir = refractRay(hit, material.ior).direction;
+					hit = raycast(hit.location, newDir);
+				}
+
+				// Trace Ray for Lights
+				if (chose_glossy && max_glossy_bounces == 0 || !chose_glossy && max_transmissive_bounces == 0) {
+					RaycastHit shadow_hit = hit;
+					hit = hit_copy;
+					if (!chose_glossy) {
+						hit = shadow_hit;
+						shadow_hit = raycast(shadow_hit.location, refractRay(shadow_hit, material.ior).direction);
+					}
+					float shadow_dist = shadow_hit.hit ? distance(hit.location, shadow_hit.location) : 999999999;
+					
+					for (uint i = 0; i < point_lights_no; i++) {
+						RaycastHit light_hit = raycast_light(hit.location, newDir, point_lights[i]);
+						float light_dist = light_hit.hit ? distance(hit.location, light_hit.location) : 999999999;
+
+						if (light_hit.hit && (!shadow_hit.hit || shadow_dist > light_dist)) {
+							vec3 L = normalize(light_hit.location - hit.location);
+							float cosNL = max(dot(N, L), 0.0);
+
+							float light_attenuation = 1.0 / (light_dist * light_dist);
+							vec3 light_radiance = point_lights[i].color * point_lights[i].intensity;
+
+							//radiance += throughput * light_radiance * cosNL * light_attenuation;
 						}
-						else {
-							hit = raycast_transmissive(hit.location, newDir, hit.obj_type, hit.obj_index);
-						}
-                        
-                        float D = DistributionGGX(NdotH, material.roughness);
-                        pdf = (D * NdotH) / (4.0 * abs(dot(newDir, H)) + 0.0001);
-                        float G = GeometrySmith(N, V, newDir, material.roughness);
-                        float denom = (NdotV + eta * max(dot(N, newDir), 0.0));
-                        denom = denom * denom + 0.0001;
-                        brdfValue = (vec3(1.0) - vec3(F)) * (eta * eta) * abs(dot(newDir, H)) * D * G / denom;
-                    }
+					}
+					if (!shadow_hit.hit) {
+						radiance += throughput * env_light(shadow_hit);
+					}
 
-                    float cosine = max(dot(N, newDir), 0.0);
-                    throughput *= (brdfValue * cosine) / max(pdf, 0.0001);
+					break;
 				}
 			}
+			// Non-transmissive
 			else {
 				float specProb = clamp((F.x + F.y + F.z) / 3.0, 0.0, 1.0);
-				//float specProb = clamp((F.x + F.y + F.z) / 3.0 + 1.0 - material.roughness, 0.0, 1.0);
 			
-				float rChoice = random(uv + fract(hit.location.zx) + vec2(0.541233, 0.991198));
-				if (rChoice < specProb) {
+				float rand = random(uv + fract(hit.location.zx) + vec2(0.541233, 0.991198));
+				bool chose_glossy = false;
+				// Glossy rays
+				if (rand < specProb && max_glossy_bounces > 0) {
 					float u1 = random(uv + fract(hit.location.xy) + vec2(0.431441, 0.69992111));
 					float u2 = random(uv + fract(hit.location.yz) + vec2(0.765221, 0.86754333));
 
@@ -918,8 +938,12 @@ vec3 path_trace(in vec2 uv, in RaycastHit first_hit, in int max_bounces) {
 
 					pdf = pdfGGX(N, H, V, material.roughness);
 					brdfValue = cookTorranceBRDF(N, V, newDir, material.roughness, F0);
+
+					max_glossy_bounces--;
+					chose_glossy = true;
 				}
-				else {
+				// Diffuse rays
+				else if (max_diffuse_bounces > 0) {
 					float u1 = random(uv + fract(hit.location.zx) + vec2(0.6524222, 0.685732));
 					float u2 = random(uv + fract(hit.location.yx) + vec2(0.5411499, 0.317767));
 
@@ -927,14 +951,46 @@ vec3 path_trace(in vec2 uv, in RaycastHit first_hit, in int max_bounces) {
 
 					pdf = pdfDiffuse(N, newDir);
 					brdfValue = lambertianBRDF(material.albedo);
+
+					max_diffuse_bounces--;
+					chose_glossy = false;
 				}
 				
 				float cosine = max(dot(N, newDir), 0.0);
 				throughput *= (brdfValue * cosine) / max(pdf, 0.0001);
 
+				RaycastHit hit_copy = hit;
 				hit = raycast(hit.location, newDir);
+
+				// Trace Ray for Lights
+				if (chose_glossy && max_glossy_bounces == 0 || !chose_glossy && max_diffuse_bounces == 0) {
+					RaycastHit shadow_hit = hit;
+					hit = hit_copy;
+					float shadow_dist = shadow_hit.hit ? distance(hit.location, shadow_hit.location) : 999999999;
+					
+					for (uint i = 0; i < point_lights_no; i++) {
+						RaycastHit light_hit = raycast_light(hit.location, newDir, point_lights[i]);
+						float light_dist = light_hit.hit ? distance(hit.location, light_hit.location) : 999999999;
+
+						if (light_hit.hit && (!shadow_hit.hit || shadow_dist > light_dist)) {
+							vec3 L = normalize(light_hit.location - hit.location);
+							float cosNL = max(dot(N, L), 0.0);
+
+							float light_attenuation = 1.0 / (light_dist * light_dist);
+							vec3 light_radiance = point_lights[i].color * point_lights[i].intensity;
+
+							//radiance += throughput * light_radiance * cosNL * light_attenuation;
+						}
+					}
+					if (!shadow_hit.hit) {
+						radiance += throughput * env_light(shadow_hit);
+					}
+
+					break;
+				}
 			}
 
+			/*
 			// Russian roulette
 			if (bounce > 2) {
 				float survivalProb = max(throughput.r, max(throughput.g, throughput.b));
@@ -944,12 +1000,11 @@ vec3 path_trace(in vec2 uv, in RaycastHit first_hit, in int max_bounces) {
 				}
 				throughput /= survivalProb;
 			}
+			*/
 		}
+		// Environment contribution
 		else {
-			vec3 unitDir = normalize(hit.direction);
-			float t = 0.5 * (unitDir.y + 1.0);
-			vec3 envColor = mix(vec3(1.0), vec3(0.5, 0.7, 1.0), t);
-			radiance += throughput * envColor;
+			radiance += throughput * env_light(hit);
 			break;
 		}
 	}
@@ -957,7 +1012,7 @@ vec3 path_trace(in vec2 uv, in RaycastHit first_hit, in int max_bounces) {
 	return radiance;
 }
 
-
+// REMINDER: problem could be caused by tracing light searching rays from within the radius of the light itself (negative distance problem?)
 
 void main() {
 	ivec2 pixel_coords = ivec2(gl_GlobalInvocationID.xy) + ivec2(tile_offset);
@@ -989,12 +1044,12 @@ void main() {
 
 
 
-	const int max_bounces = 24;
-	//const int max_diffuse_bounces = 4;
-	//const int max_glossy_bounces  = 4;
+	const int max_diffuse_bounces = 3;
+	const int max_glossy_bounces  = 3;
+	const int max_transmissive_bounces = 2;
 
 	RaycastHit hit = raycast(ray_loc, ray_dir);
-	ray_color = path_trace(uv, hit, max_bounces);
+	ray_color = path_trace(uv, hit, max_diffuse_bounces, max_glossy_bounces, max_transmissive_bounces);
 
 	/*
 	if (hit.hit) {
