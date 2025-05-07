@@ -349,25 +349,39 @@ int main(int argc, char* argv[]) {
 	materials.emplace_back(new MPrincipledBSDF(
 		Color::white,
 		0.0f,
-		0.04f
+		0.12f
 	));
 	materials.emplace_back(new MPrincipledBSDF(
 		Color({ 0.9f, 0.2f, 0.1f }),
 		0.0f,
-		0.78f
+		0.68f
 	));
 	materials.emplace_back(new MPrincipledBSDF(
 		Color({ 0.3f, 0.9f, 0.1f }),
 		0.0f,
-		0.78f
+		0.68f
 	));
 	materials.emplace_back(new MPrincipledBSDF(
 		Color::white,
 		0.0f,
-		0.08f,
-		1.5f,
+		0.12f,
+		1.45f,
 		0.5f,
 		1.0f
+	));
+	materials.emplace_back(new MPrincipledBSDF(
+		Color::white,
+		0.8f,
+		0.14f
+	));
+	materials.emplace_back(new MPrincipledBSDF(
+		Color::white,
+		0.0f,
+		0.0f,
+		1.0f,
+		0.0f,
+		0.0f,
+		(0.9f, 0.95f, 1.0f, 100.0f)
 	));
 	
 
@@ -509,7 +523,7 @@ int main(int argc, char* argv[]) {
 			{ -20.0f, 55.0f, 0.0f }
 		},
 		Color::white,
-		80.0f,
+		100.0f,
 		8.0f
 	));
 	lights.emplace_back(new PointLight(
@@ -517,7 +531,7 @@ int main(int argc, char* argv[]) {
 			{ 20.0f, 55.0f, 0.0f }
 		},
 		Color::white,
-		80.0f,
+		100.0f,
 		8.0f
 	));
 
@@ -565,7 +579,7 @@ int main(int argc, char* argv[]) {
 	constexpr uint max_samples = 64;
 	int samples = max_samples;
 
-	constexpr uint tile_size = 128;
+	constexpr uint tile_size = 64;
 	const glm::uvec2 total_tiles = { glm::ceil((float)window.width_get() / tile_size), glm::ceil((float)window.height_get() / tile_size) };
 	int tiles_remaining = total_tiles.x * total_tiles.y;
 

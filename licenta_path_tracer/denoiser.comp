@@ -29,14 +29,24 @@ uniform int samples;
 vec3 gammaCorrect(vec3 color, float gamma) {
     return pow(color, vec3(1.0 / gamma));
 }
+vec3 bcge(vec3 color, float brightness = 0.0, float contrast = 1.0, float gamma = 1.0, float exposure = 0.0) {
+    color = (color - 0.5) * contrast + 0.5;
+    color += brightness;
+    color = pow(color, vec3(gamma));
+    color *= exp2(exposure);
+	color = clamp(color, 0.0, 1.0);
+    
+    return color;
+}
 
 void main() {
 	ivec2 pixel_coords = ivec2(gl_GlobalInvocationID.xy) + ivec2(tile_offset);
 
     vec3 pixel = imageLoad(img_input, pixel_coords).xyz / samples;
     vec3 gcorrected_pixel = gammaCorrect(pixel, 2.2);
+	vec3 post_pixel = bcge(gcorrected_pixel, 0.1, 1.4, 0.9, 0.1);
 
-	imageStore(img_output, pixel_coords, vec4(gcorrected_pixel, 1.0));
+	imageStore(img_output, pixel_coords, vec4(post_pixel, 1.0));
 
 
 
