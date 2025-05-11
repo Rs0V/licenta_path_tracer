@@ -15,6 +15,9 @@
 #include "MPrincipledBSDF.hpp"
 #include "MVolumeScatter.hpp"
 
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
 
 
 GLuint compileShader(GLenum type, std::string source) {
@@ -216,6 +219,41 @@ void addGLSLHeaderToFileSystem(std::string headerPath) {
 	headerPath = "/" + headerPath;
 	glNamedStringARB(GL_SHADER_INCLUDE_ARB, -1, headerPath.data(), headerContents.size(), headerContents.data());
 }
+
+
+struct Sprite {
+	GLuint id = -1;
+	std::string path;
+	glm::uvec2 size = { 0, 0 };
+	uint channels = 0;
+
+	Sprite(std::string path) {
+		int width, height, channels;
+		unsigned char* image = stbi_load(path.c_str(), &width, &height, &channels, 0);
+		if (!image) {
+			std::cerr << "Failed to load image!" << std::endl;
+		}
+
+		GLuint tex;
+		glGenTextures(1, &tex);
+
+		glBindTexture(GL_TEXTURE_2D, tex);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+		if (channels == 3) {
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
+		} else {
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, image);
+		}
+		stbi_image_free(image);
+
+		this->id = tex;
+		this->path = path;
+		this->size = { width, height };
+		this->channels = channels;
+	}
+};
 
 
 
@@ -576,11 +614,21 @@ int main(int argc, char* argv[]) {
 
 
 	// Setup Ray-Sampling
-	constexpr uint max_samples = 64;
+	uint default_max_samples = 64;
+	uint max_samples = default_max_samples;
 	int samples = max_samples;
 
-	constexpr uint tile_size = 64;
-	const glm::uvec2 total_tiles = { glm::ceil((float)window.width_get() / tile_size), glm::ceil((float)window.height_get() / tile_size) };
+	uint max_diffuse_bounces      = 8;
+	uint max_glossy_bounces       = 8;
+	uint max_transmissive_bounces = 8;
+
+	uint diffuse_bounces      = max_diffuse_bounces;
+	uint glossy_bounces       = max_glossy_bounces;
+	uint transmissive_bounces = max_transmissive_bounces;
+
+	uint default_tile_size = 64;
+	uint tile_size = default_tile_size;
+	glm::uvec2 total_tiles = { glm::ceil((float)window.width_get() / tile_size), glm::ceil((float)window.height_get() / tile_size) };
 	int tiles_remaining = total_tiles.x * total_tiles.y;
 
 	auto reset_pathtracer = [&]() {
@@ -724,6 +772,58 @@ int main(int argc, char* argv[]) {
 			ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
 			ImGui::Begin("Status Menu");
+
+			static int selected_render_mode = 1;
+			ImVec4 selected_tint(0.25f, 0.4f, 0.75f, 1.0f);
+			bool need_to_pop = false;
+
+			if (selected_render_mode == 0) {
+				ImGui::PushStyleColor(ImGuiCol_Button, selected_tint);
+				need_to_pop = true;
+			}
+			Sprite solid_mode_icon("./solid_mode_icon.png");
+			if (ImGui::ImageButton("solid_mode_button", solid_mode_icon.id, ImVec2(16, 16))) {
+				diffuse_bounces      = 1;
+				glossy_bounces       = 1;
+				transmissive_bounces = 1;
+
+				max_samples = 1;
+				samples = max_samples;
+
+				tile_size = glm::max(window.width_get(), window.height_get());
+				total_tiles = { glm::ceil((float)window.width_get() / tile_size), glm::ceil((float)window.height_get() / tile_size) };
+				tiles_remaining = total_tiles.x * total_tiles.y;
+
+				selected_render_mode = 0;
+			}
+			if (need_to_pop) {
+				ImGui::PopStyleColor();
+				need_to_pop = false;
+			}
+			ImGui::SameLine();
+			if (selected_render_mode == 1) {
+				ImGui::PushStyleColor(ImGuiCol_Button, selected_tint);
+				need_to_pop = true;
+			}
+			Sprite render_mode_icon("./render_mode_icon.png");
+			if (ImGui::ImageButton("render_mode_button", render_mode_icon.id, ImVec2(16, 16))) {
+				diffuse_bounces      = max_diffuse_bounces;
+				glossy_bounces       = max_glossy_bounces;
+				transmissive_bounces = max_transmissive_bounces;
+
+				max_samples = default_max_samples;
+				samples = max_samples;
+
+				tile_size = default_tile_size;
+				total_tiles = { glm::ceil((float)window.width_get() / tile_size), glm::ceil((float)window.height_get() / tile_size) };
+				tiles_remaining = total_tiles.x * total_tiles.y;
+
+				selected_render_mode = 1;
+			}
+			if (need_to_pop) {
+				ImGui::PopStyleColor();
+				need_to_pop = false;
+			}
 
 			if (tiles_remaining > 0) {
 				ImGui::Text("Rendering... %d/%d samples", std::min((int)max_samples, std::max(1, (int)max_samples - samples)), max_samples);
@@ -1012,6 +1112,10 @@ int main(int argc, char* argv[]) {
 				blueNoiseTex = (blueNoiseTex == blueNoiseTex01) ? blueNoiseTex02 : blueNoiseTex01;
 
 				glUniform2uiv(glGetUniformLocation(raymarch_program, "tile_offset"), 1, glm::value_ptr(tile_offset));
+
+				glUniform1i(glGetUniformLocation(raymarch_program, "max_diffuse_bounces"), (int)diffuse_bounces);
+				glUniform1i(glGetUniformLocation(raymarch_program, "max_glossy_bounces"), (int)glossy_bounces);
+				glUniform1i(glGetUniformLocation(raymarch_program, "max_transmissive_bounces"), (int)transmissive_bounces);
 
 				glDispatchCompute(tile_size_x / 16, tile_size_y / 16, 1);
 				glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);

@@ -203,6 +203,7 @@
     <ClInclude Include="RMOStructs.hpp" />
     <ClInclude Include="PointLight.hpp" />
     <ClInclude Include="Sphere.hpp" />
+    <ClInclude Include="stb_image.h" />
     <ClInclude Include="Transform.hpp" />
     <ClInclude Include="UI.hpp" />
     <ClInclude Include="Utilities.hpp" />
@@ -219,9 +220,11 @@
     <None Include="rtarget.frag" />
     <None Include="rtarget.vert" />
     <None Include="shader_debug.comp" />
-    <None Include="test.comp" />
-    <None Include="test1.comp" />
     <None Include="utils.comp" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="render_mode_icon.png" />
+    <Image Include="solid_mode_icon.png" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

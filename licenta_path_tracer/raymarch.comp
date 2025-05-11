@@ -28,6 +28,10 @@ const float farPlane = 10000.0;
 
 uniform sampler2D blueNoise;
 
+uniform int max_diffuse_bounces;
+uniform int max_glossy_bounces;
+uniform int max_transmissive_bounces;
+
 
 
 #define spheres_no 100
@@ -1126,10 +1130,6 @@ void main() {
 	//imageStore(img_output, pixel_coords, vec4(abs(ray_dir.x) * (ray_dir.x > 0.0 ? red : neg(red)), 1.0));
 
 
-
-	const int max_diffuse_bounces = 8;
-	const int max_glossy_bounces  = 8;
-	const int max_transmissive_bounces = 8;
 
 	RaycastHit hit = raycast(ray_loc, ray_dir);
 	ray_color = path_trace(uv, hit, max_diffuse_bounces, max_glossy_bounces, max_transmissive_bounces);

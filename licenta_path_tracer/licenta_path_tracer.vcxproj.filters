@@ -243,6 +243,9 @@
     <ClInclude Include="RMOStructs.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="stb_image.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="cpp.hint" />
@@ -276,7 +279,13 @@
     <None Include="obj_select.comp">
       <Filter>Shader Files</Filter>
     </None>
-    <None Include="test.comp" />
-    <None Include="test1.comp" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="render_mode_icon.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="solid_mode_icon.png">
+      <Filter>Resource Files</Filter>
+    </Image>
   </ItemGroup>
 </Project>
