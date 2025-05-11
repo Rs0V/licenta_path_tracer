@@ -832,7 +832,32 @@ int main(int argc, char* argv[]) {
 				ImGui::Text("Rendering done!");
 			}
 
+
+
+			ImGui::Dummy(ImVec2(0, 18));
+			ImGui::BeginChild("Camera");
+			ImGui::Text("Camera:");
+
+			static auto  cam_loc = camera.transform_getrc().location;
+			static auto  cam_rot = camera.transform_getrc().rotation;
+			static float cam_fov = 60.0f;
+
+			ImGui::DragFloat3("Location", glm::value_ptr(cam_loc), 0.15f);
+			ImGui::DragFloat3("Rotation", glm::value_ptr(cam_rot), 0.15f);
+			ImGui::DragFloat("FOV", &cam_fov, 0.15f);
+
+			if (ImGui::Button("Apply")) {
+				camera.translate(cam_loc, 0);
+				camera.rotate(cam_rot, 0);
+				proj = glm::perspectiveFovLH_ZO(glm::radians(cam_fov), (float)window.width_get(), (float)window.height_get(), 0.1f, 1000.0f);
+
+				reset_pathtracer();
+			}
+
+			ImGui::EndChild();
+
 			ImGui::End();
+
 
 
 			ImGui::Begin("Inspector Menu");
