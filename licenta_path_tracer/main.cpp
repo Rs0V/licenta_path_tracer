@@ -382,6 +382,10 @@ int main(int argc, char* argv[]) {
 	glm::mat4 proj = glm::perspectiveFovLH_ZO(glm::radians(60.0f), (float)window.width_get(), (float)window.height_get(), 0.1f, 1000.0f);
 
 
+	#define SCENE 1
+
+	#if SCENE == 0
+
 	#pragma region Create Materials
 
 	materials.emplace_back(new MPrincipledBSDF(
@@ -575,6 +579,167 @@ int main(int argc, char* argv[]) {
 
 	#pragma endregion
 
+	#elif SCENE == 1
+	
+	#pragma region Create Materials
+	
+	materials.emplace_back(new MPrincipledBSDF(
+		Color::white,
+		0.0f,
+		0.18f
+	));
+	materials.emplace_back(new MPrincipledBSDF(
+		Color::white,
+		0.95f,
+		0.08f
+	));
+	
+	materials.emplace_back(new MVolumeScatter(
+		Color::white,
+		0.2f
+	));
+	
+	#pragma endregion
+	
+	#pragma region Create Objects
+	
+	objects.emplace_back(new Sphere(
+		{
+			{ 0.0f, 30.0f, 80.0f }
+		},
+		materials[1],
+		15.0f
+	));
+
+	objects.emplace_back(new Cube(
+		{
+			{ 0.0f, 60.0f, 0.0f }
+		},
+		materials[0],
+		{ 120.0f, 120.0f, 280.0f }
+	));
+	objects.emplace_back(new Cube(
+		{
+			{ 0.0f, 60.0f, 0.0f }
+		},
+		materials[0],
+		{ 100.0f, 100.0f, 260.0f }
+	));
+	objects.emplace_back(new Cube(
+		{
+			{ 0.0f, 90.0f, 0.0f }
+		},
+		materials[0],
+		{ 140.0f, 20.0f, 240.0f }
+	));
+
+	objects.emplace_back(new Cylinder(
+		{
+			{ 0.0f, 120.0f, 80.0f }
+		},
+		materials[0],
+		45.0f,
+		40.0f
+	));
+
+	float pillar_rad = 6.0f;
+	objects.emplace_back(new Cylinder(
+		{
+			{ -35.0f, 60.0f, -70.0f }
+		},
+		materials[0],
+		pillar_rad,
+		120.0f
+	));
+	objects.emplace_back(new Cylinder(
+		{
+			{ 35.0f, 60.0f, -70.0f }
+		},
+		materials[0],
+		pillar_rad,
+		120.0f
+	));
+	objects.emplace_back(new Cylinder(
+		{
+			{ -35.0f, 60.0f, -40.0f }
+		},
+		materials[0],
+		pillar_rad,
+		120.0f
+	));
+	objects.emplace_back(new Cylinder(
+		{
+			{ 35.0f, 60.0f, -40.0f }
+		},
+		materials[0],
+		pillar_rad,
+		120.0f
+	));
+	objects.emplace_back(new Cylinder(
+		{
+			{ -35.0f, 60.0f, -10.0f }
+		},
+		materials[0],
+		pillar_rad,
+		120.0f
+	));
+	objects.emplace_back(new Cylinder(
+		{
+			{ 35.0f, 60.0f, -10.0f }
+		},
+		materials[0],
+		pillar_rad,
+		120.0f
+	));
+	objects.emplace_back(new Cylinder(
+		{
+			{ -35.0f, 60.0f, 20.0f }
+		},
+		materials[0],
+		pillar_rad,
+		120.0f
+	));
+	objects.emplace_back(new Cylinder(
+		{
+			{ 35.0f, 60.0f, 20.0f }
+		},
+		materials[0],
+		pillar_rad,
+		120.0f
+	));
+
+	objects.emplace_back(new Cone(
+		{
+			{  25.0f, -1000.0f, -5.0f },
+			{ 180.0f,     0.0f,  0.0f },
+			{   1.0f,     2.0f,  3.0f }
+		},
+		materials[0],
+		4.0f,
+		6.0f
+	));
+	
+	#pragma endregion
+	
+	#pragma region Create Lights
+	
+	lights.emplace_back(new PointLight(
+		{
+			{ 0.0f, 800.0f, 80.0f }
+		},
+		Color({ 0.9f, 0.7f, 0.8f }),
+		1000000.0f,
+		15.0f
+	));
+	
+	#pragma endregion
+
+	#elif SCENE == 2
+
+
+
+	#endif
+
 
 	// Print GPU specifications
 	/*
@@ -618,9 +783,9 @@ int main(int argc, char* argv[]) {
 	uint max_samples = default_max_samples;
 	int samples = max_samples;
 
-	uint max_diffuse_bounces      = 8;
-	uint max_glossy_bounces       = 8;
-	uint max_transmissive_bounces = 8;
+	uint max_diffuse_bounces      = 5;
+	uint max_glossy_bounces       = 5;
+	uint max_transmissive_bounces = 5;
 
 	uint diffuse_bounces      = max_diffuse_bounces;
 	uint glossy_bounces       = max_glossy_bounces;
@@ -678,17 +843,30 @@ int main(int argc, char* argv[]) {
 
 
 		// Add Components to Objects
-		//components.emplace_back(new boolean::Boolean(objects[0], objects[1], boolean::Type::Difference));
-		//components.emplace_back(new boolean::Boolean(objects[0], objects[7], boolean::Type::Intersect));
+		#if SCENE == 0
+
 		objects[1]->visible_set(false);
 		objects[7]->visible_set(false);
-
 		components.emplace_back(new boolean::Boolean(objects[9], objects[8], boolean::Type::Union));
 
-		//objects[0]->components_getr().emplace_back(new Parent(objects[0], objects[1]));
+		#elif SCENE == 1
 
-		//objects[1]->rotate({ -60.0f, -20.0f, 0.0f });
-		//dynamic_cast<Parent*>(objects[0]->components_getrc()[0])->applyTransform();
+		objects[objects.size() - 1]->visible_set(false);
+
+		objects[2]->visible_set(false);
+		components.emplace_back(new boolean::Boolean(objects[1], objects[2], boolean::Type::Difference, 0.01f));
+
+		objects[3]->visible_set(false);
+		components.emplace_back(new boolean::Boolean(objects[1], objects[3], boolean::Type::Difference, 0.01f));
+
+		objects[4]->visible_set(false);
+		components.emplace_back(new boolean::Boolean(objects[1], objects[4], boolean::Type::Difference, 0.01f));
+
+		#elif SCENE == 2
+
+
+
+		#endif
 
 
 		#pragma region Send Object Data to Ray-Marching Shader

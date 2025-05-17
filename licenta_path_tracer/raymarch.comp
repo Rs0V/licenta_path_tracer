@@ -1132,7 +1132,12 @@ void main() {
 
 
 	RaycastHit hit = raycast(ray_loc, ray_dir);
-	ray_color = path_trace(uv, hit, max_diffuse_bounces, max_glossy_bounces, max_transmissive_bounces);
+	if (max_diffuse_bounces == 1 && max_glossy_bounces == 1 && max_transmissive_bounces == 1) {
+		ray_color = principled_bsdfs[hit.material_index].albedo * max(0.0, dot(hit.normal, -hit.direction));
+	}
+	else {
+		ray_color = path_trace(uv, hit, max_diffuse_bounces, max_glossy_bounces, max_transmissive_bounces);
+	}
 
 	{ /*
 	if (hit.hit) {
