@@ -258,6 +258,11 @@ struct Sprite {
 
 
 int main(int argc, char* argv[]) {
+	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
+	//_CrtSetBreakAlloc(8259);
+	//_CrtSetBreakAlloc(477);
+	//_CrtSetBreakAlloc(476);
+
 	// Create Window
 	Window window = Window(640, 480, "CUDA Pathtracer");
 
@@ -382,7 +387,7 @@ int main(int argc, char* argv[]) {
 	glm::mat4 proj = glm::perspectiveFovLH_ZO(glm::radians(60.0f), (float)window.width_get(), (float)window.height_get(), 0.1f, 1000.0f);
 
 
-	#define SCENE 1
+	#define SCENE 0
 
 	#if SCENE == 0
 
@@ -590,7 +595,7 @@ int main(int argc, char* argv[]) {
 	));
 	materials.emplace_back(new MPrincipledBSDF(
 		Color::white,
-		0.95f,
+		0.3f,
 		0.08f
 	));
 	
@@ -728,7 +733,7 @@ int main(int argc, char* argv[]) {
 			{ 0.0f, 800.0f, 80.0f }
 		},
 		Color({ 0.9f, 0.7f, 0.8f }),
-		1000000.0f,
+		1.0f,
 		15.0f
 	));
 	

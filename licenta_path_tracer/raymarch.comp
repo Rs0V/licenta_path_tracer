@@ -857,7 +857,7 @@ vec3 path_trace(in vec2 uv, in RaycastHit first_hit, int max_diffuse_bounces, in
 
 			// Next Event Estimation (dielectric only)
 			bool is_dielectric = material.metallic < 0.01;
-			if (true) {
+			if (is_dielectric) {
 				for (uint i = 0; i < point_lights_no; i++) {
 					float u1 = random(uv + fract(hit.location.zy) + fract(point_lights[i].location.yx) + vec2(0.1234454, 0.64532332));
 					float u2 = random(uv + fract(hit.location.xz) + fract(point_lights[i].location.xz) + vec2(0.312111, 0.564543));
