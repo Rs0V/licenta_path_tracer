@@ -12,14 +12,14 @@ namespace boolean {
 
 	class Boolean : public Component {
 	protected:
-		Object *const self;
-		Object* other;
+		std::shared_ptr<Object> self;
+		std::shared_ptr<Object> other;
 
 		Type type;
 		float blend;
 
 	public:
-		Boolean(Object *self, Object *other, Type type, float blend = 0.5f);
+		Boolean(std::shared_ptr<Object> self, std::shared_ptr<Object> other, Type type, float blend = 0.5f);
 		~Boolean() override;
 
 		getter(self)

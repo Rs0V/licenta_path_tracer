@@ -8,12 +8,12 @@
 
 class Parent : public Component {
 protected:
-	Object *const self;
-	const Object *parent;
+	std::shared_ptr<Object> self;
+	std::shared_ptr<Object> parent;
 	Transform last_parent_transform;
 
 public:
-	Parent(Object *self, const Object *parent);
+	Parent(std::shared_ptr<Object> self, std::shared_ptr<Object> parent);
 	~Parent() override;
 
 	void applyTransform();

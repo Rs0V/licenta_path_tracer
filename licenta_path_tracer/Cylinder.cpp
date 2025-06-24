@@ -3,7 +3,7 @@
 int Cylinder::cylinder_index = 0;
 
 
-Cylinder::Cylinder(Transform &&transform, const Material* material, float radius, float height)
+Cylinder::Cylinder(Transform &&transform, std::shared_ptr<Material> material, float radius, float height)
 	:
 	Object(2, Cylinder::cylinder_index++, std::move(transform), material),
 	radius(radius),

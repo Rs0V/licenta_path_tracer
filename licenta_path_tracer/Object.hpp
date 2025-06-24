@@ -7,7 +7,7 @@ class Camera;
 
 interface Object : public Actor {
 protected:
-	const Material* material;
+	std::shared_ptr<Material> material;
 
 	bool visible;
 	bool affectWorld;
@@ -16,8 +16,8 @@ protected:
 	int index;
 
 
-	Object(int type, int index, const Material *material);
-	Object(int type, int index, Transform &&transform, const Material* material);
+	Object(int type, int index, std::shared_ptr<Material> material);
+	Object(int type, int index, Transform &&transform, std::shared_ptr<Material> material);
 
 public:
 	~Object() override = 0;

@@ -11,7 +11,7 @@ protected:
 	float radius;
 
 public:
-	Sphere(Transform &&transform, const Material *material, float radius = 1.0f);
+	Sphere(Transform &&transform, std::shared_ptr<Material> material, float radius = 1.0f);
 	~Sphere() override;
 
 	getset(radius)

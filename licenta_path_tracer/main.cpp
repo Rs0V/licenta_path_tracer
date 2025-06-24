@@ -113,16 +113,24 @@ template<typename T> void getSSBOData(std::string buffer_name, std::vector<T>& d
 	glGetBufferSubData(GL_SHADER_STORAGE_BUFFER, offset, size, (void*)data.data());
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 }
-template<typename OBJ, typename CAST, typename RMO> void setSSBOStructData(std::string buffer_name, const std::vector<OBJ*> &structs, int offset = 0) {
-	auto casts = get_of_type<CAST*>(structs);
-	std::vector<RMO> rmo_structs(casts.size());
-	for (uint i = 0; i < rmo_structs.size(); i++) {
-		rmo_structs[i] = *casts[i];
+template<typename RMO, typename OBJ, typename CAST = OBJ> void setSSBOStructData(std::string buffer_name, const std::vector<std::shared_ptr<OBJ>> &structs, int offset = 0) {
+	std::vector<RMO> rmo_structs;
+	for (uint i = 0; i < structs.size(); i++) {
+		if constexpr (std::is_same<OBJ, CAST>::value) {
+			rmo_structs.push_back({});
+			(*rmo_structs.rbegin()) = *structs[i];
+			continue;
+		}
+		auto deriv = std::dynamic_pointer_cast<CAST>(structs[i]);
+		if (deriv) {
+			rmo_structs.push_back({});
+			(*rmo_structs.rbegin()) = *deriv;
+		}
 	}
 
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, buffers[buffer_name]);
 	void* ptr = glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_WRITE_ONLY);
-	memcpy((char*)ptr + offset, rmo_structs.data(), sizeof(RMO) * rmo_structs.size());
+	memcpy((char*)ptr + offset, rmo_structs.data(), rmo_structs.size() * sizeof(RMO));
 
 	glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
@@ -325,7 +333,7 @@ int main(int argc, char* argv[]) {
 	std::ofstream debug_out("debug.txt");
 	debug_out << raymarch_compute;
 	*/
-	
+
 
 	// Read Shader Header files
 	addGLSLHeaderToFileSystem("utils.comp");
@@ -333,13 +341,13 @@ int main(int argc, char* argv[]) {
 	addGLSLHeaderToFileSystem("materials.comp");
 	addGLSLHeaderToFileSystem("lights.comp");
 	addGLSLHeaderToFileSystem("shader_debug.comp");
-	
+
 
 	// Compile Shaders
-	GLuint raymarch_program   = -1;
-	GLuint denoiser_program   = createComputeShaderProgram(denoiser_compute);
+	GLuint raymarch_program = -1;
+	GLuint denoiser_program = createComputeShaderProgram(denoiser_compute);
 	GLuint obj_select_program = -1;
-	GLuint rtarget_program    = createShaderProgram(vertex, fragment);
+	GLuint rtarget_program = createShaderProgram(vertex, fragment);
 
 	#pragma region Create Render Target
 
@@ -379,10 +387,24 @@ int main(int argc, char* argv[]) {
 		{ 0.0f, 30.0f, -70.0f },
 		{ 0.0f,  0.0f,   0.0f }
 	));
-	std::vector<Object*> objects;
-	std::vector<Light*> lights;
-	std::vector<Material*> materials;
-	std::vector<Component*> components;
+
+	std::vector<std::shared_ptr<Object>> objects;
+
+	std::vector<std::shared_ptr<Sphere>> spheres;
+	std::vector<std::shared_ptr<Cube>> cubes;
+	std::vector<std::shared_ptr<Cylinder>> cylinders;
+	std::vector<std::shared_ptr<Cone>> cones;
+
+	std::vector<std::shared_ptr<Light>> lights;
+	std::vector<std::shared_ptr<PointLight>> point_lights;
+
+	std::vector<std::shared_ptr<Material>> materials;
+	std::vector<std::shared_ptr<MPrincipledBSDF>> principledBSDFs;
+	std::vector<std::shared_ptr<MVolumeScatter>> volume_scatters;
+
+	std::vector<std::shared_ptr<Component>> components;
+	std::vector<std::shared_ptr<boolean::Boolean>> booleans;
+
 
 	glm::mat4 proj = glm::perspectiveFovLH_ZO(glm::radians(60.0f), (float)window.width_get(), (float)window.height_get(), 0.1f, 1000.0f);
 
@@ -393,22 +415,22 @@ int main(int argc, char* argv[]) {
 
 	#pragma region Create Materials
 
-	materials.emplace_back(new MPrincipledBSDF(
+	materials.emplace_back(std::make_shared<MPrincipledBSDF>(
 		Color::white,
 		0.0f,
 		0.12f
 	));
-	materials.emplace_back(new MPrincipledBSDF(
-		Color({ 0.9f, 0.2f, 0.1f }),
+	materials.emplace_back(std::make_shared<MPrincipledBSDF>(
+		Color{ { 0.9f, 0.2f, 0.1f } },
 		0.0f,
 		0.68f
 	));
-	materials.emplace_back(new MPrincipledBSDF(
-		Color({ 0.3f, 0.9f, 0.1f }),
+	materials.emplace_back(std::make_shared<MPrincipledBSDF>(
+		Color{ { 0.3f, 0.9f, 0.1f } },
 		0.0f,
 		0.68f
 	));
-	materials.emplace_back(new MPrincipledBSDF(
+	materials.emplace_back(std::make_shared<MPrincipledBSDF>(
 		Color::white,
 		0.0f,
 		0.12f,
@@ -416,23 +438,23 @@ int main(int argc, char* argv[]) {
 		0.5f,
 		1.0f
 	));
-	materials.emplace_back(new MPrincipledBSDF(
+	materials.emplace_back(std::make_shared<MPrincipledBSDF>(
 		Color::white,
 		0.8f,
 		0.14f
 	));
-	materials.emplace_back(new MPrincipledBSDF(
+	materials.emplace_back(std::make_shared<MPrincipledBSDF>(
 		Color::white,
 		0.0f,
 		0.0f,
 		1.0f,
 		0.0f,
 		0.0f,
-		(0.9f, 0.95f, 1.0f, 100.0f)
+		Color{ { 0.9f, 0.95f, 1.0f, 100.0f } }
 	));
 	
 
-	materials.emplace_back(new MVolumeScatter(
+	materials.emplace_back(std::make_shared<MVolumeScatter>(
 		Color::white,
 		0.2f
 	));
@@ -442,69 +464,49 @@ int main(int argc, char* argv[]) {
 
 	#pragma region Create Objects
 
-	objects.emplace_back(new Sphere(
-		{
-			{ 0.0f, 10.0f, 0.0f },
-			{ 0.0f,  0.0f, 0.0f },
-			{ 1.0f,  1.0f, 1.0f }
-		},
+	objects.emplace_back(std::make_shared<Sphere>(
+		Transform{ { 0.0f, 10.0f, 0.0f } },
 		materials[3],
 		10.0f
 	));
-	objects.emplace_back(new Cube(
-		{
-			{ 0.0f, 0.0f, 0.0f }
-		},
+	objects.emplace_back(std::make_shared<Cube>(
+		Transform{},
 		materials[0],
-		{ 20.0f, 20.0f, 20.0f }
+		glm::vec3{ 20.0f, 20.0f, 20.0f }
 	));
-	objects.emplace_back(new Cube(
-		{
-			{ 0.0f, -0.05f, 0.0f }
-		},
+	objects.emplace_back(std::make_shared<Cube>(
+		Transform{ { 0.0f, -0.05f, 0.0f } },
 		materials[0],
-		{ 60.0f, 0.1f, 60.0f }
+		glm::vec3{ 60.0f, 0.1f, 60.0f }
 	));
-	objects.emplace_back(new Cube(
-		{
-			{ 0.0f, 60.05f, 0.0f }
-		},
+	objects.emplace_back(std::make_shared<Cube>(
+		Transform{ { 0.0f, 60.05f, 0.0f } },
 		materials[0],
-		{ 60.0f, 0.1f, 60.0f }
+		glm::vec3{ 60.0f, 0.1f, 60.0f }
 	));
-	objects.emplace_back(new Cube(
-		{
-			{ -30.05f, 30.0f, 0.0f }
-		},
+	objects.emplace_back(std::make_shared<Cube>(
+		Transform{ { -30.05f, 30.0f, 0.0f } },
 		materials[1],
-		{ 0.1f, 60.0f, 60.0f }
+		glm::vec3{ 0.1f, 60.0f, 60.0f }
 	));
-	objects.emplace_back(new Cube(
-		{
-			{ 30.05f, 30.0f, 0.0f }
-		},
+	objects.emplace_back(std::make_shared<Cube>(
+		Transform{ { 30.05f, 30.0f, 0.0f } },
 		materials[2],
-		{ 0.1f, 60.0f, 60.0f }
+		glm::vec3{ 0.1f, 60.0f, 60.0f }
 	));
-	objects.emplace_back(new Cube(
-		{
-			{ 0.0f, 30.0f, 30.05f }
-		},
+	objects.emplace_back(std::make_shared<Cube>(
+		Transform{ { 0.0f, 30.0f, 30.05f } },
 		materials[0],
-		{ 60.0f, 60.0f, 0.1f }
+		glm::vec3{ 60.0f, 60.0f, 0.1f }
 	));
-	objects.emplace_back(new Cylinder(
-		{
-			{ 0.0f, 10.0f, 0.0f },
-			{ 0.0f,  0.0f, 0.0f },
-			{ 1.0f,  1.0f, 1.0f }
-		},
+	objects.emplace_back(std::make_shared<Cylinder>(
+		Transform{ { 0.0f, 10.0f, 0.0f } },
 		materials[0],
 		8.0f,
 		20.0f
 	));
-	objects.emplace_back(new Cylinder(
-		{
+	objects.emplace_back(std::make_shared<Cylinder>(
+		Transform{
 			{ -30.0f, -1000.0f, 10.0f },
 			{   0.0f,     0.0f,  0.0f },
 			{   1.0f,     2.0f,  1.0f }
@@ -513,8 +515,8 @@ int main(int argc, char* argv[]) {
 		4.0f,
 		12.0f
 	));
-	objects.emplace_back(new Cone(
-		{
+	objects.emplace_back(std::make_shared<Cone>(
+		Transform{
 			{  25.0f, -1000.0f, -5.0f },
 			{ 180.0f,     0.0f,  0.0f },
 			{   1.0f,     2.0f,  3.0f }
@@ -565,18 +567,14 @@ int main(int argc, char* argv[]) {
 
 	#pragma region Create Lights
 
-	lights.emplace_back(new PointLight(
-		{
-			{ -20.0f, 55.0f, 0.0f }
-		},
+	lights.emplace_back(std::make_shared<PointLight>(
+		Transform{ { -20.0f, 55.0f, 0.0f } },
 		Color::white,
 		100.0f,
 		8.0f
 	));
-	lights.emplace_back(new PointLight(
-		{
-			{ 20.0f, 55.0f, 0.0f }
-		},
+	lights.emplace_back(std::make_shared<PointLight>(
+		Transform{ { 20.0f, 55.0f, 0.0f } },
 		Color::white,
 		100.0f,
 		8.0f
@@ -588,18 +586,18 @@ int main(int argc, char* argv[]) {
 	
 	#pragma region Create Materials
 	
-	materials.emplace_back(new MPrincipledBSDF(
+	materials.emplace_back(std::make_shared<MPrincipledBSDF>(
 		Color::white,
 		0.0f,
 		0.18f
 	));
-	materials.emplace_back(new MPrincipledBSDF(
+	materials.emplace_back(std::make_shared<MPrincipledBSDF>(
 		Color::white,
 		0.3f,
 		0.08f
 	));
 	
-	materials.emplace_back(new MVolumeScatter(
+	materials.emplace_back(std::make_shared<MVolumeScatter>(
 		Color::white,
 		0.2f
 	));
@@ -608,113 +606,87 @@ int main(int argc, char* argv[]) {
 	
 	#pragma region Create Objects
 	
-	objects.emplace_back(new Sphere(
-		{
-			{ 0.0f, 30.0f, 80.0f }
-		},
+	objects.emplace_back(std::make_shared<Sphere>(
+		Transform{ { 0.0f, 30.0f, 80.0f } },
 		materials[1],
 		15.0f
 	));
 
-	objects.emplace_back(new Cube(
-		{
-			{ 0.0f, 60.0f, 0.0f }
-		},
+	objects.emplace_back(std::make_shared<Cube>(
+		Transform{ { 0.0f, 60.0f, 0.0f } },
 		materials[0],
-		{ 120.0f, 120.0f, 280.0f }
+		glm::vec3{ 120.0f, 120.0f, 280.0f }
 	));
-	objects.emplace_back(new Cube(
-		{
-			{ 0.0f, 60.0f, 0.0f }
-		},
+	objects.emplace_back(std::make_shared<Cube>(
+		Transform{ { 0.0f, 60.0f, 0.0f } },
 		materials[0],
-		{ 100.0f, 100.0f, 260.0f }
+		glm::vec3{ 100.0f, 100.0f, 260.0f }
 	));
-	objects.emplace_back(new Cube(
-		{
-			{ 0.0f, 90.0f, 0.0f }
-		},
+	objects.emplace_back(std::make_shared<Cube>(
+		Transform{ { 0.0f, 90.0f, 0.0f } },
 		materials[0],
-		{ 140.0f, 20.0f, 240.0f }
+		glm::vec3{ 140.0f, 20.0f, 240.0f }
 	));
 
-	objects.emplace_back(new Cylinder(
-		{
-			{ 0.0f, 120.0f, 80.0f }
-		},
+	objects.emplace_back(std::make_shared<Cylinder>(
+		Transform{ { 0.0f, 120.0f, 80.0f } },
 		materials[0],
 		45.0f,
 		40.0f
 	));
 
 	float pillar_rad = 6.0f;
-	objects.emplace_back(new Cylinder(
-		{
-			{ -35.0f, 60.0f, -70.0f }
-		},
+	objects.emplace_back(std::make_shared<Cylinder>(
+		Transform{ { -35.0f, 60.0f, -70.0f } },
 		materials[0],
 		pillar_rad,
 		120.0f
 	));
-	objects.emplace_back(new Cylinder(
-		{
-			{ 35.0f, 60.0f, -70.0f }
-		},
+	objects.emplace_back(std::make_shared<Cylinder>(
+		Transform{ { 35.0f, 60.0f, -70.0f } },
 		materials[0],
 		pillar_rad,
 		120.0f
 	));
-	objects.emplace_back(new Cylinder(
-		{
-			{ -35.0f, 60.0f, -40.0f }
-		},
+	objects.emplace_back(std::make_shared<Cylinder>(
+		Transform{ { -35.0f, 60.0f, -40.0f } },
 		materials[0],
 		pillar_rad,
 		120.0f
 	));
-	objects.emplace_back(new Cylinder(
-		{
-			{ 35.0f, 60.0f, -40.0f }
-		},
+	objects.emplace_back(std::make_shared<Cylinder>(
+		Transform{ { 35.0f, 60.0f, -40.0f } },
 		materials[0],
 		pillar_rad,
 		120.0f
 	));
-	objects.emplace_back(new Cylinder(
-		{
-			{ -35.0f, 60.0f, -10.0f }
-		},
+	objects.emplace_back(std::make_shared<Cylinder>(
+		Transform{ { -35.0f, 60.0f, -10.0f } },
 		materials[0],
 		pillar_rad,
 		120.0f
 	));
-	objects.emplace_back(new Cylinder(
-		{
-			{ 35.0f, 60.0f, -10.0f }
-		},
+	objects.emplace_back(std::make_shared<Cylinder>(
+		Transform{ { 35.0f, 60.0f, -10.0f } },
 		materials[0],
 		pillar_rad,
 		120.0f
 	));
-	objects.emplace_back(new Cylinder(
-		{
-			{ -35.0f, 60.0f, 20.0f }
-		},
+	objects.emplace_back(std::make_shared<Cylinder>(
+		Transform{ { -35.0f, 60.0f, 20.0f } },
 		materials[0],
 		pillar_rad,
 		120.0f
 	));
-	objects.emplace_back(new Cylinder(
-		{
-			{ 35.0f, 60.0f, 20.0f }
-		},
+	objects.emplace_back(std::make_shared<Cylinder>(
+		Transform{ { 35.0f, 60.0f, 20.0f } },
 		materials[0],
 		pillar_rad,
 		120.0f
 	));
 
-	objects.emplace_back(new Cone(
-		{
+	objects.emplace_back(std::make_shared<Cone>(
+		Transform{
 			{  25.0f, -1000.0f, -5.0f },
 			{ 180.0f,     0.0f,  0.0f },
 			{   1.0f,     2.0f,  3.0f }
@@ -728,10 +700,8 @@ int main(int argc, char* argv[]) {
 	
 	#pragma region Create Lights
 	
-	lights.emplace_back(new PointLight(
-		{
-			{ 0.0f, 800.0f, 80.0f }
-		},
+	lights.emplace_back(std::make_shared<PointLight>(
+		Transform{ { 0.0f, 800.0f, 80.0f } },
 		Color({ 0.9f, 0.7f, 0.8f }),
 		1.0f,
 		15.0f
@@ -744,6 +714,47 @@ int main(int argc, char* argv[]) {
 
 
 	#endif
+
+
+	// Filter objects / lights / materials
+	for (auto &obj : objects) {
+		auto sphere = std::dynamic_pointer_cast<Sphere>(obj);
+		if (sphere) {
+			spheres.emplace_back(sphere);
+		}
+
+		auto cube = std::dynamic_pointer_cast<Cube>(obj);
+		if (cube) {
+			cubes.emplace_back(cube);
+		}
+
+		auto cylinder = std::dynamic_pointer_cast<Cylinder>(obj);
+		if (cylinder) {
+			cylinders.emplace_back(cylinder);
+		}
+
+		auto cone = std::dynamic_pointer_cast<Cone>(obj);
+		if (cone) {
+			cones.emplace_back(cone);
+		}
+	}
+	for (auto &light : lights) {
+		auto point_light = std::dynamic_pointer_cast<PointLight>(light);
+		if (point_light) {
+			point_lights.emplace_back(point_light);
+		}
+	}
+	for (auto &material : materials) {
+		auto bsdf = std::dynamic_pointer_cast<MPrincipledBSDF>(material);
+		if (bsdf) {
+			principledBSDFs.emplace_back(bsdf);
+		}
+
+		auto vs = std::dynamic_pointer_cast<MVolumeScatter>(material);
+		if (vs) {
+			volume_scatters.emplace_back(vs);
+		}
+	}
 
 
 	// Print GPU specifications
@@ -852,20 +863,20 @@ int main(int argc, char* argv[]) {
 
 		objects[1]->visible_set(false);
 		objects[7]->visible_set(false);
-		components.emplace_back(new boolean::Boolean(objects[9], objects[8], boolean::Type::Union));
+		components.emplace_back(std::make_shared<boolean::Boolean>(objects[9], objects[8], boolean::Type::Union));
 
 		#elif SCENE == 1
 
 		objects[objects.size() - 1]->visible_set(false);
 
 		objects[2]->visible_set(false);
-		components.emplace_back(new boolean::Boolean(objects[1], objects[2], boolean::Type::Difference, 0.01f));
+		components.emplace_back(std::make_shared<boolean::Boolean>(objects[1], objects[2], boolean::Type::Difference, 0.01f));
 
 		objects[3]->visible_set(false);
-		components.emplace_back(new boolean::Boolean(objects[1], objects[3], boolean::Type::Difference, 0.01f));
+		components.emplace_back(std::make_shared<boolean::Boolean>(objects[1], objects[3], boolean::Type::Difference, 0.01f));
 
 		objects[4]->visible_set(false);
-		components.emplace_back(new boolean::Boolean(objects[1], objects[4], boolean::Type::Difference, 0.01f));
+		components.emplace_back(std::make_shared<boolean::Boolean>(objects[1], objects[4], boolean::Type::Difference, 0.01f));
 
 		#elif SCENE == 2
 
@@ -874,40 +885,55 @@ int main(int argc, char* argv[]) {
 		#endif
 
 
+		// Filter components
+		for (auto &component : components) {
+			auto boolean = std::dynamic_pointer_cast<boolean::Boolean>(component);
+			if (boolean) {
+				booleans.emplace_back(boolean);
+			}
+		}
+
+
 		#pragma region Send Object Data to Ray-Marching Shader
 
-		int spheres = get_of_type<Sphere*>(objects).size() * sizeof(rmo::Sphere);
-		int cubes = get_of_type<Cube*>(objects).size() * sizeof(rmo::Cube);
-		int cylinders = get_of_type<Cylinder*>(objects).size() * sizeof(rmo::Cylinder);
-		int cones = get_of_type<Cone*>(objects).size() * sizeof(rmo::Cone);
+		int spheres_bytes = spheres.size() * sizeof(rmo::Sphere);
+		int cubes_bytes = cubes.size() * sizeof(rmo::Cube);
+		int cylinders_bytes = cylinders.size() * sizeof(rmo::Cylinder);
+		int cones_bytes = cones.size() * sizeof(rmo::Cone);
+		int booleans_bytes = booleans.size() * sizeof(rmo::CBoolean);
 
-		int booleans = get_of_type<boolean::Boolean*>(components).size() * sizeof(rmo::CBoolean);
+		int point_lights_bytes = point_lights.size() * sizeof(rmo::PointLight);
 
-		int point_lights = get_of_type<PointLight*>(lights).size() * sizeof(rmo::PointLight);
-
-		int principled_bsdfs = get_of_type<MPrincipledBSDF*>(materials).size() * sizeof(rmo::MPrincipledBSDF);
-		int volume_scatters = get_of_type<MVolumeScatter*>(materials).size() * sizeof(rmo::MVolumeScatter);
-
+		int bsdfs_bytes = principledBSDFs.size() * sizeof(rmo::MPrincipledBSDF);
+		int vs_bytes = volume_scatters.size() * sizeof(rmo::MVolumeScatter);
 
 		createSSBO("Screen", 0, sizeof(int) * window.width_get() * window.height_get(), GL_DYNAMIC_READ);
-		createSSBO("BasicShapes", 1, spheres + cubes + cylinders + cones + booleans);
-		createSSBO("Props", 2, point_lights + principled_bsdfs + volume_scatters);
+		createSSBO("BasicShapes", 1, 0
+			+ spheres_bytes
+			+ cubes_bytes
+			+ cylinders_bytes
+			+ cones_bytes
+			+ booleans_bytes
+		);
+		createSSBO("Props", 2, 0
+			+ point_lights_bytes
+			+ bsdfs_bytes
+			+ vs_bytes
+		);
 
 		std::vector<int> screen_data(window.width_get() * window.height_get(), -1);
-		setSSBOData("Screen", screen_data, sizeof(int) * screen_data.size());
+		setSSBOData("Screen", screen_data, screen_data.size() * sizeof(int));
 
-		setSSBOStructData<Object, Sphere, rmo::Sphere>("BasicShapes", objects, 0);
-		setSSBOStructData<Object, Cube, rmo::Cube>("BasicShapes", objects, spheres);
-		setSSBOStructData<Object, Cylinder, rmo::Cylinder>("BasicShapes", objects, spheres + cubes);
-		setSSBOStructData<Object, Cone, rmo::Cone>("BasicShapes", objects, spheres + cubes + cylinders);
+		setSSBOStructData<rmo::Sphere,   Sphere>(          "BasicShapes", spheres,   0);
+		setSSBOStructData<rmo::Cube,     Cube>(            "BasicShapes", cubes,     spheres_bytes);
+		setSSBOStructData<rmo::Cylinder, Cylinder>(        "BasicShapes", cylinders, spheres_bytes + cubes_bytes);
+		setSSBOStructData<rmo::Cone,     Cone>(            "BasicShapes", cones,     spheres_bytes + cubes_bytes + cylinders_bytes);
+		setSSBOStructData<rmo::CBoolean, boolean::Boolean>("BasicShapes", booleans,  spheres_bytes + cubes_bytes + cylinders_bytes + cones_bytes);
 
-		setSSBOStructData<Component, boolean::Boolean, rmo::CBoolean>("BasicShapes", components, spheres + cubes + cylinders + cones);
+		setSSBOStructData<rmo::PointLight, PointLight>("Props", point_lights, 0);
 
-		setSSBOStructData<Light, PointLight, rmo::PointLight>("Props", lights, 0);
-
-		setSSBOStructData<Material, MPrincipledBSDF, rmo::MPrincipledBSDF>("Props", materials, point_lights);
-		setSSBOStructData<Material, MVolumeScatter, rmo::MVolumeScatter>("Props", materials, point_lights + principled_bsdfs);
-
+		setSSBOStructData<rmo::MPrincipledBSDF, MPrincipledBSDF>("Props", principledBSDFs, point_lights_bytes);
+		setSSBOStructData<rmo::MVolumeScatter,  MVolumeScatter>( "Props", volume_scatters, point_lights_bytes + bsdfs_bytes);
 
 		// Set buffer sizes from SSBO
 		auto set_buffer_size = [&](std::string& shader, int size) {
@@ -922,27 +948,25 @@ int main(int argc, char* argv[]) {
 			);
 		};
 
-		set_buffer_size(raymarch_compute, spheres / sizeof(rmo::Sphere));
-		set_buffer_size(raymarch_compute, cubes / sizeof(rmo::Cube));
-		set_buffer_size(raymarch_compute, cylinders / sizeof(rmo::Cylinder));
-		set_buffer_size(raymarch_compute, cones / sizeof(rmo::Cone));
+		set_buffer_size(raymarch_compute, spheres_bytes   / sizeof(rmo::Sphere));
+		set_buffer_size(raymarch_compute, cubes_bytes     / sizeof(rmo::Cube));
+		set_buffer_size(raymarch_compute, cylinders_bytes / sizeof(rmo::Cylinder));
+		set_buffer_size(raymarch_compute, cones_bytes     / sizeof(rmo::Cone));
+		set_buffer_size(raymarch_compute, booleans_bytes  / sizeof(rmo::CBoolean));
 
-		set_buffer_size(raymarch_compute, booleans / sizeof(rmo::CBoolean));
+		set_buffer_size(raymarch_compute, point_lights_bytes / sizeof(rmo::PointLight));
 
-		set_buffer_size(raymarch_compute, point_lights / sizeof(rmo::PointLight));
-
-		set_buffer_size(raymarch_compute, principled_bsdfs / sizeof(rmo::MPrincipledBSDF));
-		set_buffer_size(raymarch_compute, volume_scatters / sizeof(rmo::MVolumeScatter));
+		set_buffer_size(raymarch_compute, bsdfs_bytes / sizeof(rmo::MPrincipledBSDF));
+		set_buffer_size(raymarch_compute, vs_bytes    / sizeof(rmo::MVolumeScatter));
 
 		raymarch_program = createComputeShaderProgram(raymarch_compute);
 
 
-		set_buffer_size(obj_select_compute, spheres / sizeof(rmo::Sphere));
-		set_buffer_size(obj_select_compute, cubes / sizeof(rmo::Cube));
-		set_buffer_size(obj_select_compute, cylinders / sizeof(rmo::Cylinder));
-		set_buffer_size(obj_select_compute, cones / sizeof(rmo::Cone));
-
-		set_buffer_size(obj_select_compute, booleans / sizeof(rmo::CBoolean));
+		set_buffer_size(obj_select_compute, spheres_bytes   / sizeof(rmo::Sphere));
+		set_buffer_size(obj_select_compute, cubes_bytes     / sizeof(rmo::Cube));
+		set_buffer_size(obj_select_compute, cylinders_bytes / sizeof(rmo::Cylinder));
+		set_buffer_size(obj_select_compute, cones_bytes     / sizeof(rmo::Cone));
+		set_buffer_size(obj_select_compute, booleans_bytes  / sizeof(rmo::CBoolean));
 
 		obj_select_program = createComputeShaderProgram(obj_select_compute);
 
@@ -1045,17 +1069,22 @@ int main(int argc, char* argv[]) {
 
 			ImGui::Begin("Inspector Menu");
 
-			if (dynamic_cast<Sphere*>(objects[selected_object]) != nullptr) {
-				ImGui::Text("Active Object:	Sphere %d", selected_object);
-			}
-			else if (dynamic_cast<Cube*>(objects[selected_object]) != nullptr) {
-				ImGui::Text("Active Object:	Cube %d", selected_object);
-			}
-			else if (dynamic_cast<Cylinder*>(objects[selected_object]) != nullptr) {
-				ImGui::Text("Active Object:	Cylinder %d", selected_object);
-			}
-			else if (dynamic_cast<Cone*>(objects[selected_object]) != nullptr) {
+			int active_type = -1;
+			if (selected_object - spheres.size() - cubes.size() - cylinders.size() > -1) {
 				ImGui::Text("Active Object:	Cone %d", selected_object);
+				active_type = 3;
+			}
+			else if (selected_object - spheres.size() - cubes.size() > -1) {
+				ImGui::Text("Active Object:	Cylinder %d", selected_object);
+				active_type = 2;
+			}
+			else if (selected_object - spheres.size() > -1) {
+				ImGui::Text("Active Object:	Cube %d", selected_object);
+				active_type = 1;
+			}
+			else {
+				ImGui::Text("Active Object:	Sphere %d", selected_object);
+				active_type = 0;
 			}
 
 			ImGui::Text("Index: ", selected_object);
@@ -1078,24 +1107,21 @@ int main(int argc, char* argv[]) {
 				objects[selected_object]->rotate(rotation, 0);
 				objects[selected_object]->scale(scale, 0);
 
-				std::vector<Object*> data = { objects[selected_object] };
-				if (dynamic_cast<Sphere*>(objects[selected_object]) != nullptr) {
-					setSSBOStructData<Object, Sphere, rmo::Sphere>("BasicShapes", data, sizeof(rmo::Sphere) * selected_object);
+				if (active_type == 0) {
+					std::vector<std::shared_ptr<Sphere>> data = { spheres[selected_object] };
+					setSSBOStructData<rmo::Sphere, Sphere>("BasicShapes", data, selected_object * sizeof(rmo::Sphere));
 				}
-				else if (dynamic_cast<Cube*>(objects[selected_object]) != nullptr) {
-					int spheres = get_of_type<Sphere*>(objects).size();
-					setSSBOStructData<Object, Cube, rmo::Cube>("BasicShapes", data, sizeof(rmo::Sphere) * spheres + sizeof(rmo::Cube) * (selected_object - spheres));
+				else if (active_type == 1) {
+					std::vector<std::shared_ptr<Cube>> data = { cubes[selected_object - spheres.size()] };
+					setSSBOStructData<rmo::Cube, Cube>("BasicShapes", data, spheres.size() * sizeof(rmo::Sphere) + (selected_object - spheres.size()) * sizeof(rmo::Cube));
 				}
-				else if (dynamic_cast<Cylinder*>(objects[selected_object]) != nullptr) {
-					int spheres = get_of_type<Sphere*>(objects).size();
-					int cubes = get_of_type<Cube*>(objects).size();
-					setSSBOStructData<Object, Cylinder, rmo::Cylinder>("BasicShapes", data, sizeof(rmo::Sphere) * spheres + sizeof(rmo::Cube) * cubes + sizeof(rmo::Cylinder) * (selected_object - spheres - cubes));
+				else if (active_type == 2) {
+					std::vector<std::shared_ptr<Cylinder>> data = { cylinders[selected_object - spheres.size() - cubes.size()] };
+					setSSBOStructData<rmo::Cylinder, Cylinder>("BasicShapes", data, spheres.size() * sizeof(rmo::Sphere) + cubes.size() * sizeof(rmo::Cube) + (selected_object - spheres.size() - cubes.size()) * sizeof(rmo::Cylinder));
 				}
-				else if (dynamic_cast<Cone*>(objects[selected_object]) != nullptr) {
-					int spheres = get_of_type<Sphere*>(objects).size();
-					int cubes = get_of_type<Cube*>(objects).size();
-					int cylinders = get_of_type<Cylinder*>(objects).size();
-					setSSBOStructData<Object, Cone, rmo::Cone>("BasicShapes", data, sizeof(rmo::Sphere) * spheres + sizeof(rmo::Cube) * cubes + sizeof(rmo::Cylinder) * cylinders + sizeof(rmo::Cone) * (selected_object - spheres - cubes - cylinders));
+				else if (active_type == 3) {
+					std::vector<std::shared_ptr<Cone>> data = { cones[selected_object - spheres.size() - cubes.size() - cylinders.size()] };
+					setSSBOStructData<rmo::Cone, Cone>("BasicShapes", data, spheres.size() * sizeof(rmo::Sphere) + cubes.size() * sizeof(rmo::Cube) + cylinders.size() * sizeof(rmo::Cylinder) + (selected_object - spheres.size() - cubes.size() - cylinders.size()) * sizeof(rmo::Cone));
 				}
 
 				reset_pathtracer();
@@ -1149,7 +1175,7 @@ int main(int argc, char* argv[]) {
 		#pragma region Input
 
 		// Setup Camera Input
-		float speed = 25.0f;
+		/*
 		if (SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_I]) {
 			objects[0]->transform_getr().location += glm::vec3(0.0f, 0.0f, 1.0f) * -speed * deltaTime;
 			//std::cout << objects[0]->transform_getr().location << std::endl;
@@ -1160,7 +1186,9 @@ int main(int argc, char* argv[]) {
 			//std::cout << objects[0]->transform_getr().location << std::endl;
 			reset_pathtracer();
 		}
+		*/
 
+		float speed = 25.0f;
 		if (SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_W]) {
 			camera.translate({ 0.0f, 0.0f, speed * deltaTime }, 2);
 			reset_pathtracer();
@@ -1204,7 +1232,7 @@ int main(int argc, char* argv[]) {
 			reset_pathtracer();
 		}
 
-
+		/*
 		if (SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_N]) {
 			objects[1]->transform_getr().scale *= 0.9f;
 			dynamic_cast<Parent*>(*objects[0]->components_getrc().rbegin())->applyTransform();
@@ -1215,6 +1243,7 @@ int main(int argc, char* argv[]) {
 			dynamic_cast<Parent*>(*objects[0]->components_getrc().rbegin())->applyTransform();
 			reset_pathtracer();
 		}
+		*/
 
 		#pragma endregion
 

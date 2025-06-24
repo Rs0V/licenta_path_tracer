@@ -1,6 +1,7 @@
 #pragma once
 #include "fstream"
 #include "iostream"
+#include "memory"
 
 #define USE_GLAD false
 #if USE_GLAD == true

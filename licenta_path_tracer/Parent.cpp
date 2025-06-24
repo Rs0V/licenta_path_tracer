@@ -1,7 +1,7 @@
 #include "Parent.hpp"
 
 
-Parent::Parent(Object *self, const Object *parent)
+Parent::Parent(std::shared_ptr<Object> self, std::shared_ptr<Object> parent)
 	:
 	self(self),
 	parent(parent),

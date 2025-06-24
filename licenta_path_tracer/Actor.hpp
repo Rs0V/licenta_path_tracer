@@ -8,7 +8,7 @@ interface Actor {
 protected:
 	Transform transform;
 	glm::vec3 right, forward, up;
-	std::vector<Component*> components;
+	std::vector<std::shared_ptr<Component>> components;
 
 
 	Actor();

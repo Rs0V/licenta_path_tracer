@@ -1,7 +1,7 @@
 #include "Object.hpp"
 
 
-Object::Object(int type, int index, const Material *material)
+Object::Object(int type, int index, std::shared_ptr<Material> material)
 	:
 	Actor(),
 	material(material),
@@ -12,7 +12,7 @@ Object::Object(int type, int index, const Material *material)
 {
 }
 
-Object::Object(int type, int index, Transform &&transform, const Material *material)
+Object::Object(int type, int index, Transform &&transform, std::shared_ptr<Material> material)
 	:
 	Actor(std::move(transform)),
 	material(material),

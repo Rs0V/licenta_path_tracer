@@ -1,7 +1,7 @@
 #include "Boolean.hpp"
 
 
-boolean::Boolean::Boolean(Object *self, Object *other, Type type, float blend)
+boolean::Boolean::Boolean(std::shared_ptr<Object> self, std::shared_ptr<Object> other, Type type, float blend)
 	:
 	Component(),
 	self(self),
