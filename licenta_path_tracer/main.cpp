@@ -261,6 +261,16 @@ struct Sprite {
 		this->size = { width, height };
 		this->channels = channels;
 	}
+	~Sprite() {
+		glDeleteTextures(1, &this->id);
+		this->id = -1;
+		this->path.clear();
+		this->size = { 0, 0 };
+		this->channels = 0;
+	}
+	operator bool() const {
+		return this->id > -1;
+	}
 };
 
 
@@ -988,7 +998,7 @@ int main(int argc, char* argv[]) {
 				ImGui::PushStyleColor(ImGuiCol_Button, selected_tint);
 				need_to_pop = true;
 			}
-			Sprite solid_mode_icon("./solid_mode_icon.png");
+			static Sprite solid_mode_icon("./solid_mode_icon.png");
 			if (ImGui::ImageButton("solid_mode_button", solid_mode_icon.id, ImVec2(16, 16))) {
 				diffuse_bounces      = 1;
 				glossy_bounces       = 1;
@@ -1012,7 +1022,7 @@ int main(int argc, char* argv[]) {
 				ImGui::PushStyleColor(ImGuiCol_Button, selected_tint);
 				need_to_pop = true;
 			}
-			Sprite render_mode_icon("./render_mode_icon.png");
+			static Sprite render_mode_icon("./render_mode_icon.png");
 			if (ImGui::ImageButton("render_mode_button", render_mode_icon.id, ImVec2(16, 16))) {
 				diffuse_bounces      = max_diffuse_bounces;
 				glossy_bounces       = max_glossy_bounces;
