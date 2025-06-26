@@ -448,20 +448,6 @@ int main(int argc, char* argv[]) {
 		0.5f,
 		1.0f
 	));
-	materials.emplace_back(std::make_shared<MPrincipledBSDF>(
-		Color::white,
-		0.8f,
-		0.14f
-	));
-	materials.emplace_back(std::make_shared<MPrincipledBSDF>(
-		Color::white,
-		0.0f,
-		0.0f,
-		1.0f,
-		0.0f,
-		0.0f,
-		Color{ { 0.9f, 0.95f, 1.0f, 100.0f } }
-	));
 	
 
 	materials.emplace_back(std::make_shared<MVolumeScatter>(
@@ -580,14 +566,12 @@ int main(int argc, char* argv[]) {
 	lights.emplace_back(std::make_shared<PointLight>(
 		Transform{ { -20.0f, 55.0f, 0.0f } },
 		Color::white,
-		100.0f,
-		8.0f
+		100.0f
 	));
 	lights.emplace_back(std::make_shared<PointLight>(
 		Transform{ { 20.0f, 55.0f, 0.0f } },
 		Color::white,
-		100.0f,
-		8.0f
+		100.0f
 	));
 
 	#pragma endregion
