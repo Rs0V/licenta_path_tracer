@@ -443,7 +443,7 @@ int main(int argc, char* argv[]) {
 	materials.emplace_back(std::make_shared<MPrincipledBSDF>(
 		Color::white,
 		0.0f,
-		0.12f,
+		0.24f,
 		1.45f,
 		0.5f,
 		1.0f
@@ -566,7 +566,7 @@ int main(int argc, char* argv[]) {
 	lights.emplace_back(std::make_shared<PointLight>(
 		Transform{ { -20.0f, 55.0f, 0.0f } },
 		Color::white,
-		100.0f
+		400.0f
 	));
 	lights.emplace_back(std::make_shared<PointLight>(
 		Transform{ { 20.0f, 55.0f, 0.0f } },
@@ -587,7 +587,7 @@ int main(int argc, char* argv[]) {
 	));
 	materials.emplace_back(std::make_shared<MPrincipledBSDF>(
 		Color::white,
-		0.3f,
+		0.96f,
 		0.08f
 	));
 	
@@ -789,13 +789,13 @@ int main(int argc, char* argv[]) {
 
 
 	// Setup Ray-Sampling
-	uint default_max_samples = 64;
+	uint default_max_samples = 1024;
 	uint max_samples = default_max_samples;
 	int samples = max_samples;
 
 	uint max_diffuse_bounces      = 5;
 	uint max_glossy_bounces       = 5;
-	uint max_transmissive_bounces = 5;
+	uint max_transmissive_bounces = 1;
 
 	uint diffuse_bounces      = max_diffuse_bounces;
 	uint glossy_bounces       = max_glossy_bounces;
@@ -1064,15 +1064,15 @@ int main(int argc, char* argv[]) {
 			ImGui::Begin("Inspector Menu");
 
 			int active_type = -1;
-			if (selected_object - spheres.size() - cubes.size() - cylinders.size() > -1) {
+			if (selected_object - (int)spheres.size() - (int)cubes.size() - (int)cylinders.size() > -1) {
 				ImGui::Text("Active Object:	Cone %d", selected_object);
 				active_type = 3;
 			}
-			else if (selected_object - spheres.size() - cubes.size() > -1) {
+			else if (selected_object - (int)spheres.size() - (int)cubes.size() > -1) {
 				ImGui::Text("Active Object:	Cylinder %d", selected_object);
 				active_type = 2;
 			}
-			else if (selected_object - spheres.size() > -1) {
+			else if (selected_object - (int)spheres.size() > -1) {
 				ImGui::Text("Active Object:	Cube %d", selected_object);
 				active_type = 1;
 			}
@@ -1359,6 +1359,7 @@ int main(int argc, char* argv[]) {
 				glUseProgram(denoiser_program);
 
 				glUniform1i(glGetUniformLocation(denoiser_program, "samples"), (int)max_samples - samples + 1);
+				glUniform1i(glGetUniformLocation(denoiser_program, "max_samples"), (int)max_samples);
 				glUniform2uiv(glGetUniformLocation(denoiser_program, "tile_offset"), 1, glm::value_ptr(tile_offset));
 
 				for (uint i = 0; i < denoisingPasses; i++) {

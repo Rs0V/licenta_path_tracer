@@ -19,12 +19,11 @@ const mat3 sharpen_kernel = {
 	vec3(-1, -1, -1)
 };
 
-
 uniform bool blur = true;
 */
+
 uniform int samples;
-
-
+uniform int max_samples;
 
 vec3 gammaCorrect(vec3 color, float gamma) {
     return pow(color, vec3(1.0 / gamma));
@@ -38,52 +37,86 @@ vec3 bcge(vec3 color, float brightness = 0.0, float contrast = 1.0, float gamma 
     
     return color;
 }
+float mean(vec3 v) {
+	return (v.x + v.y + v.z) / 3.0;
+}
+float dos(vec3 v) { // degree of separation
+	float m = mean(v);
+	return mean(vec3(abs(v.x - m), abs(v.y - m), abs(v.z - m)));
+}
+float dosdf(vec3 c1, vec3 c2) {
+	return abs(dos(normalize(c1)) - dos(normalize(c2)));
+}
+float coldf(vec3 c1, vec3 c2) {
+	return distance(normalize(c1), normalize(c2));
+}
+
 
 void main() {
 	ivec2 pixel_coords = ivec2(gl_GlobalInvocationID.xy) + ivec2(tile_offset);
 	ivec2 resolution = imageSize(img_input);
-	/*
+
+	{/*
     vec3 pixel = imageLoad(img_input, pixel_coords).xyz / samples;
     vec3 gcorrected_pixel = gammaCorrect(pixel, 2.2);
 	vec3 post_pixel = bcge(gcorrected_pixel, 0.1, 1.4, 0.9, 0.1);
 
 	imageStore(img_output, pixel_coords, vec4(post_pixel, 1.0));
-	*/
+	*/}
 
 
 
-	uint sampleRadius = 0;
-	vec3 median = vec3(0.0);
-	for (int y = -int(sampleRadius); y <= sampleRadius; y++) {
-		if (y == 0) {
-			continue;
-		}
-		for (int x = -int(sampleRadius); x <= sampleRadius; x++) {
-			if (x == 0) {
+	vec3 pixel = imageLoad(img_input, pixel_coords).xyz / samples;
+
+	// Denoising
+	if (samples == max_samples) {
+		int sampleRadius = 2;
+		vec3 median = vec3(0.0);
+
+		for (int y = -sampleRadius; y <= sampleRadius; y++) {
+			if (y == 0) {
 				continue;
 			}
-			ivec2 new_coords = max(ivec2(0, 0), pixel_coords + ivec2(x, y));
-			new_coords = min(resolution, new_coords);
-			vec3 pixel = imageLoad(img_input, new_coords).xyz;
-			median += pixel;
+			for (int x = -sampleRadius; x <= sampleRadius; x++) {
+				if (x == 0) {
+					continue;
+				}
+				ivec2 new_coords = max(ivec2(0, 0), pixel_coords + ivec2(x, y));
+				new_coords = min(resolution, new_coords);
+				vec3 _pixel = imageLoad(img_input, new_coords).xyz / samples;
+				median += _pixel;
+			}
+		}
+		median /= pow(3 + (max(sampleRadius, 1) - 1) * 2, 2) - 1;
+
+		{/* // Denoising Pass
+		if ((false
+		|| dosdf(pixel, median) > 0.05
+		|| coldf(pixel, median) > 0.15
+		|| coldf(pixel, median) - dosdf(pixel, median) > 0.1
+		) && length(pixel - median) > 0.3) {
+			pixel = vec3(10000.0);
+		}
+		else {
+			pixel = vec3(0.0);
+		}*/}
+
+		if ((false
+		|| dosdf(pixel, median) > 0.05
+		|| coldf(pixel, median) > 0.15
+		|| coldf(pixel, median) - dosdf(pixel, median) > 0.1
+		) && length(pixel - median) > 0.3) {
+			pixel = median;
 		}
 	}
-	median /= pow(3 + (max(sampleRadius, 1) - 1) * 2, 2) - 1;
 
-	vec3 pixel = imageLoad(img_input, pixel_coords).xyz;
-	if (length(median) > 0.01) { //(length(pixel) < length(median)) {
-		imageStore(img_input, pixel_coords, vec4(median, 1.0));
-		pixel = median;
-	}
-
-	pixel /= samples;
     vec3 gcorrected_pixel = gammaCorrect(pixel, 2.2);
 	vec3 post_pixel = bcge(gcorrected_pixel, 0.1, 1.4, 0.9, 0.1);
 	imageStore(img_output, pixel_coords, vec4(post_pixel, 1.0));
 
 
 
-	/*
+	{/*
 	vec4 color = vec4(0.0);
 	float sum = 0.0;
 
@@ -112,7 +145,7 @@ void main() {
 		color.a = 1.0;
 		imageStore(img_output, pixel_coords, color);
 	}
-	*/
+	*/}
 
 	//vec4 final_color = imageLoad(img_input, pixel_coords) / samples;
 	//final_color.a = 1.0;

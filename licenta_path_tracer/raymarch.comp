@@ -763,7 +763,7 @@ float pdfGGX(in vec3 N, in vec3 H, in vec3 V, float roughness) {
 vec3 env_light(in RaycastHit ray) {
 	float t = 0.5 * (ray.direction.y + 1.0);
 	vec3 env_color  = mix(vec3(1.0), vec3(0.5, 0.7, 1.0), t);
-	float env_power = 0.1;
+	float env_power = 0.3;
 
 	return env_color * env_power;
 }
@@ -864,12 +864,12 @@ vec3 path_trace(in vec2 uv, in RaycastHit first_hit, int max_diffuse_bounces, in
 
 
 			// Emissive
-			if ((material.emissive.x + material.emissive.y + material.emissive.z) * material.emissive.w > 0.001) {
+			if ((material.emissive.x + material.emissive.y + material.emissive.z) * material.emissive.w > 0.01) {
 				radiance += throughput * vec3(material.emissive) * material.emissive.w;
 				break;
 			}
 
-			// Next Event Estimation (dielectric only)
+			// Next Event Estimation (dielectrics only)
 			bool is_dielectric = material.metallic < 0.01;
 			if (is_dielectric) {
 				for (uint i = 0; i < point_lights_no; i++) {
@@ -877,29 +877,20 @@ vec3 path_trace(in vec2 uv, in RaycastHit first_hit, int max_diffuse_bounces, in
 					float u2 = random(uv + fract(hit.location.xz) + fract(point_lights[i].location.xz) + vec2(0.312111, 0.564543));
 
 					vec3 L = point_lights[i].location - hit.location;
-
 					float light_dist = length(L);
 					float light_attenuation = 1.0 / (light_dist * light_dist);
 					vec3 light_radiance = point_lights[i].color * point_lights[i].intensity * light_attenuation;
-
 					L = normalize(L);
-					
 
-					if (point_lights[i].intensity * light_attenuation > 0.01) {
+					if (point_lights[i].intensity * light_attenuation > 0.001) {
 						RaycastHit shadow_hit = raycast(hit.location, L);
 
 						if (!shadow_hit.hit || distance(hit.location, shadow_hit.location) > light_dist) {
-							float NdotL = max(dot(N, L), 0.0);
-
 							vec3 H = normalize(V + L);
 							float cosTheta = max(dot(V, H), 0.0);
-							//float cosTheta = max(dot(N, V), 0.0);
-							//float F = fresnelDielectricReflectance(NdotL, 1.0, material.ior);
 							vec3 F = F0 + (vec3(1.0) - F0) * pow(1.0 - cosTheta, 5.0);
-							float Flen = (F.x + F.y + F.z) / 3.0;
-							float roughness_factor = material.roughness * material.roughness;
 
-							float kS = Flen * (1.0 - roughness_factor);
+							float kS = clamp((F.x + F.y + F.z) / 3.0, 0.0, 1.0) * (1.0 - material.roughness * material.roughness);
 							float kD = (1.0 - kS) * (1.0 - material.metallic);
 						
 							vec3 diffuse  = lambertianBRDF(material.albedo);
@@ -907,7 +898,7 @@ vec3 path_trace(in vec2 uv, in RaycastHit first_hit, int max_diffuse_bounces, in
 
 							vec3 fullBRDF = kD * diffuse + kS * specular;
 						
-							radiance += throughput * fullBRDF * light_radiance * NdotL;
+							radiance += throughput * fullBRDF * light_radiance * max(dot(N, L), 0.0);
 						}
 					}
 				}
@@ -928,13 +919,12 @@ vec3 path_trace(in vec2 uv, in RaycastHit first_hit, int max_diffuse_bounces, in
 				vec3 F = F0 + (vec3(1.0) - F0) * pow(1.0 - cosTheta, 5.0);
 				float roughness_factor = material.roughness * material.roughness;
 
-				float kS = clamp((F.x + F.y + F.z) / 3.0, 0.0, 1.0) * (1.0 - roughness_factor);
-				float kD = (1.0 - kS) * (1.0 - material.metallic);
+				float gloss_prob = clamp((F.x + F.y + F.z) / 3.0, 0.0, 1.0) * (1.0 - roughness_factor);
 				float rand = random(uv + fract(hit.location.yz) + vec2(0.213111, 0.5416666));
 				bool chose_glossy = false;
 
 				// Glossy rays
-				if (rand < kS && max_glossy_bounces > 0) {
+				if (rand < gloss_prob && max_glossy_bounces > 0) {
 					float u3 = random(uv + fract(hit.location.yx) + vec2(0.123123, 0.5454444));
 					float u4 = random(uv + fract(hit.location.zx) + vec2(0.6543211, 0.1745222));
 
@@ -943,6 +933,9 @@ vec3 path_trace(in vec2 uv, in RaycastHit first_hit, int max_diffuse_bounces, in
 
 					cosTheta = max(dot(V, H), 0.0);
 					F = F0 + (vec3(1.0) - F0) * pow(1.0 - cosTheta, 5.0);
+
+					float kS = clamp((F.x + F.y + F.z) / 3.0, 0.0, 1.0) * (1.0 - roughness_factor);
+					float kD = (1.0 - kS) * (1.0 - material.metallic);
 
 					vec3 diffuse  = lambertianBRDF(material.albedo);
 					vec3 specular = cookTorranceBRDF(N, V, newDir, material.roughness, F);
@@ -994,13 +987,12 @@ vec3 path_trace(in vec2 uv, in RaycastHit first_hit, int max_diffuse_bounces, in
 				vec3 F = F0 + (vec3(1.0) - F0) * pow(1.0 - cosTheta, 5.0);
 				float roughness_factor = material.roughness * material.roughness;
 
-				float kS = clamp((F.x + F.y + F.z) / 3.0, 0.0, 1.0) * (1.0 - roughness_factor);
-				float kD = (1.0 - kS) * (1.0 - material.metallic);
+				float gloss_prob = clamp((F.x + F.y + F.z) / 3.0, 0.0, 1.0) * (1.0 - roughness_factor);
 				float rand = random(uv + fract(hit.location.zx) + vec2(0.541233, 0.991198));
 				bool chose_glossy = false;
 
 				// Glossy rays
-				if (rand < kS && max_glossy_bounces > 0) {
+				if (rand < gloss_prob && max_glossy_bounces > 0) {
 					float u3 = random(uv + fract(hit.location.xy) + vec2(0.431441, 0.69992111));
 					float u4 = random(uv + fract(hit.location.yz) + vec2(0.765221, 0.86754333));
 
@@ -1009,6 +1001,9 @@ vec3 path_trace(in vec2 uv, in RaycastHit first_hit, int max_diffuse_bounces, in
 
 					cosTheta = max(dot(V, H), 0.0);
 					F = F0 + (vec3(1.0) - F0) * pow(1.0 - cosTheta, 5.0);
+
+					float kS = clamp((F.x + F.y + F.z) / 3.0, 0.0, 1.0) * (1.0 - roughness_factor);
+					float kD = (1.0 - kS) * (1.0 - material.metallic);
 
 					vec3 diffuse  = lambertianBRDF(material.albedo);
 					vec3 specular = cookTorranceBRDF(N, V, newDir, material.roughness, F);
@@ -1029,6 +1024,9 @@ vec3 path_trace(in vec2 uv, in RaycastHit first_hit, int max_diffuse_bounces, in
 					
 					cosTheta = max(dot(V, H), 0.0);
 					F = F0 + (vec3(1.0) - F0) * pow(1.0 - cosTheta, 5.0);
+
+					float kS = clamp((F.x + F.y + F.z) / 3.0, 0.0, 1.0) * (1.0 - roughness_factor);
+					float kD = (1.0 - kS) * (1.0 - material.metallic);
 
 					vec3 diffuse  = lambertianBRDF(material.albedo);
 					vec3 specular = cookTorranceBRDF(N, V, newDir, material.roughness, F);
@@ -1062,6 +1060,7 @@ vec3 path_trace(in vec2 uv, in RaycastHit first_hit, int max_diffuse_bounces, in
 vec3 pt_diffuse(in vec2 uv, in RaycastHit first_hit, int max_bounces) {
 	vec3 throughput = vec3(1.0);
 	vec3 radiance = vec3(0.0);
+	vec3 transm_factor = vec3(1.0);
 	
 	RaycastHit hit = first_hit;
 	while (true) {
@@ -1108,12 +1107,11 @@ vec3 pt_diffuse(in vec2 uv, in RaycastHit first_hit, int max_bounces) {
 							//float cosTheta = max(dot(N, V), 0.0);
 							//float F = fresnelDielectricReflectance(NdotL, 1.0, material.ior);
 							vec3 F = F0 + (vec3(1.0) - F0) * pow(1.0 - cosTheta, 5.0);
-							float Flen = (F.x + F.y + F.z) / 3.0;
-							float roughness_factor = material.roughness * material.roughness;
 
-							float kS = Flen * (1.0 - roughness_factor);
-							float kD = (1.0 - kS) * (1.0 - material.metallic);
-						
+							float kS = (F.x + F.y + F.z) / 3.0 * (1.0 - material.roughness * material.roughness);
+							float kD = (1.0 - kS) * (1.0 - material.metallic) * mix(1.0, 0.5, material.transmission);
+							kS = 1.0 - kD;
+
 							vec3 diffuse  = lambertianBRDF(material.albedo);
 							vec3 specular = cookTorranceBRDF(N, V, L, material.roughness, F);
 
@@ -1124,7 +1122,7 @@ vec3 pt_diffuse(in vec2 uv, in RaycastHit first_hit, int max_bounces) {
 
 							vec3 fullBRDF = kD * diffuse + kS * specular;
 						
-							radiance += throughput * fullBRDF * light_radiance * NdotL;
+							radiance += throughput * fullBRDF * pow(light_radiance, transm_factor) * NdotL;
 						}
 					}
 				}
@@ -1132,10 +1130,33 @@ vec3 pt_diffuse(in vec2 uv, in RaycastHit first_hit, int max_bounces) {
 
 
 			
-			// Diffuse ray generation
+			// Ray generation
 			vec3 newDir = vec3(0.0);
+			vec3 transmDir = vec3(0.0);
 
 			if (max_bounces > 0) {
+				// Transmission
+				if (material.transmission > 0.01) {
+					float u1 = random(uv + fract(hit.location.xy) + vec2(0.431441, 0.69992111));
+					float u2 = random(uv + fract(hit.location.yz) + vec2(0.765221, 0.86754333));
+					float u3 = random(uv + fract(hit.location.yz) + vec2(0.1165666, 0.652222));
+					float u4 = random(uv + fract(hit.location.xz) + vec2(0.5467777, 0.143511));
+
+					newDir = sampleGGXDirection(N, V, material.roughness, fract(u1 + u3), fract(u2 + u4));
+					vec3 H = normalize(V + newDir);
+					newDir = refractRay(hit, material.ior, H).direction;
+
+					hit = raycast_transmissive(hit.location, newDir, hit.obj_type, hit.obj_index);
+						
+					newDir = sampleGGXDirection(hit.normal, -hit.direction, material.roughness, fract(u2 + u3 + 0.12399), fract(u1 + u4 + 0.72223));
+					H = normalize(-hit.direction + newDir);
+					newDir = refractRay(hit, material.ior, H).direction;
+
+					transmDir = newDir;
+					transm_factor = vec3(2.0);
+				}
+
+				// Diffusion
 				float u1 = random(uv + fract(hit.location.xz) + vec2(0.431111, 0.1544443));
 				float u2 = random(uv + fract(hit.location.zy) + vec2(0.435666, 0.7856233));
 				float u3 = random(uv + fract(hit.location.xy) + vec2(0.431441, 0.69992111));
@@ -1145,33 +1166,31 @@ vec3 pt_diffuse(in vec2 uv, in RaycastHit first_hit, int max_bounces) {
 				vec3 H = normalize(V + newDir);
 
 				float cosTheta = max(dot(V, H), 0.0);
-				//float cosTheta = max(dot(N, V), 0.0);
 				vec3 F = F0 + (vec3(1.0) - F0) * pow(1.0 - cosTheta, 5.0);
-				float Flen = (F.x + F.y + F.z) / 3.0;
-				float roughness_factor = material.roughness * material.roughness;
 
-				float kS = Flen * (1.0 - roughness_factor);
-				float kD = (1.0 - kS) * (1.0 - material.metallic);
+				float kS = (F.x + F.y + F.z) / 3.0 * (1.0 - material.roughness * material.roughness);
+				float kD = (1.0 - kS) * (1.0 - material.metallic) * mix(1.0, 0.5, material.transmission);
+				kS = 1.0 - kD;
 				
 				vec3 diffuse  = lambertianBRDF(material.albedo);
 				vec3 specular = cookTorranceBRDF(N, V, newDir, material.roughness, F);
 
-				/*
+				{/*
 				float rim = pow(1.0 - cosTheta, 5.0);
                 specular = mix(specular, F, rim);
-				*/
+				*/}
 
 				float pdf = kD * pdfDiffuse(N, newDir) + kS * pdfGGX(N, H, V, material.roughness);
 				vec3 brdf = kD * diffuse + kS * specular;
 
-				throughput *= (brdf * max(dot(N, newDir), 0.0)) / max(pdf, 0.0001);
+				throughput *= pow(brdf * max(dot(N, newDir), 0.0) / max(pdf, 0.0001), transm_factor);
 				max_bounces--;
 			}
 
 			if (max_bounces == 0) {
 				break;
 			}
-			hit = raycast(hit.location, newDir);
+			hit = raycast(hit.location, material.transmission > 0.01 ? transmDir : newDir);
 		}
 		// Environment contribution
 		else {
@@ -1186,6 +1205,7 @@ vec3 pt_diffuse(in vec2 uv, in RaycastHit first_hit, int max_bounces) {
 vec3 pt_glossy(in vec2 uv, in RaycastHit first_hit, int max_bounces) {
 	vec3 throughput = vec3(1.0);
 	vec3 radiance = vec3(0.0);
+	vec3 transm_factor = vec3(1.0);
 	
 	RaycastHit hit = first_hit;
 	while (true) {
@@ -1232,12 +1252,11 @@ vec3 pt_glossy(in vec2 uv, in RaycastHit first_hit, int max_bounces) {
 							//float cosTheta = max(dot(N, V), 0.0);
 							//float F = fresnelDielectricReflectance(NdotL, 1.0, material.ior);
 							vec3 F = F0 + (vec3(1.0) - F0) * pow(1.0 - cosTheta, 5.0);
-							float Flen = (F.x + F.y + F.z) / 3.0;
-							float roughness_factor = material.roughness * material.roughness;
 
-							float kS = Flen * (1.0 - roughness_factor);
-							float kD = (1.0 - kS) * (1.0 - material.metallic);
-						
+							float kS = (F.x + F.y + F.z) / 3.0 * (1.0 - material.roughness * material.roughness);
+							float kD = (1.0 - kS) * (1.0 - material.metallic) * mix(1.0, 0.5, material.transmission);
+							kS = 1.0 - kD;
+
 							vec3 diffuse  = lambertianBRDF(material.albedo);
 							vec3 specular = cookTorranceBRDF(N, V, L, material.roughness, F);
 
@@ -1248,7 +1267,7 @@ vec3 pt_glossy(in vec2 uv, in RaycastHit first_hit, int max_bounces) {
 
 							vec3 fullBRDF = kD * diffuse + kS * specular;
 						
-							radiance += throughput * fullBRDF * light_radiance * NdotL;
+							radiance += throughput * fullBRDF * pow(light_radiance, transm_factor) * NdotL;
 						}
 					}
 				}
@@ -1256,14 +1275,37 @@ vec3 pt_glossy(in vec2 uv, in RaycastHit first_hit, int max_bounces) {
 			
 
 
-			// Glossy ray generation
+			// Ray generation
 			vec3 newDir = vec3(0.0);
+			vec3 transmDir = vec3(0.0);
 
 			if (max_bounces > 0) {
-				float u1 = random(uv + fract(hit.location.xz) + vec2(0.431111, 0.1544443));
-				float u2 = random(uv + fract(hit.location.zy) + vec2(0.435666, 0.7856233));
-				float u3 = random(uv + fract(hit.location.xy) + vec2(0.431441, 0.69992111));
-				float u4 = random(uv + fract(hit.location.yz) + vec2(0.765221, 0.86754333));
+				// Transmission
+				if (material.transmission > 0.01) {
+					float u1 = random(uv + fract(hit.location.xy) + vec2(0.431441, 0.69992111));
+					float u2 = random(uv + fract(hit.location.yz) + vec2(0.765221, 0.86754333));
+					float u3 = random(uv + fract(hit.location.yz) + vec2(0.1165666, 0.652222));
+					float u4 = random(uv + fract(hit.location.xz) + vec2(0.5467777, 0.143511));
+
+					newDir = sampleGGXDirection(N, V, material.roughness, fract(u1 + u3), fract(u2 + u4));
+					vec3 H = normalize(V + newDir);
+					newDir = refractRay(hit, material.ior, H).direction;
+
+					hit = raycast_transmissive(hit.location, newDir, hit.obj_type, hit.obj_index);
+						
+					newDir = sampleGGXDirection(hit.normal, -hit.direction, material.roughness, fract(u2 + u3 + 0.12399), fract(u1 + u4 + 0.72223));
+					H = normalize(-hit.direction + newDir);
+					newDir = refractRay(hit, material.ior, H).direction;
+
+					transmDir = newDir;
+					transm_factor = vec3(2.0);
+				}
+
+				// Gloss
+				float u1 = random(uv + fract(hit.location.xz) + vec2(0.566545, 0.7654331));
+				float u2 = random(uv + fract(hit.location.zy) + vec2(0.114555, 0.5654222));
+				float u3 = random(uv + fract(hit.location.xy) + vec2(0.799966, 0.1122221));
+				float u4 = random(uv + fract(hit.location.yz) + vec2(0.324331, 0.4353233));
 
 				newDir = sampleGGXDirection(N, V, material.roughness, fract(u1 + u3), fract(u2 + u4));
 				vec3 H = normalize(V + newDir);
@@ -1274,28 +1316,29 @@ vec3 pt_glossy(in vec2 uv, in RaycastHit first_hit, int max_bounces) {
 				float Flen = (F.x + F.y + F.z) / 3.0;
 				float roughness_factor = material.roughness * material.roughness;
 
-				float kS = Flen * (1.0 - roughness_factor);
-				float kD = (1.0 - kS) * (1.0 - material.metallic);
-				
+				float kS = (F.x + F.y + F.z) / 3.0 * (1.0 - material.roughness * material.roughness);
+				float kD = (1.0 - kS) * (1.0 - material.metallic) * mix(1.0, 0.5, material.transmission);
+				kS = 1.0 - kD;
+
 				vec3 diffuse  = lambertianBRDF(material.albedo);
 				vec3 specular = cookTorranceBRDF(N, V, newDir, material.roughness, F);
 
-				/*
+				{/*
 				float rim = pow(1.0 - cosTheta, 5.0);
                 specular = mix(specular, F, rim);
-				*/
+				*/}
 
 				float pdf = kD * pdfDiffuse(N, newDir) + kS * pdfGGX(N, H, V, material.roughness);
 				vec3 brdf = kD * diffuse + kS * specular;
 
-				throughput *= (brdf * max(dot(N, newDir), 0.0)) / max(pdf, 0.0001);
+				throughput *= pow(brdf * max(dot(N, newDir), 0.0) / max(pdf, 0.0001), transm_factor);
 				max_bounces--;
 			}
 
 			if (max_bounces == 0) {
 				break;
 			}
-			hit = raycast(hit.location, newDir);
+			hit = raycast(hit.location, material.transmission > 0.01 ? transmDir : newDir);
 		}
 		// Environment contribution
 		else {
@@ -1344,14 +1387,14 @@ void main() {
 		ray_color = principled_bsdfs[hit.material_index].albedo * max(0.0, dot(hit.normal, -hit.direction));
 	}
 	else {
-		ray_color = path_trace(uv, hit, max_diffuse_bounces, max_glossy_bounces, max_transmissive_bounces);
+		//ray_color = path_trace(uv, hit, max_diffuse_bounces, max_glossy_bounces, max_transmissive_bounces);
 
-		{/*
 		vec3 diffuse_color = pt_diffuse(uv, hit, max_diffuse_bounces);
 		vec3 glossy_color  = pt_glossy(uv, hit, max_glossy_bounces);
-		float mixin = 0.58 / (mix(0.95, 1.05, principled_bsdfs[hit.material_index].roughness) * mix(1.0, 0.75, principled_bsdfs[hit.material_index].metallic));
+		float mixin = 0.58 / (mix(0.95, 1.05, principled_bsdfs[hit.material_index].roughness) * mix(1.0, 0.75, principled_bsdfs[hit.material_index].metallic) * mix(1.0, 1.5, principled_bsdfs[hit.material_index].transmission));
 		ray_color = mix(diffuse_color, glossy_color, mixin);
 
+		{/*
 		if (principled_bsdfs[hit.material_index].transmission > 0.01) {
 			vec3 transmission_color  = path_trace(uv, hit, max_diffuse_bounces, max_glossy_bounces, max_transmissive_bounces);
 			ray_color = mix(ray_color, transmission_color, 0.78);
