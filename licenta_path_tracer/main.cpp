@@ -419,7 +419,7 @@ int main(int argc, char* argv[]) {
 	glm::mat4 proj = glm::perspectiveFovLH_ZO(glm::radians(60.0f), (float)window.width_get(), (float)window.height_get(), 0.1f, 1000.0f);
 
 
-	#define SCENE 0
+	#define SCENE 1
 
 	#if SCENE == 0
 
@@ -789,12 +789,12 @@ int main(int argc, char* argv[]) {
 
 
 	// Setup Ray-Sampling
-	uint default_max_samples = 1024;
+	uint default_max_samples = 64;
 	uint max_samples = default_max_samples;
 	int samples = max_samples;
 
-	uint max_diffuse_bounces      = 5;
-	uint max_glossy_bounces       = 5;
+	uint max_diffuse_bounces      = 4;
+	uint max_glossy_bounces       = 4;
 	uint max_transmissive_bounces = 1;
 
 	uint diffuse_bounces      = max_diffuse_bounces;
