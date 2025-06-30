@@ -364,3 +364,4 @@ FodyWeavers.xsd
 
 # Ignore any rules for the third party libraries folder
 !licenta_path_tracer/cpp_libs/
+!licenta_path_tracer/cpp_libs/**
