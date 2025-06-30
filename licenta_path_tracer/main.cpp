@@ -344,6 +344,23 @@ int main(int argc, char* argv[]) {
 	debug_out << raymarch_compute;
 	*/
 
+	std::cout << glGetString(GL_VERSION) << std::endl;
+	std::cout << glGetString(GL_VENDOR) << std::endl;
+	std::cout << glGetString(GL_RENDERER) << std::endl;
+	std::cout << std::endl;
+
+	GLint NUMEXT = 0;
+	glGetIntegerv(GL_NUM_EXTENSIONS, &NUMEXT);
+	for (size_t i = 0; i < NUMEXT; i++) {
+		std::cout << glGetStringi(GL_EXTENSIONS, i) << std::endl;
+	}
+	std::cout << std::endl;
+
+	if (!glNamedStringARB) {
+		std::cerr << "Cannot use ARB extensions due to incompatible 'GL_RENDERER'!" << std::endl;
+		exit(-1);
+	}
+
 
 	// Read Shader Header files
 	addGLSLHeaderToFileSystem("utils.comp");
