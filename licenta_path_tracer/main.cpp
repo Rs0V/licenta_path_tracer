@@ -440,7 +440,7 @@ int main(int argc, char* argv[]) {
 	glm::mat4 proj = glm::perspectiveFovLH_ZO(glm::radians(60.0f), (float)window.width_get(), (float)window.height_get(), 0.1f, 1000.0f);
 
 
-	#define SCENE 2
+	#define SCENE 1
 
 	#if SCENE == 0
 
@@ -477,7 +477,6 @@ int main(int argc, char* argv[]) {
 	));
 
 	#pragma endregion
-
 
 	#pragma region Create Objects
 
@@ -544,43 +543,6 @@ int main(int argc, char* argv[]) {
 	));
 
 	#pragma endregion
-
-	// Sort Objects in order: Spheres, Cubes, Cylinders, Cones
-	// Can't sort interface pointers (crazy...)
-	/*
-	std::sort(objects.begin(), objects.end(), [](const auto &a, const auto &b) {
-		uint akey = -1;
-		uint bkey = -1;
-
-		r_is(a, Sphere, *) {
-			akey = 0;
-		} r_end
-		r_is(a, Cube, *) {
-			akey = 1;
-		} r_end
-		r_is(a, Cylinder, *) {
-			akey = 2;
-		} r_end
-		r_is(a, Cone, *) {
-			akey = 3;
-		} r_end
-
-		r_is(b, Sphere, *) {
-			bkey = 0;
-		} r_end
-		r_is(b, Cube, *) {
-			bkey = 1;
-		} r_end
-		r_is(b, Cylinder, *) {
-			bkey = 2;
-		} r_end
-		r_is(b, Cone, *) {
-			bkey = 3;
-		} r_end
-
-		return akey < bkey;
-	});
-	*/
 
 	#pragma region Create Lights
 
@@ -722,78 +684,6 @@ int main(int argc, char* argv[]) {
 		15.0f
 	));
 	
-	#pragma endregion
-
-	#elif SCENE == 2
-
-	#pragma region Create Materials
-
-	materials.emplace_back(std::make_shared<MPrincipledBSDF>(
-		Color::white,
-		0.0f,
-		0.12f
-	));
-	
-
-	materials.emplace_back(std::make_shared<MVolumeScatter>(
-		Color::white,
-		0.2f
-	));
-
-	#pragma endregion
-
-	#pragma region Create Objects
-
-	objects.emplace_back(std::make_shared<Cylinder>(
-		Transform{ {0.0f, 0.0f, -15.0f} },
-		materials[0],
-		10.0f,
-		5.0f
-	));
-	objects.emplace_back(std::make_shared<Cylinder>(
-		Transform{ {0.0f, 0.0f, 9.0f} },
-		materials[0],
-		7.0f,
-		5.0f
-	));
-
-
-
-
-
-	objects.emplace_back(std::make_shared<Sphere>(
-		Transform{ {0.0f, -10000.0f, 0.0f} },
-		materials[0],
-		1.0f
-	));
-	objects.emplace_back(std::make_shared<Cube>(
-		Transform{ {0.0f, -10000.0f, 0.0f} },
-		materials[0],
-		glm::vec3{ 1.0f, 1.0f, 1.0f }
-	));
-	objects.emplace_back(std::make_shared<Cylinder>(
-		Transform{ {0.0f, -10000.0f, 0.0f} },
-		materials[0],
-		1.0f,
-		1.0f
-	));
-	objects.emplace_back(std::make_shared<Cone>(
-		Transform{ {0.0f, -10000.0f, 0.0f} },
-		materials[0],
-		1.0f,
-		1.0f
-	));
-
-	#pragma endregion
-
-	#pragma region Create Lights
-
-	lights.emplace_back(std::make_shared<PointLight>(
-		Transform{ { 0.0f, 0.0f, 0.0f } },
-		Color::white,
-		1.0f
-	));
-
 	#pragma endregion
 
 	#endif
@@ -960,10 +850,6 @@ int main(int argc, char* argv[]) {
 
 		objects[4]->visible_set(false);
 		components.emplace_back(std::make_shared<boolean::Boolean>(objects[1], objects[4], boolean::Type::Difference, 0.01f));
-
-		#elif SCENE == 2
-
-		components.emplace_back(std::make_shared<boolean::Boolean>(objects[0], objects[1], boolean::Type::Union, 20.0f));
 
 		#endif
 

@@ -69,7 +69,7 @@ void main() {
 	vec3 pixel = imageLoad(img_input, pixel_coords).xyz / samples;
 
 	// Denoising
-	if (samples == max_samples) {
+	if (samples == max_samples + 1) {
 		int sampleRadius = 2;
 		vec3 median = vec3(0.0);
 
