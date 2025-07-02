@@ -349,12 +349,16 @@ int main(int argc, char* argv[]) {
 	std::cout << glGetString(GL_RENDERER) << std::endl;
 	std::cout << std::endl;
 
+	#define CHECK_EXTS 0
+
+	#if CHECK_EXTS
 	GLint NUMEXT = 0;
 	glGetIntegerv(GL_NUM_EXTENSIONS, &NUMEXT);
 	for (size_t i = 0; i < NUMEXT; i++) {
 		std::cout << glGetStringi(GL_EXTENSIONS, i) << std::endl;
 	}
 	std::cout << std::endl;
+	#endif // CHECK_EXTS
 
 	if (!glNamedStringARB) {
 		std::cerr << "Cannot use ARB extensions due to incompatible 'GL_RENDERER'!" << std::endl;
@@ -436,7 +440,7 @@ int main(int argc, char* argv[]) {
 	glm::mat4 proj = glm::perspectiveFovLH_ZO(glm::radians(60.0f), (float)window.width_get(), (float)window.height_get(), 0.1f, 1000.0f);
 
 
-	#define SCENE 1
+	#define SCENE 2
 
 	#if SCENE == 0
 
@@ -722,7 +726,75 @@ int main(int argc, char* argv[]) {
 
 	#elif SCENE == 2
 
+	#pragma region Create Materials
 
+	materials.emplace_back(std::make_shared<MPrincipledBSDF>(
+		Color::white,
+		0.0f,
+		0.12f
+	));
+	
+
+	materials.emplace_back(std::make_shared<MVolumeScatter>(
+		Color::white,
+		0.2f
+	));
+
+	#pragma endregion
+
+	#pragma region Create Objects
+
+	objects.emplace_back(std::make_shared<Cylinder>(
+		Transform{ {0.0f, 0.0f, -15.0f} },
+		materials[0],
+		10.0f,
+		5.0f
+	));
+	objects.emplace_back(std::make_shared<Cylinder>(
+		Transform{ {0.0f, 0.0f, 9.0f} },
+		materials[0],
+		7.0f,
+		5.0f
+	));
+
+
+
+
+
+	objects.emplace_back(std::make_shared<Sphere>(
+		Transform{ {0.0f, -10000.0f, 0.0f} },
+		materials[0],
+		1.0f
+	));
+	objects.emplace_back(std::make_shared<Cube>(
+		Transform{ {0.0f, -10000.0f, 0.0f} },
+		materials[0],
+		glm::vec3{ 1.0f, 1.0f, 1.0f }
+	));
+	objects.emplace_back(std::make_shared<Cylinder>(
+		Transform{ {0.0f, -10000.0f, 0.0f} },
+		materials[0],
+		1.0f,
+		1.0f
+	));
+	objects.emplace_back(std::make_shared<Cone>(
+		Transform{ {0.0f, -10000.0f, 0.0f} },
+		materials[0],
+		1.0f,
+		1.0f
+	));
+
+	#pragma endregion
+
+	#pragma region Create Lights
+
+	lights.emplace_back(std::make_shared<PointLight>(
+		Transform{ { 0.0f, 0.0f, 0.0f } },
+		Color::white,
+		1.0f
+	));
+
+	#pragma endregion
 
 	#endif
 
@@ -891,7 +963,7 @@ int main(int argc, char* argv[]) {
 
 		#elif SCENE == 2
 
-
+		components.emplace_back(std::make_shared<boolean::Boolean>(objects[0], objects[1], boolean::Type::Union, 20.0f));
 
 		#endif
 
